@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+
+@keyframes jello-horizontal {0% { transform: scale3d(1, 1, 1); } 30% { transform: scale3d(1.25, 0.75, 1); } 40% { transform: scale3d(0.75, 1.25, 1); } 50% { transform: scale3d(1.15, 0.85, 1); } 65% { transform: scale3d(0.95, 1.05, 1); } 75% { transform: scale3d(1.05, 0.95, 1); } 100% { transform: scale3d(1, 1, 1);} }
+
+.jello-horizontal-normal { 
+    animation: jello-horizontal 0.9s ease 0s 1 normal both; 
+}
+
+@keyframes shake-lr {0%, 100% { transform: rotate(0deg); transform-origin: 50% 50%; } 10% { transform: rotate(8deg); } 20%, 40%, 60% { transform: rotate(-10deg); } 30%, 50%, 70% { transform: rotate(10deg); } 80% { transform: rotate(-8deg); } 90% { transform: rotate(8deg);} }
+
+.shake-lr-normal { 
+    animation: shake-lr 0.7s cubic-bezier(0.455, 0.030, 0.515, 0.955) 0s 1 normal both; 
+}
+
+@font-face {
+    font-family: "Chintzy";
+    src: url("/fonts/chintzy.ttf");
+}
+
+@font-face {
+    font-family: "Courier Prime";
+    src: url("/fonts/CourierPrime.ttf");
+}
+@font-face {
+    font-family: "Quicksand";
+    src: url("/fonts/Quicksand.ttf");
+}
+*, *::before, *::after {
+    font-family: Quicksand, Arial, Helvetica, sans-serif;
+    user-select: none;
+}
+.bot-index-font { 
+    font-family: Chintzy, "Courier Prime", Helvetica, sans-serif !important;
+}
+.code { 
+    font-family: "Courier Prime", 'Courier New', Courier, monospace !important;
+}
+textarea {
+    font-size: 0.9rem;
+}
+.btn-primary {
+	@apply px-1 py-2 bg-white border-2 border-slate-400 rounded-lg hover:bg-slate-50 active:bg-slate-200 text-slate-700 text-xs font-semibold transition-all disabled:opacity-50;
+	}
+.btn {
+    @apply grow p-1 px-2 rounded-lg border-gray-700 border-2 max-w-25 hover:bg-gray-700 transition-colors cursor-pointer select-none;
+}
+.select {
+    @apply p-2 border-2 border-gray-700 rounded-lg
+}
+option {
+    color: black;
+}
+ .resize-handle {
+    width: 8px;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+    cursor: ew-resize;
+    z-index: 50;
+    transition: background-color 0.2s;
+  }
+  .resize-handle:hover,
+  .resizing-active {
+    background-color: rgba(59, 130, 246, 0.3);
+  }
