@@ -8,6 +8,8 @@
 	<body class="bg-black w-screen h-screen overflow-hidden flex">
 		<canvas id="game"></canvas>
 		<div id="app" class="fixed right-0 top-0 w-fit h-screen"></div>
+		<!-- JS-Interpreter expects to run as a classic global script. -->
+		<script src="/js-interpreter.js"></script>
 		<script type="module" src="./src/main.js"></script>
 	</body>
 </html>
