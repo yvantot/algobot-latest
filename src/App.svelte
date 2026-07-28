@@ -8,8 +8,10 @@
     play_music_menu,
     play_music_farm,
   } from "./game/utils/sound.js";
+  import { game } from "./game/game.js";
 
   let currentView = $state("MENU"); // 'MENU' | 'GAME'
+  let hasStartedGame = false;
 
   onMount(() => {
     initGlobalUISounds();
@@ -17,6 +19,11 @@
   });
 
   function startGame() {
+    // Initializing Kaplay from this click satisfies browser audio-autoplay rules.
+    if (!hasStartedGame) {
+      game();
+      hasStartedGame = true;
+    }
     currentView = "GAME";
     play_music_farm();
   }

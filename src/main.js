@@ -1,9 +1,10 @@
 import { mount } from "svelte";
 import "./index.css";
-import { game } from "./game/game.js";
+// JS-Interpreter is a legacy global script. Import it through Vite so it is
+// bundled for production instead of being requested from the source directory.
+import "./lib/js-interpreter.js";
 import App from "./App.svelte";
 
-game();
 const app = mount(App, {
   target: document.getElementById("app"),
 });
