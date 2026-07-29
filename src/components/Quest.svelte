@@ -41,6 +41,7 @@
 	<div class="flex flex-wrap gap-1 justify-center text-xs">
 		<button class="rounded-lg p-1 px-3 bg-gray-300 font-semibold cursor-pointer" class:bg-green-300={filter === 'all'} onclick={() => filter = 'all'}>All</button>
 		<button class="rounded-lg p-1 px-3 bg-gray-300 font-semibold cursor-pointer" class:bg-green-300={filter === QuestTypes.TUTORIAL} onclick={() => filter = QuestTypes.TUTORIAL}>Tutorial</button>
+		<button class="rounded-lg p-1 px-3 bg-gray-300 font-semibold cursor-pointer" class:bg-green-300={filter === QuestTypes.SHOP} onclick={() => filter = QuestTypes.SHOP}>Shop</button>
 		<button class="rounded-lg p-1 px-3 bg-gray-300 font-semibold cursor-pointer" class:bg-green-300={filter === QuestTypes.CROP} onclick={() => filter = QuestTypes.CROP}>Crops</button>
 		<button class="rounded-lg p-1 px-3 bg-gray-300 font-semibold cursor-pointer" class:bg-green-300={filter === QuestTypes.CS_CONCEPT} onclick={() => filter = QuestTypes.CS_CONCEPT}>Concepts</button>
 	</div>
@@ -61,7 +62,7 @@
 					
 					{#if data.tip}
 						<div class="bg-blue-50 border border-blue-300 rounded p-2 text-[11px] text-blue-900 flex gap-1.5 items-start">
-							<span class="font-bold shrink-0">💡 Tip:</span>
+							<span class="font-bold shrink-0">Tip:</span>
 							<span>{data.tip}</span>
 						</div>
 					{/if}
@@ -86,7 +87,9 @@
 								<span class="text-[11px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded border border-yellow-300 font-semibold">+{data.rewards.coins} Coins</span>
 							{/if}
 							{#if data.rewards?.unlocks}
-								<span class="text-[11px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded border border-purple-300 font-semibold">Unlocks: {data.rewards.unlocks.join(', ')}</span>
+								{#each data.rewards.unlocks as unlock}
+									<span class="text-[11px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded border border-purple-300 font-mono font-semibold">{unlock}</span>
+								{/each}
 							{/if}
 						</div>
 						

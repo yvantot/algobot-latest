@@ -95,7 +95,7 @@
           {#if !isUnlocked}
             <span
               class="absolute top-1 right-1 bg-red-600 text-white font-bold text-[10px] px-1.5 py-0.5 rounded-full shadow"
-              >🔒 Locked</span
+              >Locked</span
             >
           {/if}
 

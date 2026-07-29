@@ -273,7 +273,13 @@
       </div>
       <div class="flex gap-16 items-start">
         <Inventory />
-        <QuestHUD onOpenQuestMenu={() => toggleMenu(Menus.QUEST)} />
+        <QuestHUD
+          onOpenQuestMenu={() => toggleMenu(Menus.QUEST)}
+          onOpenBlockEditor={() => {
+            current_menu = Menus.COMMAND;
+            current_editor = Editors.BLOCK;
+          }}
+        />
       </div>
     </div>
   </div>

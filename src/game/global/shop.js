@@ -1,6 +1,6 @@
 import { INVENTORY, SHOP_DATA, CONFIG } from "./global.js"
 import { addSoilToGrid, addFarmbot } from "../components-kaplay/components.js"
-import { robots } from "../../components/global.svelte.js"
+import { robots, trackQuest } from "../../components/global.svelte.js"
 import { farm_grid_index, createLandBackground } from "../game.js"
 
 function hasEnoughCoins(amount){
@@ -26,6 +26,7 @@ export function buyPlants(crop_type, amount = 1) {
 	if(can_buy) {
 		INVENTORY.changeCoins(-total_amount)
 		INVENTORY.changeCrops(crop_type, amount)
+		trackQuest("shop_seed_0", 1);
 	}
 	return can_buy;
 }
@@ -51,6 +52,7 @@ export function buyUpgrade(upgrade_type, index) {
 			INVENTORY.changeCoins(-total_amount)
 		}
 		robots[index].showEffects("upgrade", "large", 1);
+		trackQuest("shop_upgrade_0", 1);
 	}
 	return can_buy;
 }
@@ -78,6 +80,7 @@ export function buyLand(land_type, amount = 1) {
 		}
 		createLandBackground();
 		INVENTORY.changeCoins(-total_amount)
+		trackQuest("shop_land_0", 1);
 	}
 	return can_buy;
 }

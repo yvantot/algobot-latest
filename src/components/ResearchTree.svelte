@@ -178,17 +178,17 @@
                   {#if !item.is_unlocked}
                     <span class="text-[10px] text-red-600 font-semibold">
                       {#if item.unlockQuest}
-                        🏆 Unlock via Quest: <span
+                        Unlock via Quest: <span
                           class="font-bold text-red-700"
                           >{item.unlockQuest}</span
                         >
                       {:else}
-                        🔒 Locked (Complete Quests to unlock)
+                        Locked (Complete Quests to unlock)
                       {/if}
                     </span>
                   {:else}
                     <span class="text-[10px] text-green-700 font-semibold">
-                      ✓ Available in Bot Editor
+                      Available in Bot Editor
                     </span>
                   {/if}
                 </div>

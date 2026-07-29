@@ -64,6 +64,15 @@ export function trackQuest(key, amount = 1) {
 
 export const UNLOCK_VERSION = $state({ count: 0 });
 
+// Maps quest unlock names to their actual SHOP_DATA keys
+const SHOP_KEY_MAP = {
+	"buy_row": "row",
+	"buy_column": "column",
+	"upgrade_bot_action": "action_speed",
+	"upgrade_bot_move": "move_speed",
+	"upgrade_bot_check": "check_speed",
+};
+
 export function claimQuest(key) {
 	if (!QUEST_STATE[key] || !QUEST_STATE[key].is_completed || QUEST_STATE[key].is_claimed) return;
 
@@ -84,6 +93,15 @@ export function claimQuest(key) {
 				for (const category of Object.values(SHOP_DATA)) {
 					if (category[item]) {
 						category[item].unlocked = true;
+					}
+				}
+				// Also unlock the mapped SHOP_DATA key if one exists
+				const mappedKey = SHOP_KEY_MAP[item];
+				if (mappedKey) {
+					for (const category of Object.values(SHOP_DATA)) {
+						if (category[mappedKey]) {
+							category[mappedKey].unlocked = true;
+						}
 					}
 				}
 			}
