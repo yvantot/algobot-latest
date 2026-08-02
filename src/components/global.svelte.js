@@ -242,3 +242,31 @@ export function triggerDidYouKnow(id) {
 	DID_YOU_KNOW_STATE.shown[id] = true;
 	DID_YOU_KNOW_STATE.activeTip = tip;
 }
+
+export const EVENT_BANNER_STATE = $state({
+	active: false,
+	icon: "/sprites/icon_bug.png",
+	title: "",
+	subtitle: "",
+	difficultyPoints: 100,
+	rank: "Easy",
+	type: "bug",
+	dismissTimer: null
+});
+
+export function triggerEventBanner(data) {
+	if (EVENT_BANNER_STATE.dismissTimer) {
+		clearTimeout(EVENT_BANNER_STATE.dismissTimer);
+	}
+	EVENT_BANNER_STATE.icon = data.icon || "/sprites/icon_bug.png";
+	EVENT_BANNER_STATE.title = data.title || "Game Event";
+	EVENT_BANNER_STATE.subtitle = data.subtitle || "";
+	EVENT_BANNER_STATE.difficultyPoints = data.difficultyPoints || 100;
+	EVENT_BANNER_STATE.rank = data.rank || "Easy";
+	EVENT_BANNER_STATE.type = data.type || "bug";
+	EVENT_BANNER_STATE.active = true;
+
+	EVENT_BANNER_STATE.dismissTimer = setTimeout(() => {
+		EVENT_BANNER_STATE.active = false;
+	}, 10000);
+}

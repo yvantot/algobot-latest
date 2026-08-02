@@ -1131,12 +1131,14 @@ export function addCrop(farm_grid_index, type, x, y, state = CropStates.YOUNG) {
 // Spawn outside of the farm
 // If outside, go to the farm
 // If inside the farm, lock it inside and various bug behaviours
-export function bug(farm_grid_index) {
+export function bug(farm_grid_index, config = {}) {
   return {
     id: "bug",
     require: ["gridpos", "gridmove", "sprite", "animate", "timer"],
-    bug_damage: 10,
-    bug_jump_duration: 0.5,
+    bug_damage: config.damage ?? 10,
+    bug_jump_duration: config.jump_duration ?? 0.5,
+    bug_attack_interval: config.attack_interval ?? 2.25,
+    bug_move_interval: config.move_interval ?? 5.0,
     bug_attack_timer: null,
     bug_move_timer: null,
 
@@ -1177,7 +1179,7 @@ export function bug(farm_grid_index) {
       // Register the bug in the grid immediately on spawn
       this.updateGridIndex(this.grid_x, this.grid_y);
 
-      this.bug_attack_timer = k.loop(2.25, () => {
+      this.bug_attack_timer = k.loop(this.bug_attack_interval, () => {
         const current_tile = farm_grid_index.get(`${this.grid_y}-${this.grid_x}`);
         if (current_tile && current_tile.crop) {
           const crop = current_tile.crop;
@@ -1199,7 +1201,7 @@ export function bug(farm_grid_index) {
         }
       });
 
-      this.bug_move_timer = k.loop(5, () => {
+      this.bug_move_timer = k.loop(this.bug_move_interval, () => {
         // Calculate max bounds based on CONFIG
         const max_x = CONFIG.FARM.columns - 1;
         const max_y = CONFIG.FARM.rows - 1;
@@ -1344,7 +1346,19 @@ export function bug(farm_grid_index) {
   };
 }
 
-export function addBug(farm_grid_index) {
+export function addBug(farm_grid_index, config = {}) {
   triggerDidYouKnow("bugs");
-  return k.add([k.pos(), k.sprite("bug"), k.z(0), k.scale(1, 1), k.animate(), k.timer(), k.anchor("bot"), ysort(), gridpos(null, null, CONFIG.FARM.tile_size / 2, CONFIG.FARM.tile_size + 15), gridmove(), bug(farm_grid_index)]);
+  return k.add([
+    k.pos(),
+    k.sprite("bug"),
+    k.z(0),
+    k.scale(1, 1),
+    k.animate(),
+    k.timer(),
+    k.anchor("bot"),
+    ysort(),
+    gridpos(null, null, CONFIG.FARM.tile_size / 2, CONFIG.FARM.tile_size + 15),
+    gridmove(),
+    bug(farm_grid_index, config),
+  ]);
 }

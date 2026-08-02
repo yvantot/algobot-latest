@@ -14,6 +14,7 @@
   import OnboardingModal from "./OnboardingModal.svelte";
   import DidYouKnowPopup from "./DidYouKnowPopup.svelte";
   import UnlockFlyOverlay from "./UnlockFlyOverlay.svelte";
+  import EventBanner from "./EventBanner.svelte";
   import { createResizable, panelIn, panelOut } from "./interface.svelte.js";
   import { ModalTypes } from "../game/global/enum.js";
   import { Modals, triggerDidYouKnow } from "./global.svelte";
@@ -114,6 +115,7 @@
   <OnboardingModal bind:isOpen={showOnboarding} />
   <DidYouKnowPopup />
   <UnlockFlyOverlay />
+  <EventBanner />
 
   <div class="fixed bottom-2 left-2 flex gap-2">
     <div class="flex flex-col items-center gap-2 text-white">

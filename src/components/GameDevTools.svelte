@@ -14,6 +14,7 @@
     DID_YOU_KNOW_STATE,
   } from "./global.svelte";
   import { QUEST_DATA } from "../game/global/quests.js";
+  import { spawnBugEvent, spawnFireEvent, spawnRainEvent } from "../game/event.js";
   import {
     CONFIG,
     PLAYER_DATA,
@@ -400,6 +401,28 @@
             run("Spawn Bug", () => {
               addBug(farm_grid_index);
             }),
+          )}
+        </div>
+
+        {@render sec("Event Spawner (Difficulty Points)")}
+        <div class="grid grid-cols-2 gap-1">
+          {@render btn("Bug Event (100 pts - Easy)", "text-emerald-300", () =>
+            run("Bug Event (100 pts)", () => spawnBugEvent(farm_grid_index, 100))
+          )}
+          {@render btn("Bug Event (500 pts - Normal)", "text-sky-300", () =>
+            run("Bug Event (500 pts)", () => spawnBugEvent(farm_grid_index, 500))
+          )}
+          {@render btn("Bug Event (2,000 pts - Hard)", "text-amber-300", () =>
+            run("Bug Event (2000 pts)", () => spawnBugEvent(farm_grid_index, 2000))
+          )}
+          {@render btn("Bug Event (10,000 pts - Extreme)", "text-red-400", () =>
+            run("Bug Event (10000 pts)", () => spawnBugEvent(farm_grid_index, 10000))
+          )}
+          {@render btn("Fire Event (WIP)", "text-[#F2E0CF]", () =>
+            run("Fire Event (WIP)", () => spawnFireEvent(farm_grid_index, 1500))
+          )}
+          {@render btn("Rain Event (WIP)", "text-sky-200", () =>
+            run("Rain Event (WIP)", () => spawnRainEvent(farm_grid_index, 500))
           )}
         </div>
 
