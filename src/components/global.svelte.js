@@ -73,7 +73,45 @@ const SHOP_KEY_MAP = {
 	"upgrade_bot_check": "check_speed",
 };
 
-export function claimQuest(key) {
+export const UNLOCK_ANIMATIONS = $state({
+	flyingItems: []
+});
+
+export function triggerUnlockFly(unlocks, mouseEvent = null) {
+	if (!unlocks || unlocks.length === 0) return;
+
+	let startX = window.innerWidth / 2 - 50;
+	let startY = window.innerHeight / 2 - 20;
+
+	if (mouseEvent && mouseEvent.clientX) {
+		startX = mouseEvent.clientX;
+		startY = mouseEvent.clientY;
+	}
+
+	// Command Editor icon target position (top-left bar)
+	const endX = 260;
+	const endY = 32;
+
+	unlocks.forEach((item, index) => {
+		const animId = Date.now() + "_" + index + "_" + Math.random();
+		const newItem = {
+			id: animId,
+			text: item,
+			startX,
+			startY,
+			endX,
+			endY,
+			delay: index * 180
+		};
+		UNLOCK_ANIMATIONS.flyingItems.push(newItem);
+
+		setTimeout(() => {
+			UNLOCK_ANIMATIONS.flyingItems = UNLOCK_ANIMATIONS.flyingItems.filter((i) => i.id !== animId);
+		}, index * 180 + 1300);
+	});
+}
+
+export function claimQuest(key, mouseEvent = null) {
 	if (!QUEST_STATE[key] || !QUEST_STATE[key].is_completed || QUEST_STATE[key].is_claimed) return;
 
 	QUEST_STATE[key].is_claimed = true;
@@ -82,6 +120,8 @@ export function claimQuest(key) {
 		if (rewards.exp) PLAYER_DATA.changeExp(rewards.exp);
 		if (rewards.coins) INVENTORY.changeCoins(rewards.coins);
 		if (rewards.unlocks) {
+			triggerUnlockFly(rewards.unlocks, mouseEvent);
+
 			for (const item of rewards.unlocks) {
 				// Search and unlock in DOCUMENT_DATA
 				for (const category of Object.values(DOCUMENT_DATA)) {

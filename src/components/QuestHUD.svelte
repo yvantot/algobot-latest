@@ -84,7 +84,7 @@
 				class="claim-btn"
 				onclick={(e) => {
 					e.stopPropagation();
-					claimQuest(key);
+					claimQuest(key, e);
 				}}
 			>
 				Claim Reward

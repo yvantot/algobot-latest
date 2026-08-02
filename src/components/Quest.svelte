@@ -94,7 +94,7 @@
 						</div>
 						
 						{#if status === "completed"}
-							<button class="bg-green-600 hover:bg-green-500 text-white font-bold py-1 px-3 rounded shadow transition-colors text-xs cursor-pointer" onclick={() => claimQuest(key)}>Claim</button>
+							<button class="bg-green-600 hover:bg-green-500 text-white font-bold py-1 px-3 rounded shadow transition-colors text-xs cursor-pointer" onclick={(e) => claimQuest(key, e)}>Claim</button>
 						{:else if status === "claimed"}
 							<span class="text-xs text-slate-400 font-bold italic">Claimed</span>
 						{/if}
