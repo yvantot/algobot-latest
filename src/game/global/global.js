@@ -391,7 +391,7 @@ export const DOCUMENT_DATA = {
       example: `bot.extinguish(); // Put out the fire`,
       note: "Respond immediately. Delaying can cause the fire to spread across your farm.",
       type: "event",
-      is_unlocked: false,
+      is_unlocked: true,
       tier: 3,
     },
 
@@ -401,7 +401,7 @@ export const DOCUMENT_DATA = {
       example: `bot.kill_bug(); // Eliminate nearby bugs`,
       note: "Inspect your crops regularly so your bot can react before too much damage is done.",
       type: "event",
-      is_unlocked: false,
+      is_unlocked: true,
       tier: 3,
     },
 
@@ -848,7 +848,7 @@ export const DOCUMENT_DATA = {
       definition: "Eliminates a bug on the bot's current tile. Bugs can damage or destroy your crops if left alone.",
       example: `bot.kill_bug();`,
       note: "The bot must be on the same tile as the bug for this to work.",
-      is_unlocked: false,
+      is_unlocked: true,
       tier: 3,
     },
     extinguish: {
@@ -857,7 +857,7 @@ export const DOCUMENT_DATA = {
       definition: "Extinguishes a fire on the current tile.",
       example: `if (bot.is_fire()) bot.extinguish();`,
       note: "Always check for fire before extinguishing. Fires spread quickly and can destroy nearby crops.",
-      is_unlocked: false,
+      is_unlocked: true,
       tier: 3,
     },
   },
@@ -900,7 +900,7 @@ export const DOCUMENT_DATA = {
       definition: "Returns whether the current tile contains a bug.",
       example: `if (bot.is_bug()) bot.kill_bug();`,
       note: "Use this inside an 'if' statement so your bot only attacks bugs when they are present which saves time.",
-      is_unlocked: false,
+      is_unlocked: true,
       tier: 2,
     },
     is_fire: {
@@ -909,7 +909,7 @@ export const DOCUMENT_DATA = {
       definition: "Returns whether the current tile is on fire.",
       example: `if (bot.is_fire()) bot.extinguish();`,
       note: "Checking for fire before extinguishing prevents unnecessary actions.",
-      is_unlocked: false,
+      is_unlocked: true,
       tier: 2,
     },
     is_dead: {

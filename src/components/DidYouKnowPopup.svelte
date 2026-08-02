@@ -125,9 +125,17 @@
         </div>
       {/if}
 
-      <p class="text-xs text-slate-600 leading-relaxed bg-white p-2.5 rounded-lg border border-slate-300 shadow-inner">
-        {DID_YOU_KNOW_STATE.activeTip.description}
-      </p>
+      <div class="flex gap-2.5 items-start">
+        <img
+          src="/sprites/bot_teacher.png"
+          alt="Bot Teacher"
+          class="bot-teacher-idle w-12 h-12 object-contain shrink-0 mt-0.5"
+          style="image-rendering: pixelated;"
+        />
+        <p class="text-xs text-slate-600 leading-relaxed bg-white p-2.5 rounded-lg border border-slate-300 shadow-inner flex-grow">
+          {DID_YOU_KNOW_STATE.activeTip.description}
+        </p>
+      </div>
 
       <button
         onclick={closePopup}
@@ -159,5 +167,15 @@
   .got-it-btn:active {
     transform: scale(0.94) translateY(1px);
   }
+
+  /* Bot teacher idle bounce */
+  @keyframes bot-teacher-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  .bot-teacher-idle {
+    animation: bot-teacher-bounce 1.6s ease-in-out infinite;
+  }
 </style>
+
 

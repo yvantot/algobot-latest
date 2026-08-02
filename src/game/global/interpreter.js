@@ -178,13 +178,11 @@ export function createInit(robot, workspace = null, onQuestEvent = null) {
 		interpreter.setProperty(bot, "kill_bug", interpreter.createAsyncFunction((cb) => {
 			if (!checkUnlocked("bot_farm_actions", "kill_bug")) { robot.sayText("bot.kill_bug is locked!"); return cb(); }
 			telemetry.recordBotAction("kill_bug"); telemetry.recordInterpreterStep();
-			trackQ("cs_pest_0", 1);
 			return robot.botKillBug ? robot.botKillBug(cb) : cb();
 		}));
 		interpreter.setProperty(bot, "extinguish", interpreter.createAsyncFunction((cb) => {
 			if (!checkUnlocked("bot_farm_actions", "extinguish")) { robot.sayText("bot.extinguish is locked!"); return cb(); }
 			telemetry.recordBotAction("extinguish"); telemetry.recordInterpreterStep();
-			trackQ("cs_fire_0", 1);
 			return robot.botExtinguish ? robot.botExtinguish(cb) : cb();
 		}));
 		// Checks, track use of conditional reactivity (Stage 2)

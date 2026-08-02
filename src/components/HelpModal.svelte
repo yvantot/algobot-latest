@@ -172,11 +172,19 @@
   <div
     class="flex justify-between items-center border-b-2 border-slate-400 pb-2"
   >
-    <div>
-      <h1 class="font-bold text-base text-center">Help & Game Guide</h1>
-      <p class="text-xs text-center px-2 text-slate-500">
-        Everything you need to know about playing & programming in AlgoBot
-      </p>
+    <div class="flex items-center gap-2">
+      <img
+        src="/sprites/bot_teacher.png"
+        alt="Bot Teacher"
+        class="bot-teacher-idle w-10 h-10 object-contain"
+        style="image-rendering: pixelated;"
+      />
+      <div>
+        <h1 class="font-bold text-base">Help & Game Guide</h1>
+        <p class="text-xs px-0 text-slate-500">
+          Everything you need to know about playing & programming in AlgoBot
+        </p>
+      </div>
     </div>
     {#if onClose}
       <button
@@ -364,5 +372,13 @@
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background: #94a3b8;
     border-radius: 10px;
+  }
+
+  @keyframes bot-teacher-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  .bot-teacher-idle {
+    animation: bot-teacher-bounce 1.6s ease-in-out infinite;
   }
 </style>

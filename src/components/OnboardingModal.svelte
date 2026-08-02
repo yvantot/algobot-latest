@@ -135,16 +135,24 @@
           />
         </div>
 
-        <!-- Highlights List -->
-        <div
-          class="bg-white border-2 border-slate-300 rounded-lg p-3 space-y-1.5 shadow-inner"
-        >
-          {#each SLIDES[currentSlide].highlights as highlight}
-            <div class="flex items-center gap-2 text-xs text-slate-700">
-              <span class="text-green-700 font-bold">✓</span>
-              <span>{highlight}</span>
-            </div>
-          {/each}
+        <!-- Highlights List with Bot Teacher -->
+        <div class="flex gap-3 items-start">
+          <img
+            src="/sprites/bot_teacher.png"
+            alt="Bot Teacher"
+            class="bot-teacher-idle w-16 h-16 object-contain shrink-0 mt-1"
+            style="image-rendering: pixelated;"
+          />
+          <div
+            class="bg-white border-2 border-slate-300 rounded-lg p-3 space-y-1.5 shadow-inner flex-grow"
+          >
+            {#each SLIDES[currentSlide].highlights as highlight}
+              <div class="flex items-center gap-2 text-xs text-slate-700">
+                <span class="text-green-700 font-bold">✓</span>
+                <span>{highlight}</span>
+              </div>
+            {/each}
+          </div>
         </div>
       </div>
 
@@ -212,3 +220,14 @@
     </div>
   </div>
 {/if}
+
+<style>
+  @keyframes bot-teacher-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  .bot-teacher-idle {
+    animation: bot-teacher-bounce 1.6s ease-in-out infinite;
+  }
+</style>
+
