@@ -34,6 +34,44 @@
     HELP: 5,
   };
 
+  const menuButtons = [
+    {
+      id: Menus.COMMAND,
+      title: "Command Editor",
+      description: "Write code or build block commands to control your bot.",
+      icon: "/sprites/icon_command.png",
+      alt: "command",
+    },
+    {
+      id: Menus.DOCUMENT,
+      title: "Documentation",
+      description: "View syntax guides, reference docs, and function manuals.",
+      icon: "/sprites/icon_document.png",
+      alt: "document",
+    },
+    {
+      id: Menus.QUEST,
+      title: "Quests",
+      description: "Track level objectives, active tasks, and rewards.",
+      icon: "/sprites/icon_quest.png",
+      alt: "quest",
+    },
+    {
+      id: Menus.RESEARCH,
+      title: "Research Tree",
+      description: "Unlock new technologies, algorithms, and bot abilities.",
+      icon: "/sprites/icon_skilltree.png",
+      alt: "research tree",
+    },
+    {
+      id: Menus.SHOP,
+      title: "Shop",
+      description: "Purchase seeds, items, and farm upgrades.",
+      icon: "/sprites/icon_shop.png",
+      alt: "shop",
+    },
+  ];
+
   let current_menu = $state(Menus.COMMAND);
   let current_editor = $state(Editors.BLOCK);
   let showOnboarding = $state(false);
@@ -171,58 +209,47 @@
       <div class="flex gap-4">
         <PlayerInfo />
         <div class="pt-2 flex items-center gap-1">
-          <!-- Command -->
-          <button
-            class="cursor-pointer"
-            onclick={() => toggleMenu(Menus.COMMAND)}
-          >
-            <img
-              class="hover:scale-110 transition-transform w-12 h-12"
-              src="/sprites/icon_command.png"
-              alt="command"
-            />
-          </button>
-          <!-- Document -->
-          <button
-            class="cursor-pointer"
-            onclick={() => toggleMenu(Menus.DOCUMENT)}
-          >
-            <img
-              class="hover:scale-110 transition-transform w-12 h-12"
-              src="/sprites/icon_document.png"
-              alt="document"
-            />
-          </button>
-          <!-- Quest -->
-          <button
-            class="cursor-pointer"
-            onclick={() => toggleMenu(Menus.QUEST)}
-          >
-            <img
-              class="hover:scale-110 transition-transform w-12 h-12"
-              src="/sprites/icon_quest.png"
-              alt="quest"
-            />
-          </button>
-          <!-- Research -->
-          <button
-            class="cursor-pointer"
-            onclick={() => toggleMenu(Menus.RESEARCH)}
-          >
-            <img
-              class="hover:scale-110 transition-transform w-12 h-12"
-              src="/sprites/icon_skilltree.png"
-              alt="research tree"
-            />
-          </button>
-          <!-- Shop -->
-          <button class="cursor-pointer" onclick={() => toggleMenu(Menus.SHOP)}>
-            <img
-              class="hover:scale-110 transition-transform w-12 h-12"
-              src="/sprites/icon_shop.png"
-              alt="shop"
-            />
-          </button>
+          {#each menuButtons as btn}
+            <button
+              class="cursor-pointer group relative"
+              onclick={() => toggleMenu(btn.id)}
+            >
+              <img
+                class="hover:scale-110 transition-transform w-12 h-12 {current_menu ===
+                btn.id
+                  ? 'brightness-125 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)] scale-105'
+                  : ''}"
+                src={btn.icon}
+                alt={btn.alt}
+              />
+              <div
+                class="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 opacity-0 group-hover:opacity-100 transition-all duration-150 transform translate-y-1 group-hover:translate-y-0"
+              >
+                <div
+                  class="w-48 bg-gray-100 text-slate-700 border-2 border-slate-500 rounded-lg p-2.5 text-center relative shadow-2xl"
+                >
+                  <p
+                    class="font-bold text-slate-800 text-[11px] border-b border-slate-300 pb-0.5 mb-1 font-mono uppercase tracking-wide"
+                  >
+                    {btn.title}
+                  </p>
+                  <p
+                    class="text-[10px] text-slate-600 leading-snug font-medium"
+                  >
+                    {btn.description}
+                  </p>
+
+                  <!-- Tooltip Arrow pointing up -->
+                  <div
+                    class="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-500"
+                  ></div>
+                  <div
+                    class="absolute bottom-full left-1/2 -translate-x-1/2 -mb-0.5 border-4 border-transparent border-b-gray-100"
+                  ></div>
+                </div>
+              </div>
+            </button>
+          {/each}
 
           <!-- Help Button ( ? Square Badge ) -->
           <button
@@ -230,7 +257,10 @@
             onclick={() => toggleMenu(Menus.HELP)}
           >
             <img
-              class="hover:scale-110 transition-transform w-12 h-12"
+              class="hover:scale-110 transition-transform w-12 h-12 {current_menu ===
+              Menus.HELP
+                ? 'brightness-125 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)] scale-105'
+                : ''}"
               src="/sprites/icon_help.png"
               alt="help"
               onerror={(e) => {
@@ -240,9 +270,32 @@
             />
             <div
               class="hidden hover:scale-110 transition-transform w-12 h-12 bg-amber-500 hover:bg-amber-400 text-amber-950 font-black text-xl rounded-lg items-center justify-center border-b-4 border-amber-700 shadow-md"
-              title="Game Help & Guide"
             >
               ?
+            </div>
+            <div
+              class="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 opacity-0 group-hover:opacity-100 transition-all duration-150 transform translate-y-1 group-hover:translate-y-0"
+            >
+              <div
+                class="w-48 bg-gray-100 text-slate-700 border-2 border-slate-500 rounded-lg p-2.5 text-center relative shadow-2xl"
+              >
+                <p
+                  class="font-bold text-slate-800 text-[11px] border-b border-slate-300 pb-0.5 mb-1 font-mono uppercase tracking-wide"
+                >
+                  Help & Guide
+                </p>
+                <p class="text-[10px] text-slate-600 leading-snug font-medium">
+                  Learn game controls, shortcuts, and gameplay tips.
+                </p>
+
+                <!-- Tooltip Arrow pointing up -->
+                <div
+                  class="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-500"
+                ></div>
+                <div
+                  class="absolute bottom-full left-1/2 -translate-x-1/2 -mb-0.5 border-4 border-transparent border-b-gray-100"
+                ></div>
+              </div>
             </div>
           </button>
 
@@ -263,9 +316,34 @@
               />
               <div
                 class="hidden hover:scale-110 transition-transform w-12 h-12 bg-slate-700 hover:bg-slate-600 text-slate-100 font-black text-xl rounded-lg items-center justify-center border-b-4 border-slate-900 shadow-md"
-                title="Return to Start Menu"
               >
                 M
+              </div>
+              <div
+                class="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 opacity-0 group-hover:opacity-100 transition-all duration-150 transform translate-y-1 group-hover:translate-y-0"
+              >
+                <div
+                  class="w-48 bg-gray-100 text-slate-700 border-2 border-slate-500 rounded-lg p-2.5 text-center relative shadow-2xl"
+                >
+                  <p
+                    class="font-bold text-slate-800 text-[11px] border-b border-slate-300 pb-0.5 mb-1 font-mono uppercase tracking-wide"
+                  >
+                    Start Menu
+                  </p>
+                  <p
+                    class="text-[10px] text-slate-600 leading-snug font-medium"
+                  >
+                    Return to the main menu.
+                  </p>
+
+                  <!-- Tooltip Arrow pointing up -->
+                  <div
+                    class="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-500"
+                  ></div>
+                  <div
+                    class="absolute bottom-full left-1/2 -translate-x-1/2 -mb-0.5 border-4 border-transparent border-b-gray-100"
+                  ></div>
+                </div>
               </div>
             </button>
           {/if}
