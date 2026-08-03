@@ -1,6 +1,7 @@
 import { CONFIG, INVENTORY, DOCUMENT_DATA } from "./global.js";
 import { buyLand, buyUpgrade, buyPlants } from "./shop.js";
 import { telemetry } from "../ml/telemetry.js";
+import { farm_grid_index } from "../game.js";
 
 function checkUnlocked(category, key) {
 	return DOCUMENT_DATA[category]?.[key]?.is_unlocked ?? true;
@@ -40,6 +41,19 @@ export function createInit(robot, workspace = null, onQuestEvent = null) {
 			if (workspace) {
 				workspace.highlightBlock(id);
 			}
+		}));
+
+		// --- ML Telemetry Hooks (called by injected code from Blockly generators) ---
+
+		// Loop tracking: called at the start of each for/while loop body iteration
+		interpreter.setProperty(global_obj, "__trackLoop", interpreter.createNativeFunction((type) => {
+			telemetry.recordLoopExecution(type ? type.toString() : "for");
+			trackQ("cs_loop_0", 1);
+		}));
+
+		// If-condition tracking: called when an if-condition evaluates
+		interpreter.setProperty(global_obj, "__trackIf", interpreter.createNativeFunction((result) => {
+			telemetry.recordIfCondition(!!result);
 		}));
 
 		const bot = interpreter.nativeToPseudo({});
@@ -158,6 +172,28 @@ export function createInit(robot, workspace = null, onQuestEvent = null) {
 		}));
 		interpreter.setProperty(bot, "harvest", interpreter.createAsyncFunction((cb) => {
 			telemetry.recordBotAction("harvest"); telemetry.recordInterpreterStep();
+
+			// Greedy choice tracking: check if this harvest is the optimal choice
+			// (is the student harvesting the crop closest to spoiling?)
+			try {
+				const currentTile = farm_grid_index.get(`${robot.grid_y}-${robot.grid_x}`);
+				if (currentTile?.soil?.cropData) {
+					const currentSpoilageRemaining = currentTile.soil.cropData.spoilage_remaining ?? Infinity;
+					let isOptimal = true;
+					// Check all other tiles for crops closer to spoiling
+					for (const [, tile] of farm_grid_index) {
+						if (tile?.soil?.cropData?.is_harvestable && tile.soil !== currentTile.soil) {
+							const otherRemaining = tile.soil.cropData.spoilage_remaining ?? Infinity;
+							if (otherRemaining < currentSpoilageRemaining) {
+								isOptimal = false;
+								break;
+							}
+						}
+					}
+					telemetry.recordGreedyChoice(isOptimal);
+				}
+			} catch { /* greedy tracking is non-critical */ }
+
 			const cropType = robot.botHarvest(cb);
 			if (cropType) {
 				trackQ("tut_2", 1);

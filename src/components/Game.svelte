@@ -21,7 +21,8 @@
   import GameDevTools from "./GameDevTools.svelte";
   import DDADashboard from "./DDADashboard.svelte";
   import { k } from "../lib/kaplay.js";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
+  import { telemetry } from "../game/ml/telemetry.js";
 
   let { onReturnMenu } = $props();
 
@@ -87,6 +88,43 @@
     if (!isHidden) {
       showOnboarding = true;
     }
+
+    // ML Pipeline: Initialize telemetry session
+    // Generate or retrieve anonymous participant ID
+    let participantId = localStorage.getItem("algobot_participant_id");
+    if (!participantId) {
+      const count = parseInt(localStorage.getItem("algobot_participant_count") || "0") + 1;
+      participantId = `Participant_${String(count).padStart(3, "0")}`;
+      localStorage.setItem("algobot_participant_id", participantId);
+      localStorage.setItem("algobot_participant_count", String(count));
+    }
+    telemetry.setParticipantId(participantId);
+    console.log(`📊 Telemetry session started: ${telemetry.getSessionId()} (${participantId})`);
+
+    // Save session data on page unload
+    const handleBeforeUnload = () => {
+      try {
+        const sessionData = {
+          summary: telemetry.getSessionSummary(),
+          questAttempts: telemetry.getQuestAttempts(),
+          featureSnapshots: telemetry.getFeatureSnapshots(),
+          ddaLog: telemetry.getDDALog(),
+          rawEventCount: telemetry.getRawEvents().length,
+        };
+        // Append to stored sessions list
+        const stored = JSON.parse(localStorage.getItem("algobot_sessions") || "[]");
+        stored.push(sessionData);
+        localStorage.setItem("algobot_sessions", JSON.stringify(stored));
+        console.log("💾 Session data saved to localStorage");
+      } catch (e) {
+        console.warn("Failed to save session data:", e);
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
   });
 
   $effect(() => {
@@ -97,6 +135,8 @@
   function toggleEditor() {
     current_editor =
       current_editor === Editors.TEXT ? Editors.BLOCK : Editors.TEXT;
+    // ML Pipeline: track editor mode as metadata (not ML feature)
+    telemetry.recordEditorMode(current_editor === Editors.TEXT ? "text" : "blockly");
   }
 
   function toggleMenu(menu) {

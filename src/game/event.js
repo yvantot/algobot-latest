@@ -1,5 +1,6 @@
 import { addBug } from "./components-kaplay/components.js";
 import { triggerEventBanner } from "../components/global.svelte.js";
+import { dda } from "./ml/dda.js";
 
 /**
  * Calculates event difficulty parameters based on difficulty points (100 = Easy, 10000+ = Extreme).
@@ -52,7 +53,9 @@ export function getDifficultyParams(points) {
  * @param {number} difficultyPoints Difficulty points (100 to 10000+)
  */
 export function spawnBugEvent(farmGridIndex, difficultyPoints = 100) {
-  const params = getDifficultyParams(difficultyPoints);
+  // Apply DDA bug spawn multiplier (Bootstrap/ML DDA scales pest difficulty)
+  const scaledPoints = Math.round(difficultyPoints * (dda.bugSpawnMultiplier || 1.0));
+  const params = getDifficultyParams(scaledPoints);
 
   // Trigger modular wooden announcement banner
   triggerEventBanner({
@@ -89,7 +92,9 @@ export function spawnBugEvent(farmGridIndex, difficultyPoints = 100) {
  * Placeholder for Fire Event (WIP)
  */
 export function spawnFireEvent(farmGridIndex, difficultyPoints = 100) {
-  const params = getDifficultyParams(difficultyPoints);
+  // Apply DDA fire spawn multiplier
+  const scaledPoints = Math.round(difficultyPoints * (dda.fireSpawnMultiplier || 1.0));
+  const params = getDifficultyParams(scaledPoints);
   triggerEventBanner({
     icon: "/sprites/icon_bug.png",
     title: "Farm Fire (WIP)",

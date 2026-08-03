@@ -2,6 +2,7 @@
   import { mlAgent } from "../game/ml/agent.js";
   import { dda } from "../game/ml/dda.js";
   import { telemetry, CS1_STAGES } from "../game/ml/telemetry.js";
+  import { dataLogger } from "../game/ml/data-logger.js";
 
   const CS1_STAGE_LABELS = {
     1: "Sequential Algorithm",
@@ -27,17 +28,23 @@
   let flow = $state(0.5);
   let stage = $state(1);
   let ddaState = $state(null);
+  let agentMode = $state("bootstrap");
+  let sessionCount = $state(0);
+  let replaySize = $state(0);
 
   // Poll DDA + telemetry state every 2 seconds for dashboard display
   $effect(() => {
     const interval = setInterval(() => {
       proficiency = mlAgent.predictedProficiency;
       actionId = mlAgent.lastAction;
-      qValues = mlAgent.predictedQValues;
+      qValues = mlAgent.predictedQValues || [0, 0, 0, 0, 0];
       frustration = telemetry.frustrationScore;
       flow = telemetry.flowScore;
       stage = telemetry.currentStage;
       ddaState = dda.getDDAState();
+      agentMode = mlAgent.mode || "bootstrap";
+      sessionCount = dataLogger.getSessionCount();
+      replaySize = mlAgent.replayBuffer?.length || 0;
     }, 2000);
     return () => clearInterval(interval);
   });
@@ -67,7 +74,16 @@
       <h3 class="font-bold text-sm text-white flex items-center gap-1">
         🧠 DDA Research Panel
       </h3>
-      <span class="text-[10px] text-slate-400">TF.js RNN + DQN</span>
+      <span class="text-[10px] px-1.5 py-0.5 rounded font-bold {agentMode === 'ml' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}">
+        {agentMode === 'ml' ? '🤖 ML Mode' : '🔧 Bootstrap'}
+      </span>
+    </div>
+
+    <!-- Session Info -->
+    <div class="flex justify-between text-[10px] text-slate-400">
+      <span>📊 Sessions: {sessionCount}</span>
+      <span>🎯 Replay: {replaySize}</span>
+      <span>👤 {telemetry.participantId}</span>
     </div>
 
     <!-- CS1 Curriculum Stage -->
@@ -217,6 +233,35 @@
           telemetry.whileLoopExecutions}</span
       >
       <span>Harvests: {telemetry.cropsHarvestedFresh}</span>
+      <span>Code Runs: {telemetry.codeRunCount}</span>
+      <span>Success Rate: {telemetry.codeRunCount > 0 ? ((telemetry.codeRunSuccessCount / telemetry.codeRunCount) * 100).toFixed(0) : 0}%</span>
+      <span>Hints: {telemetry.hintsShown}</span>
+      <span>Quests Done: {telemetry.questsCompleted}</span>
+    </div>
+
+    <!-- Data Export Controls -->
+    <div class="border-t border-slate-700 pt-2 flex flex-col gap-1">
+      <span class="text-slate-400 uppercase text-[9px] font-bold tracking-wider">Data Export</span>
+      <div class="flex gap-1">
+        <button
+          onclick={() => dataLogger.exportAllSessionsJSON()}
+          class="flex-1 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-200 text-[9px] font-bold py-1 px-2 rounded transition-colors"
+        >
+          📥 JSON
+        </button>
+        <button
+          onclick={() => dataLogger.exportQuestCSV()}
+          class="flex-1 bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-200 text-[9px] font-bold py-1 px-2 rounded transition-colors"
+        >
+          📊 CSV
+        </button>
+        <button
+          onclick={() => dataLogger.exportReplayBufferJSON()}
+          class="flex-1 bg-violet-600/30 hover:bg-violet-600/50 border border-violet-500/40 text-violet-200 text-[9px] font-bold py-1 px-2 rounded transition-colors"
+        >
+          🎯 Replay
+        </button>
+      </div>
     </div>
 
     <!-- Active Hint from DDA -->

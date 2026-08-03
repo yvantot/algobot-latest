@@ -5,6 +5,7 @@
 	import { buyLand, buyUpgrade, buyPlants } from "../game/global/shop.js";
 	import { createInit } from "../game/global/interpreter.js";
 	import { trackQuest } from "./global.svelte.js";
+	import { telemetry } from "../game/ml/telemetry.js";
 
 	import { onMount } from "svelte";
 	import { autocompletion } from "@codemirror/autocomplete";
@@ -366,9 +367,9 @@
 
 		if (stack.length > 0) {
 			const node = stack[stack.length - 1].node;
-			if (node && node.type === "ForStatement")
-				trackQuest("cs_loop_0", 1);
-			if (node && node.type === "IfStatement") trackQuest("cs_if_0", 1);
+			if (node && node.type === "ForStatement") { trackQuest("cs_loop_0", 1); telemetry.recordLoopExecution("for"); }
+			if (node && (node.type === "WhileStatement" || node.type === "DoWhileStatement")) { trackQuest("cs_loop_0", 1); telemetry.recordLoopExecution("while"); }
+			if (node && node.type === "IfStatement") { trackQuest("cs_if_0", 1); telemetry.recordIfCondition(true); }
 		}
 
 		try {
@@ -404,6 +405,7 @@
 			createInit(robots_state[index].robot, null, trackQuest),
 		);
 		robots_state[index].is_running = !robots_state[index].is_running;
+		telemetry.recordCodeRun(true); // Record code execution attempt
 
 		clearInterval(robots_state[index].interval);
 
@@ -418,6 +420,7 @@
 	function handleReset(index) {
 		robots_state[index].interpreter = null;
 		robots_state[index].is_running = false;
+		telemetry.recordCodeReset();
 		if (index === selected_robot) selectCode(0, 0);
 	}
 </script>

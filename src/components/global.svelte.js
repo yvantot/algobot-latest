@@ -44,6 +44,9 @@ export function trackQuest(key, amount = 1) {
 		}
 	}
 
+	// Track quest start for ML pipeline (episode boundary)
+	telemetry.recordQuestStart(key);
+
 	QUEST_STATE[key].progress += amount;
 	if (QUEST_STATE[key].progress >= QUEST_DATA[key].goal) {
 		QUEST_STATE[key].progress = QUEST_DATA[key].goal;
@@ -115,6 +118,10 @@ export function claimQuest(key, mouseEvent = null) {
 	if (!QUEST_STATE[key] || !QUEST_STATE[key].is_completed || QUEST_STATE[key].is_claimed) return;
 
 	QUEST_STATE[key].is_claimed = true;
+
+	// Track quest completion for ML pipeline (episode boundary + label generation)
+	telemetry.recordQuestComplete(key);
+
 	const rewards = QUEST_DATA[key].rewards;
 	if (rewards) {
 		if (rewards.exp) PLAYER_DATA.changeExp(rewards.exp);
