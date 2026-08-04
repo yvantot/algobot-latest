@@ -25,6 +25,12 @@
   import { CropTypes, SoilStates, CropStates } from "../game/global/enum.js";
   import { buyLand, buyUpgrade, buyPlants } from "../game/global/shop.js";
   import { farm_grid_index } from "../game/game";
+  import { dda, DDA_ACTIONS, DDA_ACTION_NAMES } from "../game/ml/dda.js";
+  import { telemetry, CS1_STAGES } from "../game/ml/telemetry.js";
+  import { mlAgent } from "../game/ml/agent.js";
+  import { dataLogger } from "../game/ml/data-logger.js";
+
+  let { showDDADashboard = $bindable(false) } = $props();
 
   let isVisible = $state(false);
   let position = $state({ x: 20, y: 20 });
@@ -57,6 +63,7 @@
     { id: "bot",     label: "Bot"     },
     { id: "batch",   label: "Batch"   },
     { id: "inspect", label: "Inspect" },
+    { id: "dda",     label: "DDA"     },
   ];
 
   const CROP_ICONS = {
@@ -1148,6 +1155,105 @@
           {:else}
             <p class="text-gray-500 italic">No matching grid index entries found.</p>
           {/each}
+        </div>
+      {/if}
+
+      <!-- DDA TAB -->
+      {#if activeTab === "dda"}
+        {@render sec("DDA Research Panel Overlay")}
+        <div class="grid grid-cols-1 gap-1">
+          {@render btn(
+            showDDADashboard ? "Hide Floating DDA Panel" : "Show Floating DDA Panel",
+            showDDADashboard ? "text-amber-300 font-bold" : "text-sky-300 font-bold",
+            () => run("Toggle DDA Panel", () => (showDDADashboard = !showDDADashboard))
+          )}
+        </div>
+
+        {@render sec("Force DDA Action Override (Dev Testing)")}
+        <div class="grid grid-cols-2 gap-1">
+          {@render btn("Normal Mode", "text-slate-300", () =>
+            run("Force Action: Normal", () => {
+              dda.applyAction(DDA_ACTIONS.NORMAL, telemetry.currentStage);
+              mlAgent.lastAction = DDA_ACTIONS.NORMAL;
+            })
+          )}
+          {@render btn("Scaffold Mode", "text-sky-300 font-bold", () =>
+            run("Force Action: Scaffold", () => {
+              dda.applyAction(DDA_ACTIONS.SCAFFOLD, telemetry.currentStage);
+              mlAgent.lastAction = DDA_ACTIONS.SCAFFOLD;
+            })
+          )}
+          {@render btn("Challenge Mode", "text-red-400 font-bold", () =>
+            run("Force Action: Challenge", () => {
+              dda.applyAction(DDA_ACTIONS.CHALLENGE, telemetry.currentStage);
+              mlAgent.lastAction = DDA_ACTIONS.CHALLENGE;
+            })
+          )}
+          {@render btn("Greedy Guide", "text-amber-300 font-bold", () =>
+            run("Force Action: Greedy Guide", () => {
+              dda.applyAction(DDA_ACTIONS.GREEDY_GUIDE, telemetry.currentStage);
+              mlAgent.lastAction = DDA_ACTIONS.GREEDY_GUIDE;
+            })
+          )}
+          {@render btn("State Optimize", "text-violet-300 font-bold", () =>
+            run("Force Action: State Optimize", () => {
+              dda.applyAction(DDA_ACTIONS.STATE_OPTIMIZE, telemetry.currentStage);
+              mlAgent.lastAction = DDA_ACTIONS.STATE_OPTIMIZE;
+            })
+          )}
+        </div>
+
+        {@render sec("CS1 Curriculum Stage Override")}
+        <div class="grid grid-cols-5 gap-1">
+          {#each [1, 2, 3, 4, 5] as stg}
+            {@render btn(`Stage ${stg}`, telemetry.currentStage === stg ? "text-amber-300 font-bold" : "text-gray-400", () =>
+              run(`Set CS1 Stage ${stg}`, () => telemetry.setStage(stg))
+            )}
+          {/each}
+        </div>
+
+        {@render sec("Live DDA Telemetry Status")}
+        <div class="bg-gray-900 border border-gray-800 rounded p-2 text-[10px] space-y-1 text-gray-300">
+          <div class="flex justify-between">
+            <span class="text-gray-400">Agent Mode:</span>
+            <span class="font-bold {mlAgent.mode === 'ml' ? 'text-emerald-400' : 'text-amber-400'}">{mlAgent.mode || "bootstrap"}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Predicted Proficiency:</span>
+            <span class="font-bold text-white">{(mlAgent.predictedProficiency * 100).toFixed(1)}%</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Frustration Index:</span>
+            <span class="font-bold text-red-400">{(telemetry.frustrationScore * 100).toFixed(1)}%</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Flow Score:</span>
+            <span class="font-bold text-emerald-400">{(telemetry.flowScore * 100).toFixed(1)}%</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Participant ID:</span>
+            <span class="font-mono text-gray-300">{telemetry.participantId}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-400">Sessions / Replay Buffer:</span>
+            <span class="text-gray-300">{dataLogger.getSessionCount()} sessions / {mlAgent.replayBuffer?.length || 0} exp</span>
+          </div>
+        </div>
+
+        {@render sec("Dataset Exports")}
+        <div class="grid grid-cols-2 gap-1">
+          {@render btn("Export JSON Dataset", "text-sky-300 font-bold", () =>
+            run("Export JSON", () => dataLogger.exportAllSessionsJSON())
+          )}
+          {@render btn("Export Quest CSV", "text-emerald-300 font-bold", () =>
+            run("Export CSV", () => dataLogger.exportQuestCSV())
+          )}
+          {@render btn("Export Replay Buffer", "text-violet-300 font-bold", () =>
+            run("Export Replay", () => dataLogger.exportReplayBufferJSON())
+          )}
+          {@render btn("Clear Stored Data", "text-red-400", () =>
+            run("Clear Data", () => dataLogger.clearAllData())
+          )}
         </div>
       {/if}
     </div>

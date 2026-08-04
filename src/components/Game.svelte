@@ -78,6 +78,7 @@
   let current_menu = $state(Menus.COMMAND);
   let current_editor = $state(Editors.BLOCK);
   let showOnboarding = $state(false);
+  let showDDADashboard = $state(false);
   let showConfirmReturn = $state(false);
 
   let game_speed = $state(k.debug.timeScale);
@@ -90,13 +91,11 @@
     }
 
     // ML Pipeline: Initialize telemetry session
-    // Generate or retrieve anonymous participant ID
+    // Generate or retrieve anonymous collision-free participant ID
     let participantId = localStorage.getItem("algobot_participant_id");
     if (!participantId) {
-      const count = parseInt(localStorage.getItem("algobot_participant_count") || "0") + 1;
-      participantId = `Participant_${String(count).padStart(3, "0")}`;
+      participantId = `p_${crypto.randomUUID().slice(0, 8)}`;
       localStorage.setItem("algobot_participant_id", participantId);
-      localStorage.setItem("algobot_participant_count", String(count));
     }
     telemetry.setParticipantId(participantId);
     console.log(`📊 Telemetry session started: ${telemetry.getSessionId()} (${participantId})`);
@@ -148,8 +147,8 @@
 </script>
 
 <div class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
-  <GameDevTools />
-  <DDADashboard />
+  <GameDevTools bind:showDDADashboard />
+  <DDADashboard bind:visible={showDDADashboard} />
   <LevelReward />
   <FarmPersonalize />
   <OnboardingModal bind:isOpen={showOnboarding} />

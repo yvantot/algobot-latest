@@ -51,7 +51,7 @@ class DDAController {
         this.spoilageMultiplier = 1.5;
         this.bugSpawnMultiplier = 0.3;
         this.fireSpawnMultiplier = 0.3;
-        this.activeHint = "💡 Tip: Order matters! Make sure to till the soil before planting seeds.";
+        this.activeHint = "Tip: Order matters! Make sure to till the soil before planting seeds.";
         break;
 
       case DDA_ACTIONS.CHALLENGE:
@@ -60,7 +60,7 @@ class DDAController {
         this.spoilageMultiplier = 0.8;
         this.bugSpawnMultiplier = 1.5;
         this.fireSpawnMultiplier = 1.3;
-        this.activeHint = "🔥 Challenge Active: Pests and spoilage are faster! Can you automate with a loop?";
+        this.activeHint = "Challenge Active: Pests and spoilage are faster! Can you automate with a loop?";
         break;
 
       case DDA_ACTIONS.GREEDY_GUIDE:
@@ -69,7 +69,7 @@ class DDAController {
         this.spoilageMultiplier = 1.2;
         this.bugSpawnMultiplier = 1.0;
         this.fireSpawnMultiplier = 1.0;
-        this.activeHint = "⚖️ Greedy Choice Tip: Always inspect your crops and harvest the one closest to spoiling first!";
+        this.activeHint = "Greedy Choice Tip: Always inspect your crops and harvest the one closest to spoiling first!";
         break;
 
       case DDA_ACTIONS.STATE_OPTIMIZE:
@@ -78,7 +78,7 @@ class DDAController {
         this.spoilageMultiplier = 1.1;
         this.bugSpawnMultiplier = 1.2;
         this.fireSpawnMultiplier = 1.2;
-        this.activeHint = "🧠 State Strategy Tip: Prepare for unexpected pests by checking crop status inside loops!";
+        this.activeHint = "State Strategy Tip: Prepare for unexpected pests by checking crop status inside loops!";
         break;
 
       case DDA_ACTIONS.NORMAL:

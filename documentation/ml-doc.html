@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Algobot Machine Learning Pipeline — Technical Documentation</title>
+  
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --primary: #0f172a;
+      --accent: #2563eb;
+      --accent-soft: #eff6ff;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #334155;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --code-bg: #0f172a;
+      --code-text: #f8fafc;
+      --highlight-bg: #f1f5f9;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--text);
+      background-color: var(--bg);
+      line-height: 1.65;
+      font-size: 15px;
+      padding: 2.5rem 1rem;
+    }
+
+    .container {
+      max-width: 920px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      padding: 3.5rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 25px -3px rgba(15, 23, 42, 0.06);
+      border: 1px solid var(--border);
+    }
+
+    header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .doc-category {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--primary);
+      line-height: 1.25;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.02em;
+    }
+
+    .meta {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+      letter-spacing: -0.01em;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--primary);
+      margin-top: 1.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--primary);
+      margin-top: 1rem;
+      margin-bottom: 0.4rem;
+    }
+
+    p {
+      margin-bottom: 1rem;
+    }
+
+    ul, ol {
+      margin-bottom: 1rem;
+      padding-left: 1.5rem;
+    }
+
+    li {
+      margin-bottom: 0.4rem;
+    }
+
+    /* Core Principle Callout */
+    .callout {
+      background-color: var(--accent-soft);
+      border-left: 4px solid var(--accent);
+      padding: 1.25rem 1.5rem;
+      border-radius: 0 8px 8px 0;
+      margin: 1.5rem 0;
+    }
+
+    .callout-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-bottom: 0.3rem;
+    }
+
+    .callout-body {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--primary);
+      font-style: italic;
+    }
+
+    /* Math & Formula Box */
+    .formula-box {
+      background-color: #f8fafc;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      padding: 1rem 1.25rem;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--primary);
+      margin: 1rem 0;
+      overflow-x: auto;
+    }
+
+    /* Diagram / ASCII box */
+    pre.diagram {
+      background: #0f172a;
+      color: #94a3b8;
+      padding: 1.25rem;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      overflow-x: auto;
+      margin: 1.5rem 0;
+      border: 1px solid #334155;
+    }
+
+    pre.diagram span.highlight {
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    /* Code Blocks */
+    pre code {
+      display: block;
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88em;
+      background: var(--highlight-bg);
+      color: var(--primary);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    /* Feature List Styling */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 0.75rem;
+      margin: 1rem 0;
+    }
+
+    .feature-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    .feature-card strong {
+      color: var(--primary);
+    }
+
+    /* Action Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: var(--bg);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    tr:hover {
+      background: #f8fafc;
+    }
+
+    /* Module Card for Section 3 */
+    .module-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .module-card h4 {
+      margin-top: 0;
+      color: var(--accent);
+      font-size: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .module-card p {
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Variable styling */
+    var {
+      font-family: 'JetBrains Mono', monospace;
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 3.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+      }
+      .container {
+        box-shadow: none;
+        border: none;
+        padding: 0;
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="doc-category">Technical & Research Documentation</div>
+      <h1>Algobot Machine Learning Pipeline</h1>
+      <div class="meta">
+        <span><strong>Project:</strong> Algobot 2.5D CS Educational Game</span>
+        <span><strong>Architecture:</strong> RNN (LSTM) + DQN + DDA</span>
+        <span><strong>Version:</strong> 1.0 (Bootstrap to Adaptive ML)</span>
+      </div>
+    </header>
+
+    <!-- Section 1 -->
+    <section>
+      <h2>1. Research Methodology & Architecture Overview</h2>
+      
+      <div class="callout">
+        <div class="callout-title">Core Research Principle</div>
+        <div class="callout-body">
+          "The game is not waiting for an ML model. The game is the mechanism that creates the ML model."
+        </div>
+      </div>
+
+      <p>
+        To resolve the <strong>cold-start problem</strong> (absence of prior student training data) without altering the approved 
+        <strong>RNN + DQN + Dynamic Difficulty Adjustment (DDA)</strong> architecture or changing core game mechanics, 
+        the system implements a phased 3-stage lifecycle:
+      </p>
+
+      <pre class="diagram">
+┌──────────────────────────────────────────────────────────────┐
+│                  <span class="highlight">VERSION 1: BOOTSTRAP PHASE</span>                  │
+│                                                              │
+│  Student plays → Telemetry (10 features) → Bootstrap DDA     │
+│                      │                           │           │
+│                      ▼                           ▼           │
+│              Raw Event Log               Experience Tuples   │
+│            + Feature Snapshots            (s, a, r, s', done) │
+│            + Proficiency Labels                  │           │
+│                      │                           │           │
+│                      └─────────────┬─────────────┘           │
+│                                    ▼                         │
+│                           Dataset Export (JSON/CSV)          │
+├──────────────────────────────────────────────────────────────┤
+│                  <span class="highlight">OFFLINE MODEL DEVELOPMENT</span>                   │
+│                                                              │
+│  Dataset → Preprocessing & Normalization                     │
+│               ├─ Train LSTM (Proficiency Predictor)          │
+│               └─ Train DQN (Action Policy)                   │
+│                       │                                      │
+│                       ▼                                      │
+│             Export TensorFlow.js Models                      │
+├──────────────────────────────────────────────────────────────┤
+│                  <span class="highlight">VERSION 2: ADAPTIVE DEPLOYMENT</span>              │
+│                                                              │
+│  Student plays → Telemetry → Pretrained LSTM predicts score  │
+│                                        │                     │
+│                                        ▼                     │
+│                              Pretrained DQN selects action   │
+│                                        │                     │
+│                                        ▼                     │
+│                              DDA adapts difficulty           │
+└──────────────────────────────────────────────────────────────┘
+      </pre>
+    </section>
+
+    <!-- Section 2 -->
+    <section>
+      <h2>2. Machine Learning Task Definitions</h2>
+
+      <h3>A. LSTM Proficiency Encoder</h3>
+      <ul>
+        <li>
+          <strong>Prediction Target:</strong> Continuous Student Proficiency Score <var>p</var> &isin; [0.0, 1.0].
+          <ul>
+            <li><strong>0.0 – 0.3:</strong> Beginner (struggling with Logic Wall; requires scaffolding)</li>
+            <li><strong>0.3 – 0.6:</strong> Intermediate (developing algorithmic competency)</li>
+            <li><strong>0.6 – 1.0:</strong> Advanced (proficient; ready for additional challenge)</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Automatic Label Generation Formula:</strong>
+          <div class="formula-box">
+            Proficiency = 0.40 × C + 0.25 × (1 - E) + 0.20 × (1 - R) + 0.15 × (1 - H)
+          </div>
+          Where:
+          <ul>
+            <li><var>C</var> (Completion Score): Quest completion ratio (0.0 to 1.0)</li>
+            <li><var>E</var> (Error Penalty): min(1.0, errorsThisQuest / 10)</li>
+            <li><var>R</var> (Retry Penalty): min(1.0, resetsThisQuest / 5)</li>
+            <li><var>H</var> (Hint Penalty): min(1.0, hintsUsed / 5)</li>
+          </ul>
+        </li>
+        <li><strong>Input Window:</strong> Tensor of shape <code>[20, 10]</code> (sliding window of 20 timesteps &times; 10 features, zero-padded at session start).</li>
+        <li><strong>Loss Function & Metrics:</strong> Mean Squared Error (MSE), evaluated using RMSE, MAE, R², and compared against a Naïve Mean Predictor baseline.</li>
+      </ul>
+
+      <h3>B. Telemetry Feature Vector (10 Channels)</h3>
+      <div class="feature-grid">
+        <div class="feature-card"><strong>1. Error Rate:</strong> min(1.0, errors / 10)</div>
+        <div class="feature-card"><strong>2. Execution Speed:</strong> min(1.0, stepsPerMin / 200)</div>
+        <div class="feature-card"><strong>3. Iteration Usage:</strong> min(1.0, (forLoops + whileLoops) / 5)</div>
+        <div class="feature-card"><strong>4. Condition Reactivity:</strong> min(1.0, ifEvaluations / 10)</div>
+        <div class="feature-card"><strong>5. Greedy Efficiency:</strong> optimalHarvests / totalHarvests</div>
+        <div class="feature-card"><strong>6. Yield Quality:</strong> freshHarvests / totalHarvests</div>
+        <div class="feature-card"><strong>7. Frustration Score:</strong> Composite error/reset score (0.0 to 1.0)</div>
+        <div class="feature-card"><strong>8. Code Run Success Rate:</strong> successfulRuns / totalRuns</div>
+        <div class="feature-card"><strong>9. Hint Consumption Rate:</strong> min(1.0, hintsShown / 10)</div>
+        <div class="feature-card"><strong>10. Completion Time Ratio:</strong> elapsedTime / expectedStageTime</div>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">
+        <strong>Editor Mode:</strong> Blockly vs. Text editor mode is tracked as session metadata for qualitative research, but excluded from the ML feature vector because mode selection does not directly correlate with algorithmic proficiency.
+      </p>
+
+      <h3>C. Deep Q-Network (DQN) Action Policy</h3>
+      <p>
+        <strong>State Vector S<sub>t</sub> (4 features):</strong>
+      </p>
+      <div class="formula-box">
+        S<sub>t</sub> = [ Proficiency (LSTM Output), Stage / 5.0, FrustrationScore, FlowScore ]
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Action ID</th>
+            <th>Name</th>
+            <th>Trigger Condition</th>
+            <th>Game Mechanics Adjustment</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>0</code></td>
+            <td><strong>NORMAL</strong></td>
+            <td>Nominal progression</td>
+            <td>Standard base parameters</td>
+          </tr>
+          <tr>
+            <td><code>1</code></td>
+            <td><strong>SCAFFOLD</strong></td>
+            <td>High frustration / Logic Wall</td>
+            <td>Crop growth +30%, spoilage time +50%, pests -70%, show hint</td>
+          </tr>
+          <tr>
+            <td><code>2</code></td>
+            <td><strong>CHALLENGE</strong></td>
+            <td>High flow / high proficiency</td>
+            <td>Spoilage time -20%, pest spawn frequency +50%</td>
+          </tr>
+          <tr>
+            <td><code>3</code></td>
+            <td><strong>GREEDY_GUIDE</strong></td>
+            <td>Suboptimal harvest choices (Stage 4+)</td>
+            <td>Highlight crop closest to spoilage, show greedy decision tip</td>
+          </tr>
+          <tr>
+            <td><code>4</code></td>
+            <td><strong>STATE_OPTIMIZE</strong></td>
+            <td>Moderate performance (Stage 5)</td>
+            <td>Modulate stochastic events, display state planning tips</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        <strong>Reward Function:</strong> Evaluates state deltas:
+      </p>
+      <div class="formula-box">
+        Reward = &Delta;Flow &times; 2.0 &minus; &Delta;Frustration &times; 2.0 &minus; &Delta;ErrorRate &times; 1.0 + Bonuses/Penalties
+      </div>
+      <p>
+        Incorporates quest completion bonuses (+1.0) and misaligned scaffolding/challenge penalties (-0.5).
+      </p>
+    </section>
+
+    <!-- Section 3 -->
+    <section>
+      <h2>3. Machine Learning & DDA Modules Breakdown</h2>
+      <p>
+        This section details the specific roles, responsibilities, and architectural mechanisms of each file composing the Machine Learning and Dynamic Difficulty Adjustment pipeline.
+      </p>
+
+      <h3>A. Real-Time Telemetry & Data Infrastructure</h3>
+      
+      <div class="module-card">
+        <h4>src/game/ml/telemetry.js — Real-Time Telemetry Tracker</h4>
+        <p><strong>Role:</strong> Primary telemetry engine for real-time behavior tracking.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Captures real-time student interaction signals across the 5 CS1 curriculum milestones.</li>
+          <li>Maintains an in-memory sliding window history buffer <code>[20, 10]</code> representing recent temporal behaviors.</li>
+          <li>Calculates real-time emotional indices: <strong>Frustration Score</strong> (based on error density, resets, and crop spoilage) and <strong>Flow Score</strong> (based on sustained successful executions and milestone progression).</li>
+          <li>Generates continuous ground-truth proficiency labels automatically upon quest completion.</li>
+          <li>Logs an immutable, append-only raw event stream (<code>rawEvents</code>) for fine-grained re-analysis.</li>
+          <li>Assigns session UUIDs and anonymous participant identifiers (<code>Participant_001</code>, <code>Participant_002</code>, etc.).</li>
+        </ul>
+      </div>
+
+      <div class="module-card">
+        <h4>src/game/ml/data-logger.js — Session Data Logger & Exporter</h4>
+        <p><strong>Role:</strong> Data persistence and export manager bridging browser telemetry to the offline Python training pipeline.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Periodically auto-saves session state to browser <code>localStorage</code>.</li>
+          <li>Manages dataset versioning (e.g., <code>dataset_v1</code>, <code>dataset_v2</code>) to ensure reproducibility.</li>
+          <li>Provides export utility functions:
+            <ul>
+              <li><strong>Full Session JSON:</strong> Complete session export including raw event logs, feature time-series, and quest attempts.</li>
+              <li><strong>Quest Attempt CSV:</strong> Flattened tabular export designed for tabular ML preprocessing.</li>
+              <li><strong>Replay Buffer JSON:</strong> Experience tuples <code>(s, a, r, s', done)</code> for offline DQN training.</li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+
+      <div class="module-card">
+        <h4>src/game/global/interpreter.js — Code Interpreter Integration</h4>
+        <p><strong>Role:</strong> Hooks code execution steps inside the JS-Interpreter to telemetry metrics.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Exposes native functions <code>__trackLoop</code> and <code>__trackIf</code> to monitor loop iterations and conditional evaluations inside student scripts.</li>
+          <li>Evaluates greedy harvest decisions dynamically inside <code>bot.harvest</code> by comparing the spoilage timer of the harvested crop against all other harvestable crops on the farm grid.</li>
+        </ul>
+      </div>
+
+      <h3>B. Adaptive DDA & Agent Execution Layer</h3>
+
+      <div class="module-card">
+        <h4>src/game/ml/agent.js — Central ML Agent Manager</h4>
+        <p><strong>Role:</strong> Primary decision controller coordinating model inference and DDA mode execution.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Manages dual-mode execution:
+            <ul>
+              <li><strong>Bootstrap Mode:</strong> Bypasses neural network outputs and uses deterministic rule-based logic while building experience replay buffers.</li>
+              <li><strong>ML Mode:</strong> Loads pre-trained TensorFlow.js models (<code>/models/lstm/model.json</code> and <code>/models/dqn/model.json</code>) for active forward pass inference.</li>
+            </ul>
+          </li>
+          <li>Auto-detects model availability at startup without requiring manual mode configuration.</li>
+          <li>Manages the in-memory experience replay buffer and persists it to <code>localStorage</code>.</li>
+          <li>Computes temporal difference reward values based on flow gain, frustration reduction, and quest completion bonuses.</li>
+        </ul>
+      </div>
+
+      <div class="module-card">
+        <h4>src/game/ml/dda-bootstrap.js — Deterministic Bootstrap Controller</h4>
+        <p><strong>Role:</strong> Handcrafted adaptive controller used during Version 1 data collection.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Evaluates rule-based thresholds on telemetry states (e.g., high frustration → <code>SCAFFOLD</code>, high flow → <code>CHALLENGE</code>, suboptimal stage 4 harvests → <code>GREEDY_GUIDE</code>).</li>
+          <li>Emits identical 5-action output structures as the DQN to ensure consistent experience tuple formatting for subsequent RL training.</li>
+        </ul>
+      </div>
+
+      <div class="module-card">
+        <h4>src/game/ml/dda.js — Dynamic Difficulty Adjustment Controller</h4>
+        <p><strong>Role:</strong> Mechanics modifier executing selected DDA actions inside the game loop.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Overrides <code>CROP_DATA</code> properties dynamically (<code>growthMultiplier</code>, <code>spoilageMultiplier</code>).</li>
+          <li>Sets pest and fire event spawn frequency multipliers (<code>bugSpawnMultiplier</code>, <code>fireSpawnMultiplier</code>).</li>
+          <li>Injects contextual pedagogical guidance strings (<code>activeHint</code>) into the UI.</li>
+        </ul>
+      </div>
+
+      <div class="module-card">
+        <h4>src/game/event.js — Entity Event Handler</h4>
+        <p><strong>Role:</strong> Connects DDA parameters to Kaplay.js game entity spawning.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Multiplies baseline event difficulty points by <code>dda.bugSpawnMultiplier</code> and <code>dda.fireSpawnMultiplier</code> prior to computing entity counts, attack intervals, and movement speeds.</li>
+        </ul>
+      </div>
+
+      <div class="module-card">
+        <h4>src/components/DDADashboard.svelte — Research Control Panel</h4>
+        <p><strong>Role:</strong> Researcher UI overlay for real-time telemetry monitoring and data management.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Displays live predicted proficiency, active DDA action, Q-value distributions, frustration/flow bars, and step counters.</li>
+          <li>Displays operating mode badges (<code>Bootstrap</code> vs <code>ML Mode</code>).</li>
+          <li>Contains trigger controls for JSON, CSV, and Replay Buffer dataset exports.</li>
+        </ul>
+      </div>
+
+      <div class="module-card">
+        <h4>src/game/ml/evaluator.js — A/B Condition Assigner</h4>
+        <p><strong>Role:</strong> Participant group allocation manager for experimental evaluation.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Uses deterministic hashing of anonymous student IDs to achieve balanced 50/50 allocation between Group A (Bootstrap DDA) and Group B (ML DDA).</li>
+        </ul>
+      </div>
+
+      <h3>C. Offline Training & Evaluation Pipeline (Python)</h3>
+
+      <div class="module-card">
+        <h4>training/prepare_dataset.py — Dataset Preprocessing Pipeline</h4>
+        <p><strong>Role:</strong> Data cleaning and sequence matrix generator.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Loads raw session JSON exports and filters out invalid or short sessions.</li>
+          <li>Constructs sliding sequence windows of shape <code>[20, 10]</code>.</li>
+          <li>Normalizes feature values using min-max scaling and saves scaler parameters (<code>scaler_params.json</code>).</li>
+          <li>Formats and exports 70/15/15 train/validation/test NumPy arrays (<code>X_train.npy</code>, <code>y_train.npy</code>).</li>
+        </ul>
+      </div>
+
+      <div class="module-card">
+        <h4>training/train_lstm.py — Offline LSTM Trainer</h4>
+        <p><strong>Role:</strong> Model trainer for student proficiency estimation.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Trains Keras LSTM model architecture (<code>LSTM(16) -> Dense(8, ReLU) -> Dropout(0.2) -> Dense(1, Sigmoid)</code>).</li>
+          <li>Applies Gaussian noise augmentation to prevent overfitting on smaller sample sizes.</li>
+          <li>Implements early stopping and learning rate reduction on validation loss plateau.</li>
+          <li>Evaluates model metrics (RMSE, MAE, R²) against a Naïve Mean Predictor baseline.</li>
+        </ul>
+      </div>
+
+      <div class="module-card">
+        <h4>training/train_dqn.py — Offline DQN Policy Trainer</h4>
+        <p><strong>Role:</strong> Model trainer for DDA action policy network.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Ingests experience replay tuples from Bootstrap session logs.</li>
+          <li>Trains a Keras policy network using Q-learning, target network hard updates, and temporal difference loss minimization (<code>gamma=0.95</code>).</li>
+          <li>Analyzes Q-value distributions across state spaces and action selection frequencies.</li>
+        </ul>
+      </div>
+
+      <div class="module-card">
+        <h4>training/export_tfjs.sh — Model Conversion Script</h4>
+        <p><strong>Role:</strong> Converter script for browser deployment.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Converts trained <code>.keras</code> artifacts into TensorFlow.js layers format (<code>model.json</code> and binary weight shards) deposited into <code>public/models/lstm/</code> and <code>public/models/dqn/</code>.</li>
+        </ul>
+      </div>
+
+      <div class="module-card">
+        <h4>training/evaluate.py — Statistical Evaluation Engine</h4>
+        <p><strong>Role:</strong> Comparative evaluation script for research findings.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Compares Group A (Bootstrap DDA) vs Group B (ML DDA) performance across metrics including completion rates, error reduction rates, and frustration trajectories.</li>
+          <li>Executes non-parametric Mann-Whitney U statistical significance tests and outputs comparison plots.</li>
+        </ul>
+      </div>
+
+      <h3>D. Data Export Specification & ML Pipeline Integration</h3>
+
+      <div class="module-card">
+        <h4>1. JSON Dataset (algobot_dataset_v1_...json)</h4>
+        <p><strong>Contents:</strong> Complete session histories across all participants, immutable raw event logs (timestamps for moves, plants, code runs, errors, resets), feature time-series snapshots (<code>[20, 10]</code> matrices), and quest attempt outcomes with continuous proficiency labels.</p>
+        <p><strong>Integration Role:</strong></p>
+        <ul>
+          <li><strong>Trains the LSTM Proficiency Predictor:</strong> Primary input for <code>python training/prepare_dataset.py</code>. Extracts 20-timestep feature sequence matrices preceding each quest and pairs them with quest proficiency labels.</li>
+          <li><strong>Future-Proof Re-Analysis:</strong> Preserves raw events so features can be re-engineered in Python without re-running student sessions.</li>
+        </ul>
+      </div>
+
+      <div class="module-card">
+        <h4>2. Quest CSV (algobot_quests_v1_...csv)</h4>
+        <p><strong>Contents:</strong> Tabular dataset where each row represents one completed quest attempt. Includes student/session IDs, quest keys, duration, errors, resets, code runs, hints used, DDA action applied, and end-of-quest telemetry values.</p>
+        <p><strong>Integration Role:</strong></p>
+        <ul>
+          <li><strong>Statistical Analysis & Thesis Writing:</strong> Load into SPSS, R, Python (Pandas/Seaborn), or Excel to compute descriptive statistics (mean completion times, error rate distributions across CS1 stages).</li>
+          <li><strong>A/B Hypothesis Testing:</strong> Input file for <code>python training/evaluate.py</code> to run Mann-Whitney U significance tests comparing Group A (Bootstrap DDA) vs Group B (ML DDA).</li>
+        </ul>
+      </div>
+
+      <div class="module-card">
+        <h4>3. Replay Buffer (algobot_replay_buffer_...json)</h4>
+        <p><strong>Contents:</strong> Array of Experience Tuples <code>(s_t, a_t, r_t, s_{t+1}, done)</code> collected during Version 1 gameplay. Contains state vector <code>[Proficiency, Stage/5, Frustration, Flow]</code>, DDA action selected, reward computed, and next state vector.</p>
+        <p><strong>Integration Role:</strong></p>
+        <ul>
+          <li><strong>Trains the DQN Action Policy Network:</strong> Primary input for <code>python training/train_dqn.py</code>.</li>
+          <li><strong>Offline Reinforcement Learning:</strong> Enables policy training from collected Bootstrap experiences without risking live, unstable reinforcement learning in front of real students.</li>
+        </ul>
+      </div>
+
+      <div class="module-card">
+        <h4>4. End-to-End Data Workflow</h4>
+        <pre class="diagram">
+                                  VERSION 1 (Bootstrap Phase)
+                             Students play with Bootstrap DDA rules
+                                               │
+                                               ▼
+                              Click Data Export in Dev Console:
+                      ┌────────────────────────┼────────────────────────┐
+                      ▼                        ▼                        ▼
+               JSON Dataset               Quest CSV               Replay Buffer
+                      │                        │                        │
+                      ▼                        ▼                        ▼
+           python prepare_dataset.py   python evaluate.py      python train_dqn.py
+           python train_lstm.py        (Chapter 4 Thesis Stats) (Trains DQN Action Policy)
+           (Trains LSTM Proficiency)
+                      │                                                 │
+                      └────────────────────────┬────────────────────────┘
+                                               ▼
+                                      bash export_tfjs.sh
+                                               │
+                                               ▼
+                                 Exports TensorFlow.js models to:
+                                    public/models/lstm/model.json
+                                    public/models/dqn/model.json
+                                               │
+                                               ▼
+                                  VERSION 2 (ML Adaptive Mode)
+                             Game auto-detects model files on launch
+                             RNN + DQN + DDA runs live in browser!
+        </pre>
+      </div>
+    </section>
+
+    <!-- Section 4 -->
+    <section>
+      <h2>4. Operational Workflow Guide</h2>
+
+      <h3>Phase 1: Bootstrap Data Collection</h3>
+      <ol>
+        <li>Deploy the application. The system automatically initializes in <strong>Bootstrap Mode</strong> because no pre-trained weights exist in <code>public/models/</code>.</li>
+        <li>Participants play the game. Telemetry logs the 10 features, computes proficiency labels upon quest completions, and appends experience tuples to <code>localStorage</code>.</li>
+        <li>Open the <strong>DDA Research Panel</strong> (click <code>DDA ▼</code> bottom-right) to download:
+          <ul>
+            <li><strong>JSON:</strong> Full session dataset with raw events and feature time-series.</li>
+            <li><strong>CSV:</strong> Flattened quest attempt table for tabular/statistical software.</li>
+            <li><strong>Replay:</strong> Replay buffer tuples for DQN training.</li>
+          </ul>
+        </li>
+      </ol>
+
+      <h3>Phase 2: Offline Model Training</h3>
+      <pre><code># 1. Install Python ML requirements
+pip install -r training/requirements.txt
+
+# 2. Preprocess raw JSON exports into numpy datasets
+python training/prepare_dataset.py --input training/data/raw/ --output training/data/processed/
+
+# 3. Train LSTM Proficiency Predictor
+python training/train_lstm.py --data training/data/processed/ --output training/models/ --augment
+
+# 4. Train DQN Policy Network
+python training/train_dqn.py --data training/data/raw/ --output training/models/
+
+# 5. Export models to TensorFlow.js format
+bash training/export_tfjs.sh</code></pre>
+
+      <h3>Phase 3: Adaptive ML Deployment</h3>
+      <p>
+        Refresh or restart the application. <code>agent.js</code> automatically detects <code>public/models/lstm/model.json</code> 
+        and <code>public/models/dqn/model.json</code>, changing the research panel badge to <strong>"ML Mode"</strong>. 
+        The application now executes real-time TensorFlow.js neural network inference.
+      </p>
+
+      <h3>Phase 4: A/B Experimental Evaluation</h3>
+      <pre><code>python training/evaluate.py --data training/data/raw/ --output training/results/</code></pre>
+      <p>
+        Outputs formatted statistical comparison tables (Mann-Whitney U <i>p</i>-values) and comparative charts analyzing learning gain, retry reduction, and frustration trajectories.
+      </p>
+    </section>
+
+    <footer>
+      Algobot Educational Research Project — ML Pipeline Documentation &copy; 2026
+    </footer>
+  </div>
+
+</body>
+</html>
