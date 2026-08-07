@@ -63,7 +63,12 @@
     let startX, startY, initialX, initialY;
 
     function onPointerDown(e) {
-      if (e.target.closest("button") || e.target.closest("input") || e.target.closest("select")) return;
+      if (
+        e.target.closest("button") ||
+        e.target.closest("input") ||
+        e.target.closest("select")
+      )
+        return;
       moving = true;
       startX = e.clientX;
       startY = e.clientY;
@@ -110,23 +115,36 @@
       class="flex cursor-grab items-center justify-between bg-gray-900 px-4 py-2 active:cursor-grabbing select-none shrink-0"
     >
       <div class="flex items-center gap-2">
-        <div class="h-2 w-2 rounded-full {agentMode === 'ml' ? 'bg-emerald-400' : 'bg-amber-400'}"></div>
-        <span class="text-[10px] font-black uppercase tracking-tighter text-gray-300">DDA Research Panel</span>
-        <span class="text-[9px] px-1.5 py-0.5 rounded font-bold {agentMode === 'ml' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}">
-          {agentMode === 'ml' ? 'ML Mode' : 'Bootstrap'}
+        <div
+          class="h-2 w-2 rounded-full {agentMode === 'ml'
+            ? 'bg-emerald-400'
+            : 'bg-amber-400'}"
+        ></div>
+        <span
+          class="text-[10px] font-black uppercase tracking-tighter text-gray-300"
+          >DDA Research Panel</span
+        >
+        <span
+          class="text-[9px] px-1.5 py-0.5 rounded font-bold {agentMode === 'ml'
+            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}"
+        >
+          {agentMode === "ml" ? "ML Mode" : "Bootstrap"}
         </span>
       </div>
       <button
         onclick={() => (visible = false)}
         class="text-gray-500 hover:text-white cursor-pointer font-bold text-xs"
-        title="Close DDA Panel"
-      >✕</button>
+        title="Close DDA Panel">✕</button
+      >
     </div>
 
     <!-- Content -->
     <div class="flex-1 overflow-y-auto p-3 custom-scrollbar text-xs space-y-3">
       <!-- Session Info -->
-      <div class="flex justify-between text-[10px] text-gray-400 bg-gray-900/60 p-2 rounded border border-gray-800">
+      <div
+        class="flex justify-between text-[10px] text-gray-400 bg-gray-900/60 p-2 rounded border border-gray-800"
+      >
         <span>Sessions: {sessionCount}</span>
         <span>Replay: {replaySize}</span>
         <span class="font-mono">{telemetry.participantId}</span>
@@ -134,7 +152,8 @@
 
       <!-- CS1 Curriculum Stage -->
       <div class="flex flex-col gap-1">
-        <span class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
+        <span
+          class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
           >CS1 Stage</span
         >
         <div class="flex items-center gap-2">
@@ -206,7 +225,9 @@
 
       <!-- Active DDA Action -->
       {#if ddaState}
-        <div class="flex flex-col gap-1 border border-gray-800 rounded-lg p-2 bg-gray-900/60">
+        <div
+          class="flex flex-col gap-1 border border-gray-800 rounded-lg p-2 bg-gray-900/60"
+        >
           <span
             class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
             >Active DDA Action (DQN)</span
@@ -229,7 +250,8 @@
 
       <!-- DQN Q-Values -->
       <div class="flex flex-col gap-1">
-        <span class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
+        <span
+          class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
           >DQN Q-Values</span
         >
         <div class="flex flex-col gap-0.5">
@@ -280,7 +302,14 @@
         >
         <span>Harvests: {telemetry.cropsHarvestedFresh}</span>
         <span>Code Runs: {telemetry.codeRunCount}</span>
-        <span>Success Rate: {telemetry.codeRunCount > 0 ? ((telemetry.codeRunSuccessCount / telemetry.codeRunCount) * 100).toFixed(0) : 0}%</span>
+        <span
+          >Success Rate: {telemetry.codeRunCount > 0
+            ? (
+                (telemetry.codeRunSuccessCount / telemetry.codeRunCount) *
+                100
+              ).toFixed(0)
+            : 0}%</span
+        >
         <span>Hints: {telemetry.hintsShown}</span>
         <span>Quests Done: {telemetry.questsCompleted}</span>
       </div>
@@ -299,7 +328,7 @@
     <div
       class="bg-gray-900/30 p-1 text-[8px] text-gray-600 text-center border-t border-gray-800/50 shrink-0 select-none"
     >
-      DRAG HEADER TO MOVE
+      DRAG TO MOVE
     </div>
   </div>
 {/if}

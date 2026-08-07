@@ -29,6 +29,7 @@
   import { telemetry, CS1_STAGES } from "../game/ml/telemetry.js";
   import { mlAgent } from "../game/ml/agent.js";
   import { dataLogger } from "../game/ml/data-logger.js";
+  import { eventScheduler } from "../game/ml/event-scheduler.js";
 
   let { showDDADashboard = $bindable(false) } = $props();
 
@@ -55,6 +56,9 @@
   let inspectX = $state(0);
   let inspectY = $state(0);
   let inspectFilter = $state("all"); // "all", "crop", "bug", "bot"
+
+  // Event Scheduler state (refreshed on demand)
+  let schedulerInfo = $state(null);
 
   const TABS = [
     { id: "world",   label: "World"   },
@@ -1238,6 +1242,59 @@
             <span class="text-gray-400">Sessions / Replay Buffer:</span>
             <span class="text-gray-300">{dataLogger.getSessionCount()} sessions / {mlAgent.replayBuffer?.length || 0} exp</span>
           </div>
+        </div>
+
+        {@render sec("Event Scheduler")}
+        <div class="bg-gray-900 border border-gray-800 rounded p-2 text-[10px] space-y-1 text-gray-300">
+          {#if schedulerInfo}
+            <div class="flex justify-between">
+              <span class="text-gray-400">Status:</span>
+              <span class="font-bold {schedulerInfo.isRunning ? 'text-emerald-400' : 'text-red-400'}">{schedulerInfo.isRunning ? 'Running' : 'Stopped'}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Mode:</span>
+              <span class="font-bold text-white">{schedulerInfo.mode} ({schedulerInfo.intervalMs / 1000}s interval)</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Farm Grid:</span>
+              <span class="text-white">{schedulerInfo.harvestableCount} harvestable / {schedulerInfo.totalTiles} tiles (need {schedulerInfo.threshold}+)</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Precondition:</span>
+              <span class="font-bold {schedulerInfo.preconditionMet ? 'text-emerald-400' : 'text-red-400'}">{schedulerInfo.preconditionMet ? 'MET' : 'NOT MET'}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Spawn Chance (Bootstrap):</span>
+              <span class="font-bold text-amber-300">{(schedulerInfo.spawnChance * 100).toFixed(1)}% (Lv.{schedulerInfo.playerLevel})</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Cooldown:</span>
+              <span class="font-bold {schedulerInfo.cooldownActive ? 'text-red-400' : 'text-emerald-400'}">{schedulerInfo.cooldownActive ? `Active (${Math.ceil(schedulerInfo.cooldownRemaining / 1000)}s left)` : 'Ready'}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Events Triggered:</span>
+              <span class="text-white">{schedulerInfo.eventsTriggered}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Next Check In:</span>
+              <span class="text-white">{Math.ceil(schedulerInfo.nextCheckIn / 1000)}s</span>
+            </div>
+          {:else}
+            <p class="text-gray-500 italic">Click "Calculate Event Chance" to refresh</p>
+          {/if}
+        </div>
+        <div class="grid grid-cols-2 gap-1">
+          {@render btn("Calculate Event Chance", "text-amber-300 font-bold", () =>
+            run("Refresh Scheduler", () => {
+              schedulerInfo = eventScheduler.getState();
+            })
+          )}
+          {@render btn("Force Event Check", "text-red-400 font-bold", () =>
+            run("Force Event Check", () => {
+              const result = eventScheduler.forceCheck();
+              schedulerInfo = eventScheduler.getState();
+            })
+          )}
         </div>
 
         {@render sec("Dataset Exports")}

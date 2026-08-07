@@ -23,6 +23,7 @@
   import { k } from "../lib/kaplay.js";
   import { onMount, onDestroy } from "svelte";
   import { telemetry } from "../game/ml/telemetry.js";
+  import { eventScheduler } from "../game/ml/event-scheduler.js";
 
   let { onReturnMenu } = $props();
 
@@ -98,7 +99,10 @@
       localStorage.setItem("algobot_participant_id", participantId);
     }
     telemetry.setParticipantId(participantId);
-    console.log(`📊 Telemetry session started: ${telemetry.getSessionId()} (${participantId})`);
+    console.log(`Telemetry session started: ${telemetry.getSessionId()} (${participantId})`);
+
+    // Start automated event scheduler (Bootstrap or ML mode)
+    eventScheduler.start();
 
     // Save session data on page unload
     const handleBeforeUnload = () => {
@@ -123,6 +127,7 @@
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
+      eventScheduler.stop();
     };
   });
 
