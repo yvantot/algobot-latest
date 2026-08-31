@@ -111,7 +111,7 @@
             {SLIDES[currentSlide].title}
           </h3>
           <p
-            class="text-xs font-semibold text-green-800 uppercase tracking-wider"
+            class="text-sm font-semibold text-green-800 uppercase tracking-wider"
           >
             {SLIDES[currentSlide].subtitle}
           </p>
@@ -147,7 +147,7 @@
             class="bg-white border-2 border-slate-300 rounded-lg p-3 space-y-1.5 shadow-inner flex-grow"
           >
             {#each SLIDES[currentSlide].highlights as highlight}
-              <div class="flex items-center gap-2 text-xs text-slate-700">
+              <div class="flex items-center gap-2 text-sm text-slate-700">
                 <span class="text-green-700 font-bold">✓</span>
                 <span>{highlight}</span>
               </div>
@@ -162,7 +162,7 @@
       >
         <!-- Don't Show Again Checkbox -->
         <label
-          class="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-600 hover:text-slate-900 font-medium"
+          class="flex items-center gap-2 cursor-pointer select-none text-sm text-slate-600 hover:text-slate-900 font-medium"
         >
           <input
             type="checkbox"
@@ -193,7 +193,7 @@
             {#if currentSlide > 0}
               <button
                 onclick={prevSlide}
-                class="px-3 py-1.5 bg-gray-300 hover:bg-gray-400 text-slate-800 font-bold rounded-lg text-xs border border-slate-400 cursor-pointer transition-colors"
+                class="px-3 py-1.5 bg-gray-300 hover:bg-gray-400 text-slate-800 font-bold rounded-lg text-sm border border-slate-400 cursor-pointer transition-colors"
               >
                 Previous
               </button>
@@ -202,14 +202,14 @@
             {#if currentSlide < SLIDES.length - 1}
               <button
                 onclick={nextSlide}
-                class="px-4 py-1.5 bg-gray-300 hover:bg-gray-400 text-slate-800 font-bold rounded-lg text-xs border border-slate-400 cursor-pointer transition-colors"
+                class="px-4 py-1.5 bg-gray-300 hover:bg-gray-400 text-slate-800 font-bold rounded-lg text-sm border border-slate-400 cursor-pointer transition-colors"
               >
                 Next
               </button>
             {:else}
               <button
                 onclick={handleClose}
-                class="px-5 py-1.5 bg-gray-300 hover:bg-gray-400 text-slate-800 font-bold rounded-lg text-xs border border-slate-400 cursor-pointer transition-colors"
+                class="px-5 py-1.5 bg-gray-300 hover:bg-gray-400 text-slate-800 font-bold rounded-lg text-sm border border-slate-400 cursor-pointer transition-colors"
               >
                 Start Farming
               </button>
@@ -223,11 +223,15 @@
 
 <style>
   @keyframes bot-teacher-bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-4px); }
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
   }
   .bot-teacher-idle {
     animation: bot-teacher-bounce 1.6s ease-in-out infinite;
   }
 </style>
-

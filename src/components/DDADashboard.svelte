@@ -121,7 +121,7 @@
             : 'bg-amber-400'}"
         ></div>
         <span
-          class="text-[10px] font-black uppercase tracking-tighter text-gray-300"
+          class="text-sm font-black uppercase tracking-tighter text-gray-300"
           >DDA Research Panel</span
         >
         <span
@@ -134,16 +134,16 @@
       </div>
       <button
         onclick={() => (visible = false)}
-        class="text-gray-500 hover:text-white cursor-pointer font-bold text-xs"
+        class="text-gray-500 hover:text-white cursor-pointer font-bold text-sm"
         title="Close DDA Panel">✕</button
       >
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-y-auto p-3 custom-scrollbar text-xs space-y-3">
+    <div class="flex-1 overflow-y-auto p-3 custom-scrollbar text-sm space-y-3">
       <!-- Session Info -->
       <div
-        class="flex justify-between text-[10px] text-gray-400 bg-gray-900/60 p-2 rounded border border-gray-800"
+        class="flex justify-between text-sm text-gray-400 bg-gray-900/60 p-2 rounded border border-gray-800"
       >
         <span>Sessions: {sessionCount}</span>
         <span>Replay: {replaySize}</span>
@@ -238,7 +238,7 @@
             >{ddaState.actionName}</span
           >
           <div
-            class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-gray-300 mt-1"
+            class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-sm text-gray-300 mt-1"
           >
             <span>Growth: ×{ddaState.growthMultiplier.toFixed(1)}</span>
             <span>Spoilage: ×{ddaState.spoilageMultiplier.toFixed(1)}</span>
@@ -290,7 +290,7 @@
 
       <!-- Telemetry Counters -->
       <div
-        class="border-t border-gray-800 pt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-gray-300"
+        class="border-t border-gray-800 pt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-sm text-gray-300"
       >
         <span>Steps: {telemetry.totalInterpreterSteps}</span>
         <span>Errors: {telemetry.errorCount}</span>
@@ -317,7 +317,7 @@
       <!-- Active Hint from DDA -->
       {#if ddaState?.activeHint}
         <div
-          class="bg-blue-950/80 border border-blue-500/40 rounded p-2 text-[10px] text-blue-200"
+          class="bg-blue-950/80 border border-blue-500/40 rounded p-2 text-sm text-blue-200"
         >
           {ddaState.activeHint}
         </div>

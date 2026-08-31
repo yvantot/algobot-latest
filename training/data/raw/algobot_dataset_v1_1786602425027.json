@@ -1,0 +1,1404 @@
+{
+  "dataset_version": "v1",
+  "export_date": "2026-08-13T06:27:05.026Z",
+  "participant_count": 2,
+  "session_count": 17,
+  "feature_schema_version": "10f",
+  "label_formula": "0.40*completion + 0.25*(1-errors) + 0.20*(1-resets) + 0.15*(1-hints)",
+  "sessions": [
+    {
+      "summary": {
+        "sessionId": "3747329f-b7a9-4c71-870e-a90acdeab4ea",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-04T00:56:38.546Z",
+        "durationMinutes": 110.36,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 5,
+        "totalErrors": 0,
+        "totalResets": 2,
+        "totalCodeRuns": 2,
+        "codeRunSuccessRate": 1,
+        "totalHintsShown": 0,
+        "questsCompleted": 2,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {
+        "tut_0": {
+          "startTime": 1785805037428,
+          "errors": 0,
+          "resets": 1,
+          "codeRuns": 1,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0.0077156524870119845,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.3240166666666667
+          ],
+          "endTime": 1785805049335,
+          "durationSeconds": 11.907,
+          "featureVectorAtEnd": [
+            0,
+            0.005906790840536337,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.4232416666666667
+          ],
+          "proficiencyLabel": 0.96,
+          "ddaAction": 0,
+          "stage": 1
+        },
+        "tut_1": {
+          "startTime": 1785805065543,
+          "errors": 0,
+          "resets": 1,
+          "codeRuns": 0,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0.01343343731808887,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.5583083333333333
+          ],
+          "endTime": 1785805068788,
+          "durationSeconds": 3.245,
+          "featureVectorAtEnd": [
+            0,
+            0.021354745024344406,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.58535
+          ],
+          "proficiencyLabel": 0.96,
+          "ddaAction": 0,
+          "stage": 1
+        }
+      },
+      "featureSnapshots": [
+        {
+          "index": 0,
+          "vector": [
+            0,
+            0.0077156524870119845,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.3240166666666667
+          ],
+          "stage": 1
+        },
+        {
+          "index": 1,
+          "vector": [
+            0,
+            0.0075765228810991,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.32996666666666663
+          ],
+          "stage": 1
+        },
+        {
+          "index": 2,
+          "vector": [
+            0,
+            0.01343343731808887,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.5583083333333333
+          ],
+          "stage": 1
+        },
+        {
+          "index": 3,
+          "vector": [
+            0,
+            0.01343343731808887,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.5583083333333333
+          ],
+          "stage": 1
+        },
+        {
+          "index": 4,
+          "vector": [
+            0,
+            0.017718977024393127,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.5643666666666667
+          ],
+          "stage": 1
+        },
+        {
+          "index": 5,
+          "vector": [
+            0,
+            0.017718977024393127,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.5643666666666667
+          ],
+          "stage": 1
+        },
+        {
+          "index": 6,
+          "vector": [
+            0,
+            0.02191348555901302,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.570425
+          ],
+          "stage": 1
+        },
+        {
+          "index": 7,
+          "vector": [
+            0,
+            0.02191348555901302,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.570425
+          ],
+          "stage": 1
+        }
+      ],
+      "ddaLog": [
+        {
+          "timestamp": 39596,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 66997,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 67724,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 68451,
+          "actionId": 0,
+          "stage": 1
+        }
+      ],
+      "rawEventCount": 19
+    },
+    {
+      "summary": {
+        "sessionId": "a7221bf4-7e38-4a74-84bf-e5ecb9ae2330",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-04T02:47:00.378Z",
+        "durationMinutes": 8.97,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 0
+    },
+    {
+      "summary": {
+        "sessionId": "e54108f4-ebd9-43af-8ddd-6021c2f89eaf",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-04T03:03:05.364Z",
+        "durationMinutes": 5.34,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 0
+    },
+    {
+      "summary": {
+        "sessionId": "d5b323fc-9fa6-40d1-b0e9-79544540ab04",
+        "participantId": "Playthrough_90deb867",
+        "startTime": "2026-08-04T03:08:26.114Z",
+        "durationMinutes": 13.07,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 0
+    },
+    {
+      "summary": {
+        "sessionId": "82898e7b-22fe-4033-8486-bf9a9150d8ba",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-04T03:21:30.783Z",
+        "durationMinutes": 7.37,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 0
+    },
+    {
+      "summary": {
+        "sessionId": "19d64b33-81fd-40a7-a68b-6258e6600b43",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-04T03:28:53.424Z",
+        "durationMinutes": 12.28,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 1,
+        "totalErrors": 0,
+        "totalResets": 1,
+        "totalCodeRuns": 1,
+        "codeRunSuccessRate": 1,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {
+        "tut_0": {
+          "startTime": 1785814144127,
+          "errors": 0,
+          "resets": 1,
+          "codeRuns": 0,
+          "hintsShown": 0,
+          "completed": false,
+          "featureVectorAtStart": [
+            0,
+            0.028029524432402128,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.08919166666666666
+          ]
+        }
+      },
+      "featureSnapshots": [
+        {
+          "index": 0,
+          "vector": [
+            0,
+            0.028029524432402128,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.08919166666666666
+          ],
+          "stage": 1
+        },
+        {
+          "index": 1,
+          "vector": [
+            0,
+            0.02629733520336606,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.09506666666666666
+          ],
+          "stage": 1
+        }
+      ],
+      "ddaLog": [
+        {
+          "timestamp": 11407,
+          "actionId": 0,
+          "stage": 1
+        }
+      ],
+      "rawEventCount": 5
+    },
+    {
+      "summary": {
+        "sessionId": "5e9f2f15-3138-421b-bf0f-5d13cfc10a51",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-04T03:43:21.897Z",
+        "durationMinutes": 11.81,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 0
+    },
+    {
+      "summary": {
+        "sessionId": "1c72e1dd-011f-4a5e-addb-39c4593d8611",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-04T05:10:36.846Z",
+        "durationMinutes": 7.81,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 0
+    },
+    {
+      "summary": {
+        "sessionId": "125611e9-a297-48c5-9e67-cd4a3147c62f",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-04T05:18:25.628Z",
+        "durationMinutes": 8.84,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 0
+    },
+    {
+      "summary": {
+        "sessionId": "c9366f6d-711b-4a66-b784-c3792280479a",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-04T12:40:56.023Z",
+        "durationMinutes": 12.68,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 0
+    },
+    {
+      "summary": {
+        "sessionId": "26aaa753-10fa-452c-8d0f-4b0e8c4f87c4",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-04T12:56:10.782Z",
+        "durationMinutes": 1.56,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 3,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {
+        "tut_0": {
+          "startTime": 1785848170782,
+          "errors": 0,
+          "resets": 0,
+          "codeRuns": 0,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "endTime": 1785848248492,
+          "durationSeconds": 77.71,
+          "featureVectorAtEnd": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.6475833333333333
+          ],
+          "proficiencyLabel": 1,
+          "ddaAction": 0,
+          "stage": 1
+        },
+        "tut_1": {
+          "startTime": 1785848170782,
+          "errors": 0,
+          "resets": 0,
+          "codeRuns": 0,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "endTime": 1785848251804,
+          "durationSeconds": 81.022,
+          "featureVectorAtEnd": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.6751833333333334
+          ],
+          "proficiencyLabel": 1,
+          "ddaAction": 0,
+          "stage": 1
+        },
+        "tut_2": {
+          "startTime": 1785848170782,
+          "errors": 0,
+          "resets": 0,
+          "codeRuns": 0,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "endTime": 1785848260943,
+          "durationSeconds": 90.161,
+          "featureVectorAtEnd": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.7513416666666667
+          ],
+          "proficiencyLabel": 1,
+          "ddaAction": 0,
+          "stage": 1
+        }
+      },
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 3
+    },
+    {
+      "summary": {
+        "sessionId": "5894ef0c-e60f-495e-9f1a-4c7cc97b0a26",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-04T12:57:44.776Z",
+        "durationMinutes": 6.87,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 0
+    },
+    {
+      "summary": {
+        "sessionId": "9f9c12d6-3c3d-40ac-8726-a6914a4e1322",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-04T13:07:37.057Z",
+        "durationMinutes": 1.72,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 0
+    },
+    {
+      "summary": {
+        "sessionId": "a145a9ec-7c57-4e35-93f4-0ff173284825",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-05T06:32:06.186Z",
+        "durationMinutes": 116.09,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 2
+    },
+    {
+      "summary": {
+        "sessionId": "f70e9771-2253-440a-910c-7e65dca7748d",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-05T08:28:11.652Z",
+        "durationMinutes": 15.12,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 0
+    },
+    {
+      "summary": {
+        "sessionId": "34f5a3a1-51de-43f2-bb92-d2de4e2a0c29",
+        "participantId": "Participant_001",
+        "startTime": "2026-08-07T10:02:47.135Z",
+        "durationMinutes": 8.14,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 0
+    },
+    {
+      "dataset_version": "v1",
+      "export_date": "2026-08-13T06:27:05.026Z",
+      "feature_schema_version": "10f",
+      "label_formula": "0.40*completion + 0.25*(1-errors) + 0.20*(1-resets) + 0.15*(1-hints)",
+      "student_id": "Participant_001",
+      "session_id": "f31be02e-39a2-472f-b6ec-0bfaab9fb3da",
+      "start_time": "2026-08-13T06:16:31.803Z",
+      "duration_minutes": 10.55,
+      "editor_mode_primary": "blockly",
+      "dda_mode": "bootstrap",
+      "quest_attempts": [
+        {
+          "quest_key": "tut_0",
+          "stage": 1,
+          "start_time": "2026-08-13T06:20:44.957Z",
+          "end_time": "2026-08-13T06:20:52.924Z",
+          "duration_seconds": 7.967,
+          "completed": true,
+          "errors": 0,
+          "resets": 1,
+          "code_runs": 1,
+          "hints_shown": 0,
+          "dda_action": 0,
+          "feature_vector_start": [
+            0,
+            0.0011850494165606706,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "feature_vector_end": [
+            0,
+            0.0011488926589588735,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "proficiency_label": 0.96
+        },
+        {
+          "quest_key": "tut_1",
+          "stage": 1,
+          "start_time": "2026-08-13T06:23:24.193Z",
+          "end_time": null,
+          "duration_seconds": 0,
+          "completed": false,
+          "errors": 0,
+          "resets": 7,
+          "code_runs": 8,
+          "hints_shown": 0,
+          "dda_action": 0,
+          "feature_vector_start": [
+            0,
+            0.0021824001551929,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "feature_vector_end": [],
+          "proficiency_label": null
+        }
+      ],
+      "feature_timeseries": [
+        {
+          "index": 0,
+          "vector": [
+            0,
+            0.0011850494165606706,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 1,
+          "vector": [
+            0,
+            0.001178110703135738,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 2,
+          "vector": [
+            0,
+            0.002182394863127469,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 3,
+          "vector": [
+            0,
+            0.002182394863127469,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 4,
+          "vector": [
+            0,
+            0.002904717988192321,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 5,
+          "vector": [
+            0,
+            0.002904717988192321,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 6,
+          "vector": [
+            0,
+            0.004033161550526552,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 7,
+          "vector": [
+            0,
+            0.004033161550526552,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        }
+      ],
+      "dda_log": [
+        {
+          "timestamp": 254645,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 412391,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 413121,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 446300,
+          "actionId": 0,
+          "stage": 1
+        }
+      ],
+      "replay_buffer": [
+        {
+          "state": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786602204194
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786602204924
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786602238103
+        }
+      ],
+      "raw_events": [
+        {
+          "t": 253146,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 253154,
+          "event": "quest_start",
+          "quest": "tut_0"
+        },
+        {
+          "t": 253154,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 253181,
+          "event": "code_reset"
+        },
+        {
+          "t": 254645,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 261122,
+          "event": "quest_complete",
+          "quest": "tut_0",
+          "label": 0.96
+        },
+        {
+          "t": 412379,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 412388,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 412390,
+          "event": "quest_start",
+          "quest": "tut_1"
+        },
+        {
+          "t": 412391,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 412391,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 413121,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 413121,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 413121,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 413858,
+          "event": "code_reset"
+        },
+        {
+          "t": 446290,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 446300,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 446300,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 446300,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 447051,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 447787,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 448612,
+          "event": "code_reset"
+        },
+        {
+          "t": 516374,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 516382,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 516590,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 536140,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 536163,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 542103,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 542851,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 543675,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 544515,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 550514,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 551233,
+          "event": "code_reset"
+        },
+        {
+          "t": 556103,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 556125,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 556966,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 557705,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 558533,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 559377,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 560109,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 560835,
+          "event": "code_reset"
+        },
+        {
+          "t": 578292,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 578312,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 579167,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 579999,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 580735,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 581555,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 582292,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 583017,
+          "event": "code_reset"
+        },
+        {
+          "t": 586226,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 586245,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 587090,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 587929,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 588761,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 589486,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 590201,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 590923,
+          "event": "code_reset"
+        },
+        {
+          "t": 605263,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 605267,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 606106,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 606953,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 607785,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 608508,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 609266,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 610067,
+          "event": "code_reset"
+        }
+      ],
+      "summary": {
+        "total_quests_attempted": 2,
+        "total_quests_completed": 1,
+        "total_errors": 0,
+        "total_resets": 8,
+        "total_code_runs": 10,
+        "code_run_success_rate": 1,
+        "total_hints_shown": 0,
+        "max_stage_reached": 1,
+        "avg_frustration": 0.3,
+        "avg_flow": 0.5,
+        "total_interpreter_steps": 45,
+        "replay_buffer_size": 3,
+        "agent_episode_count": 3
+      }
+    }
+  ]
+}

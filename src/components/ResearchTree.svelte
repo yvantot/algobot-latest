@@ -86,13 +86,13 @@
   ></div>
   <div>
     <h1 class="font-bold text-base text-center">Research & Skill Tree</h1>
-    <p class="text-xs text-center px-2">
+    <p class="text-sm text-center px-2">
       Progression overview categorized by Tiers and Quest requirements
     </p>
   </div>
 
   <!-- Tier Filter Tabs -->
-  <div class="flex flex-wrap gap-1 justify-center text-xs">
+  <div class="flex flex-wrap gap-1 justify-center text-sm">
     <button
       class="rounded-lg p-1 px-3 bg-gray-300 font-semibold cursor-pointer transition-colors"
       class:bg-green-300={selectedTier === "all"}
@@ -113,7 +113,7 @@
 
   <!-- Skill Tree List -->
   <div
-    class="flex flex-col gap-3 flex-grow overflow-y-scroll h-[85vh] p-1 text-xs"
+    class="flex flex-col gap-3 flex-grow overflow-y-scroll h-[85vh] p-1 text-sm"
   >
     {#each filteredTiers as tier}
       {@const items = tierData[tier] || []}
@@ -124,7 +124,7 @@
         <div
           class="flex justify-between items-center border-b border-slate-200 pb-1.5"
         >
-          <h2 class="font-bold text-xs text-slate-800 flex items-center gap-2">
+          <h2 class="font-bold text-sm text-slate-800 flex items-center gap-2">
             <span
               class="bg-slate-800 text-amber-400 px-2 py-0.5 rounded text-[11px] font-bold"
               >Tier {tier}</span
@@ -164,7 +164,7 @@
                 <div class="flex flex-col">
                   <div class="flex items-center gap-1.5">
                     <span
-                      class="font-bold text-slate-800 text-xs"
+                      class="font-bold text-slate-800 text-sm"
                       style="font-family: 'Courier Prime'">{item.name}</span
                     >
                     {#if item.type}
@@ -176,10 +176,9 @@
                     {/if}
                   </div>
                   {#if !item.is_unlocked}
-                    <span class="text-[10px] text-red-600 font-semibold">
+                    <span class="text-sm text-red-600 font-semibold">
                       {#if item.unlockQuest}
-                        Unlock via Quest: <span
-                          class="font-bold text-red-700"
+                        Unlock via Quest: <span class="font-bold text-red-700"
                           >{item.unlockQuest}</span
                         >
                       {:else}
@@ -187,7 +186,7 @@
                       {/if}
                     </span>
                   {:else}
-                    <span class="text-[10px] text-green-700 font-semibold">
+                    <span class="text-sm text-green-700 font-semibold">
                       Available in Bot Editor
                     </span>
                   {/if}
@@ -197,12 +196,12 @@
               <div>
                 {#if item.is_unlocked}
                   <span
-                    class="bg-green-200 text-green-800 border border-green-400 text-[10px] px-2 py-0.5 rounded font-bold"
+                    class="bg-green-200 text-green-800 border border-green-400 text-sm px-2 py-0.5 rounded font-bold"
                     >UNLOCKED</span
                   >
                 {:else}
                   <span
-                    class="bg-red-100 text-red-800 border border-red-300 text-[10px] px-2 py-0.5 rounded font-bold"
+                    class="bg-red-100 text-red-800 border border-red-300 text-sm px-2 py-0.5 rounded font-bold"
                     >LOCKED</span
                   >
                 {/if}

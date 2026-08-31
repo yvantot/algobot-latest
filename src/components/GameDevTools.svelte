@@ -14,7 +14,11 @@
     DID_YOU_KNOW_STATE,
   } from "./global.svelte";
   import { QUEST_DATA } from "../game/global/quests.js";
-  import { spawnBugEvent, spawnFireEvent, spawnRainEvent } from "../game/event.js";
+  import {
+    spawnBugEvent,
+    spawnFireEvent,
+    spawnRainEvent,
+  } from "../game/event.js";
   import {
     CONFIG,
     PLAYER_DATA,
@@ -61,27 +65,27 @@
   let schedulerInfo = $state(null);
 
   const TABS = [
-    { id: "world",   label: "World"   },
-    { id: "player",  label: "Player"  },
-    { id: "quests",  label: "Quests"  },
-    { id: "bot",     label: "Bot"     },
-    { id: "batch",   label: "Batch"   },
+    { id: "world", label: "World" },
+    { id: "player", label: "Player" },
+    { id: "quests", label: "Quests" },
+    { id: "bot", label: "Bot" },
+    { id: "batch", label: "Batch" },
     { id: "inspect", label: "Inspect" },
-    { id: "dda",     label: "DDA"     },
+    { id: "dda", label: "DDA" },
   ];
 
   const CROP_ICONS = {
-    [CropTypes.WHEAT]:     "[W]",
-    [CropTypes.CORN]:      "[C]",
-    [CropTypes.RICE]:      "[R]",
-    [CropTypes.POTATO]:    "[P]",
+    [CropTypes.WHEAT]: "[W]",
+    [CropTypes.CORN]: "[C]",
+    [CropTypes.RICE]: "[R]",
+    [CropTypes.POTATO]: "[P]",
     [CropTypes.SUGARCANE]: "[S]",
-    [CropTypes.TOMATO]:    "[T]",
+    [CropTypes.TOMATO]: "[T]",
   };
 
   const SOIL_STATE_NAMES = {
     [SoilStates.INITIAL]: "INITIAL (0)",
-    [SoilStates.READY]:   "READY (1)",
+    [SoilStates.READY]: "READY (1)",
     [SoilStates.WATERED]: "WATERED (2)",
   };
 
@@ -330,7 +334,7 @@
 {#snippet btn(label, color = "text-gray-200", cb)}
   <button
     onclick={() => cb && cb()}
-    class="rounded bg-gray-800 px-2 py-1 text-left text-xs transition-colors hover:bg-gray-700 active:scale-95 cursor-pointer {color}"
+    class="rounded bg-gray-800 px-2 py-1 text-left text-sm transition-colors hover:bg-gray-700 active:scale-95 cursor-pointer {color}"
     >{label}</button
   >
 {/snippet}
@@ -347,7 +351,7 @@
   <select
     value={bind_val}
     onchange={(e) => on_change(e.target.value)}
-    class="rounded bg-gray-800 px-2 py-1 text-xs text-white border border-gray-700 cursor-pointer flex-1"
+    class="rounded bg-gray-800 px-2 py-1 text-sm text-white border border-gray-700 cursor-pointer flex-1"
   >
     {#each Object.values(CropTypes) as crop}
       <option value={crop}>{crop}</option>
@@ -372,7 +376,7 @@
       <div class="flex items-center gap-2">
         <div class="h-2 w-2 rounded-full bg-gray-400"></div>
         <span
-          class="text-[10px] font-black uppercase tracking-tighter text-gray-300"
+          class="text-sm font-black uppercase tracking-tighter text-gray-300"
           >Dev Console</span
         >
         <span class="text-[9px] text-gray-600">[ \ ] to toggle</span>
@@ -384,11 +388,13 @@
     </div>
 
     <!-- Tabs -->
-    <div class="flex shrink-0 border-b border-gray-800 bg-gray-900/60 overflow-x-auto">
+    <div
+      class="flex shrink-0 border-b border-gray-800 bg-gray-900/60 overflow-x-auto"
+    >
       {#each TABS as tab}
         <button
           onclick={() => (activeTab = tab.id)}
-          class="flex-1 py-1.5 px-2 text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap {activeTab ===
+          class="flex-1 py-1.5 px-2 text-sm font-bold transition-colors cursor-pointer whitespace-nowrap {activeTab ===
           tab.id
             ? 'bg-gray-800 text-white'
             : 'text-gray-500 hover:text-gray-300'}">{tab.label}</button
@@ -397,7 +403,7 @@
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-y-auto p-3 custom-scrollbar text-xs space-y-1">
+    <div class="flex-1 overflow-y-auto p-3 custom-scrollbar text-sm space-y-1">
       <!-- WORLD TAB -->
       {#if activeTab === "world"}
         {@render sec("Spawn Entity")}
@@ -418,36 +424,43 @@
         {@render sec("Event Spawner (Difficulty Points)")}
         <div class="grid grid-cols-2 gap-1">
           {@render btn("Bug Event (100 pts - Easy)", "text-emerald-300", () =>
-            run("Bug Event (100 pts)", () => spawnBugEvent(farm_grid_index, 100))
+            run("Bug Event (100 pts)", () =>
+              spawnBugEvent(farm_grid_index, 100),
+            ),
           )}
           {@render btn("Bug Event (500 pts - Normal)", "text-sky-300", () =>
-            run("Bug Event (500 pts)", () => spawnBugEvent(farm_grid_index, 500))
+            run("Bug Event (500 pts)", () =>
+              spawnBugEvent(farm_grid_index, 500),
+            ),
           )}
           {@render btn("Bug Event (2,000 pts - Hard)", "text-amber-300", () =>
-            run("Bug Event (2000 pts)", () => spawnBugEvent(farm_grid_index, 2000))
+            run("Bug Event (2000 pts)", () =>
+              spawnBugEvent(farm_grid_index, 2000),
+            ),
           )}
           {@render btn("Bug Event (10,000 pts - Extreme)", "text-red-400", () =>
-            run("Bug Event (10000 pts)", () => spawnBugEvent(farm_grid_index, 10000))
+            run("Bug Event (10000 pts)", () =>
+              spawnBugEvent(farm_grid_index, 10000),
+            ),
           )}
           {@render btn("Fire Event (WIP)", "text-[#F2E0CF]", () =>
-            run("Fire Event (WIP)", () => spawnFireEvent(farm_grid_index, 1500))
+            run("Fire Event (WIP)", () =>
+              spawnFireEvent(farm_grid_index, 1500),
+            ),
           )}
           {@render btn("Rain Event (WIP)", "text-sky-200", () =>
-            run("Rain Event (WIP)", () => spawnRainEvent(farm_grid_index, 500))
+            run("Rain Event (WIP)", () => spawnRainEvent(farm_grid_index, 500)),
           )}
         </div>
 
         {@render sec("Seeds & Resources")}
         <div class="grid grid-cols-2 gap-1">
           {#each Object.values(CropTypes) as crop}
-            {@render btn(
-              `${crop} +10`,
-              "text-gray-200",
-              () =>
-                run(`${crop} +10`, () => {
-                  INVENTORY.crops[crop] += 10;
-                  INVENTORY.updateUI();
-                }),
+            {@render btn(`${crop} +10`, "text-gray-200", () =>
+              run(`${crop} +10`, () => {
+                INVENTORY.crops[crop] += 10;
+                INVENTORY.updateUI();
+              }),
             )}
           {/each}
           {@render btn("Coins +500", "text-gray-200", () =>
@@ -610,7 +623,9 @@
         </div>
 
         {@render sec("State Info")}
-        <div class="rounded bg-gray-900 p-2 text-[10px] font-mono space-y-0.5 border border-gray-800">
+        <div
+          class="rounded bg-gray-900 p-2 text-sm font-mono space-y-0.5 border border-gray-800"
+        >
           <p class="text-gray-400">
             Level: <span class="text-white">{PLAYER_DATA.getLevel()}</span>
           </p>
@@ -658,7 +673,7 @@
         <div class="flex gap-1 mb-1">
           <select
             bind:value={questKey}
-            class="flex-1 rounded bg-gray-800 px-2 py-1 text-xs text-white border border-gray-700 cursor-pointer"
+            class="flex-1 rounded bg-gray-800 px-2 py-1 text-sm text-white border border-gray-700 cursor-pointer"
           >
             {#each Object.entries(QUEST_DATA) as [key, data]}
               <option value={key}>{data.title}</option>
@@ -671,7 +686,7 @@
             bind:value={questAmt}
             min="1"
             max="999"
-            class="w-16 rounded bg-gray-800 px-2 py-1 text-xs border border-gray-700 text-white"
+            class="w-16 rounded bg-gray-800 px-2 py-1 text-sm border border-gray-700 text-white"
           />
           {@render btn("Add Progress", "text-gray-200", () =>
             run(`Quest: +${questAmt} to ${questKey}`, () => {
@@ -726,7 +741,7 @@
 
         {@render sec("Quest Status")}
         <div
-          class="rounded bg-gray-900 p-2 text-[10px] font-mono space-y-0.5 max-h-40 overflow-y-auto border border-gray-800"
+          class="rounded bg-gray-900 p-2 text-sm font-mono space-y-0.5 max-h-40 overflow-y-auto border border-gray-800"
         >
           {#each Object.entries(QUEST_DATA) as [key, data]}
             {@const state = QUEST_STATE[key]}
@@ -750,15 +765,15 @@
         <!-- Bot Selector -->
         {@render sec("Target Bot")}
         <div class="flex gap-1 items-center mb-1">
-          <span class="text-[10px] text-gray-500">Bot Index:</span>
+          <span class="text-sm text-gray-500">Bot Index:</span>
           <input
             type="number"
             bind:value={botIndex}
             min="0"
             max={Math.max(0, robots.filter(Boolean).length - 1)}
-            class="w-14 rounded bg-gray-800 px-2 py-1 text-xs border border-gray-700 text-white"
+            class="w-14 rounded bg-gray-800 px-2 py-1 text-sm border border-gray-700 text-white"
           />
-          <span class="text-[10px] text-gray-400 italic">
+          <span class="text-sm text-gray-400 italic">
             {robots.filter(Boolean).length} bot(s) active
           </span>
         </div>
@@ -796,21 +811,21 @@
 
         <!-- Jump to coordinates -->
         <div class="flex gap-1 items-center mt-1">
-          <span class="text-[10px] text-gray-500 shrink-0">Jump to x:</span>
+          <span class="text-sm text-gray-500 shrink-0">Jump to x:</span>
           <input
             type="number"
             bind:value={botJumpX}
             min="0"
             max={CONFIG.FARM.columns - 1}
-            class="w-12 rounded bg-gray-800 px-1 py-1 text-xs border border-gray-700 text-white"
+            class="w-12 rounded bg-gray-800 px-1 py-1 text-sm border border-gray-700 text-white"
           />
-          <span class="text-[10px] text-gray-500">y:</span>
+          <span class="text-sm text-gray-500">y:</span>
           <input
             type="number"
             bind:value={botJumpY}
             min="0"
             max={CONFIG.FARM.rows - 1}
-            class="w-12 rounded bg-gray-800 px-1 py-1 text-xs border border-gray-700 text-white"
+            class="w-12 rounded bg-gray-800 px-1 py-1 text-sm border border-gray-700 text-white"
           />
           {@render btn("Go", "text-gray-200", () =>
             run(`bot.jump(${botJumpX},${botJumpY})`, () => {
@@ -857,7 +872,7 @@
             type="text"
             bind:value={botSayText}
             placeholder="Message..."
-            class="flex-1 rounded bg-gray-800 px-2 py-1 text-xs border border-gray-700 text-white"
+            class="flex-1 rounded bg-gray-800 px-2 py-1 text-sm border border-gray-700 text-white"
           />
           {@render btn("Say", "text-gray-200", () =>
             run("bot.say", () => {
@@ -868,7 +883,9 @@
 
         <!-- Bot State -->
         {@render sec("All Bot States")}
-        <div class="rounded bg-gray-900 p-2 text-[10px] font-mono space-y-1 border border-gray-800">
+        <div
+          class="rounded bg-gray-900 p-2 text-sm font-mono space-y-1 border border-gray-800"
+        >
           {#each robots.filter(Boolean) as bot, i}
             {@const isTarget = i === botIndex}
             <div
@@ -881,11 +898,12 @@
                   class={isTarget ? "text-white font-bold" : "text-gray-400"}
                   >Bot {i}:</span
                 >
-                pos=<span class="text-gray-200">({bot.grid_x},{bot.grid_y})</span>
+                pos=<span class="text-gray-200"
+                  >({bot.grid_x},{bot.grid_y})</span
+                >
                 move=<span class="text-gray-300">{bot.botmove_duration}s</span>
                 act=<span class="text-gray-300">{bot.botact_duration}s</span>
-                chk=<span class="text-gray-300">{bot.botcheck_duration}s</span
-                >
+                chk=<span class="text-gray-300">{bot.botcheck_duration}s</span>
                 avail=<span
                   class={bot.is_available ? "text-gray-300" : "text-red-400"}
                   >{bot.is_available}</span
@@ -1023,22 +1041,19 @@
         <!-- Bug Actions -->
         {@render sec("Bugs")}
         <div class="flex gap-1 items-center mb-1">
-          <span class="text-[10px] text-gray-500 shrink-0">Count:</span>
+          <span class="text-sm text-gray-500 shrink-0">Count:</span>
           <input
             type="number"
             bind:value={batchBugCount}
             min="1"
             max="20"
-            class="w-14 rounded bg-gray-800 px-2 py-1 text-xs border border-gray-700 text-white"
+            class="w-14 rounded bg-gray-800 px-2 py-1 text-sm border border-gray-700 text-white"
           />
-          {@render btn(
-            `Spawn ${batchBugCount} Bugs`,
-            "text-gray-200",
-            () =>
-              run(`Batch: spawn ${batchBugCount} bugs`, () => {
-                for (let i = 0; i < batchBugCount; i++) addBug(farm_grid_index);
-                push(`  → Spawned ${batchBugCount} bugs`, "text-gray-300");
-              }),
+          {@render btn(`Spawn ${batchBugCount} Bugs`, "text-gray-200", () =>
+            run(`Batch: spawn ${batchBugCount} bugs`, () => {
+              for (let i = 0; i < batchBugCount; i++) addBug(farm_grid_index);
+              push(`  → Spawned ${batchBugCount} bugs`, "text-gray-300");
+            }),
           )}
         </div>
         {@render btn("Kill All Bugs", "text-red-400", () =>
@@ -1052,76 +1067,104 @@
       {:else if activeTab === "inspect"}
         {@render sec("Single Tile Inspector")}
         <div class="flex gap-1 items-center mb-1">
-          <span class="text-[10px] text-gray-500 shrink-0">Key:</span>
-          <span class="text-[10px] text-gray-400">y:</span>
+          <span class="text-sm text-gray-500 shrink-0">Key:</span>
+          <span class="text-sm text-gray-400">y:</span>
           <input
             type="number"
             bind:value={inspectY}
             min="0"
             max={CONFIG.FARM.rows - 1}
-            class="w-12 rounded bg-gray-800 px-1 py-1 text-xs border border-gray-700 text-white"
+            class="w-12 rounded bg-gray-800 px-1 py-1 text-sm border border-gray-700 text-white"
           />
-          <span class="text-[10px] text-gray-400">x:</span>
+          <span class="text-sm text-gray-400">x:</span>
           <input
             type="number"
             bind:value={inspectX}
             min="0"
             max={CONFIG.FARM.columns - 1}
-            class="w-12 rounded bg-gray-800 px-1 py-1 text-xs border border-gray-700 text-white"
+            class="w-12 rounded bg-gray-800 px-1 py-1 text-sm border border-gray-700 text-white"
           />
-          <span class="text-[10px] text-gray-400 font-mono">[{inspectY}-{inspectX}]</span>
+          <span class="text-sm text-gray-400 font-mono"
+            >[{inspectY}-{inspectX}]</span
+          >
         </div>
 
         {@const tileData = getTile(inspectX, inspectY)}
-        <div class="rounded bg-gray-900 p-2 text-[10px] font-mono space-y-1 border border-gray-800">
+        <div
+          class="rounded bg-gray-900 p-2 text-sm font-mono space-y-1 border border-gray-800"
+        >
           {#if tileData}
             <div>
-              <span class="text-gray-500">Key:</span> <span class="text-white font-bold">{inspectY}-{inspectX}</span>
+              <span class="text-gray-500">Key:</span>
+              <span class="text-white font-bold">{inspectY}-{inspectX}</span>
             </div>
             <div>
-              <span class="text-gray-500">Soil State:</span> 
-              <span class="text-white">{tileData.soil ? (SOIL_STATE_NAMES[tileData.soil.soil_state] ?? tileData.soil.soil_state) : "None"}</span>
+              <span class="text-gray-500">Soil State:</span>
+              <span class="text-white"
+                >{tileData.soil
+                  ? (SOIL_STATE_NAMES[tileData.soil.soil_state] ??
+                    tileData.soil.soil_state)
+                  : "None"}</span
+              >
             </div>
             <div>
               <span class="text-gray-500">Crop:</span>
               {#if tileData.crop}
-                <span class={tileData.crop.crop_state === CropStates.DEAD ? "text-red-400 font-bold" : "text-white"}>
+                <span
+                  class={tileData.crop.crop_state === CropStates.DEAD
+                    ? "text-red-400 font-bold"
+                    : "text-white"}
+                >
                   {tileData.crop.crop_type} ({tileData.crop.crop_state})
                 </span>
                 <div class="ml-2 text-gray-400 space-y-0.5 mt-0.5">
                   <p>Health: {tileData.crop.crop_health}</p>
                   <p>Freshness: {tileData.crop.freshness_state}</p>
-                  <p>Water Absorbing: {tileData.crop.absorbing_water ? "Yes" : "No"}</p>
+                  <p>
+                    Water Absorbing: {tileData.crop.absorbing_water
+                      ? "Yes"
+                      : "No"}
+                  </p>
                 </div>
               {:else}
                 <span class="text-gray-500">None</span>
               {/if}
             </div>
             <div>
-              <span class="text-gray-500">Bug:</span> 
-              <span class={tileData.bug ? "text-red-400 font-bold" : "text-gray-500"}>
+              <span class="text-gray-500">Bug:</span>
+              <span
+                class={tileData.bug
+                  ? "text-red-400 font-bold"
+                  : "text-gray-500"}
+              >
                 {tileData.bug ? "ACTIVE BUG PRESENT" : "None"}
               </span>
             </div>
             <div>
               <span class="text-gray-500">Bots on Tile:</span>
               {#if Array.isArray(tileData.bots) && tileData.bots.length > 0}
-                <span class="text-white font-bold">{tileData.bots.map(b => `Bot ${b.bot_index}`).join(", ")}</span>
+                <span class="text-white font-bold"
+                  >{tileData.bots
+                    .map((b) => `Bot ${b.bot_index}`)
+                    .join(", ")}</span
+                >
               {:else}
                 <span class="text-gray-500">None</span>
               {/if}
             </div>
           {:else}
-            <p class="text-gray-500 italic">No entry in farm_grid_index for key {inspectY}-{inspectX}</p>
+            <p class="text-gray-500 italic">
+              No entry in farm_grid_index for key {inspectY}-{inspectX}
+            </p>
           {/if}
         </div>
 
         {@render sec("All farm_grid_index Entries")}
         <div class="flex gap-1 items-center mb-1">
-          <span class="text-[10px] text-gray-500 shrink-0">Filter:</span>
+          <span class="text-sm text-gray-500 shrink-0">Filter:</span>
           <select
             bind:value={inspectFilter}
-            class="flex-1 rounded bg-gray-800 px-2 py-1 text-xs text-white border border-gray-700 cursor-pointer"
+            class="flex-1 rounded bg-gray-800 px-2 py-1 text-sm text-white border border-gray-700 cursor-pointer"
           >
             <option value="all">All Registered Entries</option>
             <option value="crop">With Crop Only</option>
@@ -1131,20 +1174,33 @@
         </div>
 
         {@const entries = getGridEntries()}
-        <div class="rounded bg-gray-900 p-2 text-[10px] font-mono space-y-1 max-h-56 overflow-y-auto border border-gray-800 custom-scrollbar">
+        <div
+          class="rounded bg-gray-900 p-2 text-sm font-mono space-y-1 max-h-56 overflow-y-auto border border-gray-800 custom-scrollbar"
+        >
           {#each entries as item}
             {@const yx = item.key.split("-")}
             <button
-              onclick={() => { inspectY = Number(yx[0]); inspectX = Number(yx[1]); }}
+              onclick={() => {
+                inspectY = Number(yx[0]);
+                inspectX = Number(yx[1]);
+              }}
               class="w-full text-left rounded p-1 hover:bg-gray-800 transition-colors border border-gray-800/80 cursor-pointer block space-y-0.5"
             >
               <div class="flex justify-between items-center">
                 <span class="text-white font-bold">[{item.key}]</span>
-                <span class="text-gray-500">Soil: {SOIL_STATE_NAMES[item.soil?.soil_state] ?? item.soil?.soil_state ?? "None"}</span>
+                <span class="text-gray-500"
+                  >Soil: {SOIL_STATE_NAMES[item.soil?.soil_state] ??
+                    item.soil?.soil_state ??
+                    "None"}</span
+                >
               </div>
               <div class="flex gap-2 text-[9px]">
                 {#if item.crop}
-                  <span class={item.crop.crop_state === CropStates.DEAD ? "text-red-400 font-bold" : "text-gray-300"}>
+                  <span
+                    class={item.crop.crop_state === CropStates.DEAD
+                      ? "text-red-400 font-bold"
+                      : "text-gray-300"}
+                  >
                     Crop: {item.crop.crop_type} ({item.crop.crop_state})
                   </span>
                 {/if}
@@ -1157,7 +1213,9 @@
               </div>
             </button>
           {:else}
-            <p class="text-gray-500 italic">No matching grid index entries found.</p>
+            <p class="text-gray-500 italic">
+              No matching grid index entries found.
+            </p>
           {/each}
         </div>
       {/if}
@@ -1167,9 +1225,17 @@
         {@render sec("DDA Research Panel Overlay")}
         <div class="grid grid-cols-1 gap-1">
           {@render btn(
-            showDDADashboard ? "Hide Floating DDA Panel" : "Show Floating DDA Panel",
-            showDDADashboard ? "text-amber-300 font-bold" : "text-sky-300 font-bold",
-            () => run("Toggle DDA Panel", () => (showDDADashboard = !showDDADashboard))
+            showDDADashboard
+              ? "Hide Floating DDA Panel"
+              : "Show Floating DDA Panel",
+            showDDADashboard
+              ? "text-amber-300 font-bold"
+              : "text-sky-300 font-bold",
+            () =>
+              run(
+                "Toggle DDA Panel",
+                () => (showDDADashboard = !showDDADashboard),
+              ),
           )}
         </div>
 
@@ -1179,97 +1245,148 @@
             run("Force Action: Normal", () => {
               dda.applyAction(DDA_ACTIONS.NORMAL, telemetry.currentStage);
               mlAgent.lastAction = DDA_ACTIONS.NORMAL;
-            })
+            }),
           )}
           {@render btn("Scaffold Mode", "text-sky-300 font-bold", () =>
             run("Force Action: Scaffold", () => {
               dda.applyAction(DDA_ACTIONS.SCAFFOLD, telemetry.currentStage);
               mlAgent.lastAction = DDA_ACTIONS.SCAFFOLD;
-            })
+            }),
           )}
           {@render btn("Challenge Mode", "text-red-400 font-bold", () =>
             run("Force Action: Challenge", () => {
               dda.applyAction(DDA_ACTIONS.CHALLENGE, telemetry.currentStage);
               mlAgent.lastAction = DDA_ACTIONS.CHALLENGE;
-            })
+            }),
           )}
           {@render btn("Greedy Guide", "text-amber-300 font-bold", () =>
             run("Force Action: Greedy Guide", () => {
               dda.applyAction(DDA_ACTIONS.GREEDY_GUIDE, telemetry.currentStage);
               mlAgent.lastAction = DDA_ACTIONS.GREEDY_GUIDE;
-            })
+            }),
           )}
           {@render btn("State Optimize", "text-violet-300 font-bold", () =>
             run("Force Action: State Optimize", () => {
-              dda.applyAction(DDA_ACTIONS.STATE_OPTIMIZE, telemetry.currentStage);
+              dda.applyAction(
+                DDA_ACTIONS.STATE_OPTIMIZE,
+                telemetry.currentStage,
+              );
               mlAgent.lastAction = DDA_ACTIONS.STATE_OPTIMIZE;
-            })
+            }),
           )}
         </div>
 
         {@render sec("CS1 Curriculum Stage Override")}
         <div class="grid grid-cols-5 gap-1">
           {#each [1, 2, 3, 4, 5] as stg}
-            {@render btn(`Stage ${stg}`, telemetry.currentStage === stg ? "text-amber-300 font-bold" : "text-gray-400", () =>
-              run(`Set CS1 Stage ${stg}`, () => telemetry.setStage(stg))
+            {@render btn(
+              `Stage ${stg}`,
+              telemetry.currentStage === stg
+                ? "text-amber-300 font-bold"
+                : "text-gray-400",
+              () => run(`Set CS1 Stage ${stg}`, () => telemetry.setStage(stg)),
             )}
           {/each}
         </div>
 
         {@render sec("Live DDA Telemetry Status")}
-        <div class="bg-gray-900 border border-gray-800 rounded p-2 text-[10px] space-y-1 text-gray-300">
+        <div
+          class="bg-gray-900 border border-gray-800 rounded p-2 text-sm space-y-1 text-gray-300"
+        >
           <div class="flex justify-between">
             <span class="text-gray-400">Agent Mode:</span>
-            <span class="font-bold {mlAgent.mode === 'ml' ? 'text-emerald-400' : 'text-amber-400'}">{mlAgent.mode || "bootstrap"}</span>
+            <span
+              class="font-bold {mlAgent.mode === 'ml'
+                ? 'text-emerald-400'
+                : 'text-amber-400'}">{mlAgent.mode || "bootstrap"}</span
+            >
           </div>
           <div class="flex justify-between">
             <span class="text-gray-400">Predicted Proficiency:</span>
-            <span class="font-bold text-white">{(mlAgent.predictedProficiency * 100).toFixed(1)}%</span>
+            <span class="font-bold text-white"
+              >{(mlAgent.predictedProficiency * 100).toFixed(1)}%</span
+            >
           </div>
           <div class="flex justify-between">
             <span class="text-gray-400">Frustration Index:</span>
-            <span class="font-bold text-red-400">{(telemetry.frustrationScore * 100).toFixed(1)}%</span>
+            <span class="font-bold text-red-400"
+              >{(telemetry.frustrationScore * 100).toFixed(1)}%</span
+            >
           </div>
           <div class="flex justify-between">
             <span class="text-gray-400">Flow Score:</span>
-            <span class="font-bold text-emerald-400">{(telemetry.flowScore * 100).toFixed(1)}%</span>
+            <span class="font-bold text-emerald-400"
+              >{(telemetry.flowScore * 100).toFixed(1)}%</span
+            >
           </div>
           <div class="flex justify-between">
             <span class="text-gray-400">Participant ID:</span>
-            <span class="font-mono text-gray-300">{telemetry.participantId}</span>
+            <span class="font-mono text-gray-300"
+              >{telemetry.participantId}</span
+            >
           </div>
           <div class="flex justify-between">
             <span class="text-gray-400">Sessions / Replay Buffer:</span>
-            <span class="text-gray-300">{dataLogger.getSessionCount()} sessions / {mlAgent.replayBuffer?.length || 0} exp</span>
+            <span class="text-gray-300"
+              >{dataLogger.getSessionCount()} sessions / {mlAgent.replayBuffer
+                ?.length || 0} exp</span
+            >
           </div>
         </div>
 
         {@render sec("Event Scheduler")}
-        <div class="bg-gray-900 border border-gray-800 rounded p-2 text-[10px] space-y-1 text-gray-300">
+        <div
+          class="bg-gray-900 border border-gray-800 rounded p-2 text-sm space-y-1 text-gray-300"
+        >
           {#if schedulerInfo}
             <div class="flex justify-between">
               <span class="text-gray-400">Status:</span>
-              <span class="font-bold {schedulerInfo.isRunning ? 'text-emerald-400' : 'text-red-400'}">{schedulerInfo.isRunning ? 'Running' : 'Stopped'}</span>
+              <span
+                class="font-bold {schedulerInfo.isRunning
+                  ? 'text-emerald-400'
+                  : 'text-red-400'}"
+                >{schedulerInfo.isRunning ? "Running" : "Stopped"}</span
+              >
             </div>
             <div class="flex justify-between">
               <span class="text-gray-400">Mode:</span>
-              <span class="font-bold text-white">{schedulerInfo.mode} ({schedulerInfo.intervalMs / 1000}s interval)</span>
+              <span class="font-bold text-white"
+                >{schedulerInfo.mode} ({schedulerInfo.intervalMs / 1000}s
+                interval)</span
+              >
             </div>
             <div class="flex justify-between">
               <span class="text-gray-400">Farm Grid:</span>
-              <span class="text-white">{schedulerInfo.harvestableCount} harvestable / {schedulerInfo.totalTiles} tiles (need {schedulerInfo.threshold}+)</span>
+              <span class="text-white"
+                >{schedulerInfo.harvestableCount} harvestable / {schedulerInfo.totalTiles}
+                tiles (need {schedulerInfo.threshold}+)</span
+              >
             </div>
             <div class="flex justify-between">
               <span class="text-gray-400">Precondition:</span>
-              <span class="font-bold {schedulerInfo.preconditionMet ? 'text-emerald-400' : 'text-red-400'}">{schedulerInfo.preconditionMet ? 'MET' : 'NOT MET'}</span>
+              <span
+                class="font-bold {schedulerInfo.preconditionMet
+                  ? 'text-emerald-400'
+                  : 'text-red-400'}"
+                >{schedulerInfo.preconditionMet ? "MET" : "NOT MET"}</span
+              >
             </div>
             <div class="flex justify-between">
               <span class="text-gray-400">Spawn Chance (Bootstrap):</span>
-              <span class="font-bold text-amber-300">{(schedulerInfo.spawnChance * 100).toFixed(1)}% (Lv.{schedulerInfo.playerLevel})</span>
+              <span class="font-bold text-amber-300"
+                >{(schedulerInfo.spawnChance * 100).toFixed(1)}% (Lv.{schedulerInfo.playerLevel})</span
+              >
             </div>
             <div class="flex justify-between">
               <span class="text-gray-400">Cooldown:</span>
-              <span class="font-bold {schedulerInfo.cooldownActive ? 'text-red-400' : 'text-emerald-400'}">{schedulerInfo.cooldownActive ? `Active (${Math.ceil(schedulerInfo.cooldownRemaining / 1000)}s left)` : 'Ready'}</span>
+              <span
+                class="font-bold {schedulerInfo.cooldownActive
+                  ? 'text-red-400'
+                  : 'text-emerald-400'}"
+                >{schedulerInfo.cooldownActive
+                  ? `Active (${Math.ceil(schedulerInfo.cooldownRemaining / 1000)}s left)`
+                  : "Ready"}</span
+              >
             </div>
             <div class="flex justify-between">
               <span class="text-gray-400">Events Triggered:</span>
@@ -1277,39 +1394,49 @@
             </div>
             <div class="flex justify-between">
               <span class="text-gray-400">Next Check In:</span>
-              <span class="text-white">{Math.ceil(schedulerInfo.nextCheckIn / 1000)}s</span>
+              <span class="text-white"
+                >{Math.ceil(schedulerInfo.nextCheckIn / 1000)}s</span
+              >
             </div>
           {:else}
-            <p class="text-gray-500 italic">Click "Calculate Event Chance" to refresh</p>
+            <p class="text-gray-500 italic">
+              Click "Calculate Event Chance" to refresh
+            </p>
           {/if}
         </div>
         <div class="grid grid-cols-2 gap-1">
-          {@render btn("Calculate Event Chance", "text-amber-300 font-bold", () =>
-            run("Refresh Scheduler", () => {
-              schedulerInfo = eventScheduler.getState();
-            })
+          {@render btn(
+            "Calculate Event Chance",
+            "text-amber-300 font-bold",
+            () =>
+              run("Refresh Scheduler", () => {
+                schedulerInfo = eventScheduler.getState();
+              }),
           )}
           {@render btn("Force Event Check", "text-red-400 font-bold", () =>
             run("Force Event Check", () => {
               const result = eventScheduler.forceCheck();
               schedulerInfo = eventScheduler.getState();
-            })
+            }),
           )}
         </div>
 
         {@render sec("Dataset Exports")}
         <div class="grid grid-cols-2 gap-1">
           {@render btn("Export JSON Dataset", "text-sky-300 font-bold", () =>
-            run("Export JSON", () => dataLogger.exportAllSessionsJSON())
+            run("Export JSON", () => dataLogger.exportAllSessionsJSON()),
           )}
           {@render btn("Export Quest CSV", "text-emerald-300 font-bold", () =>
-            run("Export CSV", () => dataLogger.exportQuestCSV())
+            run("Export CSV", () => dataLogger.exportQuestCSV()),
           )}
-          {@render btn("Export Replay Buffer", "text-violet-300 font-bold", () =>
-            run("Export Replay", () => dataLogger.exportReplayBufferJSON())
+          {@render btn(
+            "Export Replay Buffer",
+            "text-violet-300 font-bold",
+            () =>
+              run("Export Replay", () => dataLogger.exportReplayBufferJSON()),
           )}
           {@render btn("Clear Stored Data", "text-red-400", () =>
-            run("Clear Data", () => dataLogger.clearAllData())
+            run("Clear Data", () => dataLogger.clearAllData()),
           )}
         </div>
       {/if}

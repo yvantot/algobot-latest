@@ -1,0 +1,17 @@
+{
+  "trained_at": "2026-08-22T21:47:27.255915",
+  "experience_count": 100,
+  "epochs": 50,
+  "batch_size": 32,
+  "gamma": 0.95,
+  "final_loss": 0.0030197445303201675,
+  "state_size": 4,
+  "action_count": 5,
+  "action_names": [
+    "Normal",
+    "Scaffold",
+    "Challenge",
+    "Greedy Guide",
+    "State Optimize"
+  ]
+}

@@ -1,0 +1,2235 @@
+{
+  "dataset_version": "v1",
+  "export_date": "2026-08-13T06:28:37.206Z",
+  "participant_count": 1,
+  "session_count": 6,
+  "feature_schema_version": "10f",
+  "label_formula": "0.40*completion + 0.25*(1-errors) + 0.20*(1-resets) + 0.15*(1-hints)",
+  "sessions": [
+    {
+      "summary": {
+        "sessionId": "0717f0d0-e05a-4c8d-a7d0-c099e6e04b45",
+        "participantId": "p_731ba31a",
+        "startTime": "2026-08-12T08:07:55.921Z",
+        "durationMinutes": 0.58,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 1,
+        "totalErrors": 0,
+        "totalResets": 1,
+        "totalCodeRuns": 1,
+        "codeRunSuccessRate": 1,
+        "totalHintsShown": 0,
+        "questsCompleted": 1,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {
+        "tut_0": {
+          "startTime": 1786522093177,
+          "errors": 0,
+          "resets": 1,
+          "codeRuns": 0,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0.017385257301808066,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.1438
+          ],
+          "endTime": 1786522110521,
+          "durationSeconds": 17.344,
+          "featureVectorAtEnd": [
+            0,
+            0.008670520231213874,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.28833333333333333
+          ],
+          "proficiencyLabel": 0.96,
+          "ddaAction": 0,
+          "stage": 1
+        }
+      },
+      "featureSnapshots": [
+        {
+          "index": 0,
+          "vector": [
+            0,
+            0.017385257301808066,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.1438
+          ],
+          "stage": 1
+        }
+      ],
+      "ddaLog": [],
+      "rawEventCount": 5
+    },
+    {
+      "summary": {
+        "sessionId": "995dca96-a807-4d99-9f25-0c17f371dd7f",
+        "participantId": "p_731ba31a",
+        "startTime": "2026-08-12T08:08:31.353Z",
+        "durationMinutes": 19.97,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 1,
+        "totalErrors": 0,
+        "totalResets": 1,
+        "totalCodeRuns": 1,
+        "codeRunSuccessRate": 1,
+        "totalHintsShown": 0,
+        "questsCompleted": 1,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {
+        "tut_0": {
+          "startTime": 1786522117819,
+          "errors": 0,
+          "resets": 1,
+          "codeRuns": 0,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0.04639653572533251,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.05388333333333333
+          ],
+          "endTime": 1786522122736,
+          "durationSeconds": 4.917,
+          "featureVectorAtEnd": [
+            0,
+            0.02635509092506369,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.09485833333333332
+          ],
+          "proficiencyLabel": 0.96,
+          "ddaAction": 0,
+          "stage": 1
+        }
+      },
+      "featureSnapshots": [
+        {
+          "index": 0,
+          "vector": [
+            0,
+            0.04639653572533251,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.05388333333333333
+          ],
+          "stage": 1
+        },
+        {
+          "index": 1,
+          "vector": [
+            0,
+            0.025951557093425604,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.09633333333333334
+          ],
+          "stage": 1
+        }
+      ],
+      "ddaLog": [
+        {
+          "timestamp": 11560,
+          "actionId": 0,
+          "stage": 1
+        }
+      ],
+      "rawEventCount": 9
+    },
+    {
+      "summary": {
+        "sessionId": "8bcb3a2d-1c3e-42e5-9ab0-af8723dfb8b9",
+        "participantId": "p_731ba31a",
+        "startTime": "2026-08-13T03:39:45.574Z",
+        "durationMinutes": 15.98,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 48,
+        "totalErrors": 0,
+        "totalResets": 7,
+        "totalCodeRuns": 7,
+        "codeRunSuccessRate": 1,
+        "totalHintsShown": 0,
+        "questsCompleted": 3,
+        "avgFrustration": 0.3,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {
+        "tut_0": {
+          "startTime": 1786592726753,
+          "errors": 0,
+          "resets": 2,
+          "codeRuns": 2,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0.0008793038258509462,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "endTime": 1786592731625,
+          "durationSeconds": 4.872,
+          "featureVectorAtEnd": [
+            0,
+            0.0017338484789814219,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "proficiencyLabel": 0.96,
+          "ddaAction": 0,
+          "stage": 1
+        },
+        "tut_1": {
+          "startTime": 1786592846737,
+          "errors": 0,
+          "resets": 3,
+          "codeRuns": 3,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0.007155821260595494,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "endTime": 1786593016844,
+          "durationSeconds": 170.107,
+          "featureVectorAtEnd": [
+            0,
+            0.014256974036466172,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "proficiencyLabel": 0.88,
+          "ddaAction": 0,
+          "stage": 1
+        },
+        "tut_2": {
+          "startTime": 1786593112697,
+          "errors": 0,
+          "resets": 2,
+          "codeRuns": 1,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0.013202718109590813,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "endTime": 1786593280530,
+          "durationSeconds": 167.833,
+          "featureVectorAtEnd": [
+            0,
+            0.01609017650029722,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "proficiencyLabel": 0.92,
+          "ddaAction": 0,
+          "stage": 1
+        }
+      },
+      "featureSnapshots": [
+        {
+          "index": 0,
+          "vector": [
+            0,
+            0.0008793038258509462,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 1,
+          "vector": [
+            0,
+            0.0017331423025373205,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 2,
+          "vector": [
+            0,
+            0.007155821260595494,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 3,
+          "vector": [
+            0,
+            0.007155821260595494,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 4,
+          "vector": [
+            0,
+            0.011166989595108468,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 5,
+          "vector": [
+            0,
+            0.011166989595108468,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 6,
+          "vector": [
+            0,
+            0.013066159936250044,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 7,
+          "vector": [
+            0,
+            0.013066159936250044,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 8,
+          "vector": [
+            0,
+            0.013202718109590813,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 9,
+          "vector": [
+            0,
+            0.013202718109590813,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 10,
+          "vector": [
+            0,
+            0.014762669582749546,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 11,
+          "vector": [
+            0,
+            0.014762669582749546,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 12,
+          "vector": [
+            0,
+            0.015148889013234124,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 13,
+          "vector": [
+            0,
+            0.015148889013234124,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 14,
+          "vector": [
+            0,
+            0.013891139768017965,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 15,
+          "vector": [
+            0,
+            0.013891139768017965,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        }
+      ],
+      "ddaLog": [
+        {
+          "timestamp": 346192,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 461163,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 510433,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 619922,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 727123,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 731575,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 732727,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 863860,
+          "actionId": 0,
+          "stage": 1
+        }
+      ],
+      "rawEventCount": 76
+    },
+    {
+      "summary": {
+        "sessionId": "ef76046c-8bac-41a0-9913-67e015b03e1c",
+        "participantId": "p_731ba31a",
+        "startTime": "2026-08-13T03:55:44.986Z",
+        "durationMinutes": 20.47,
+        "editorMode": "blockly",
+        "currentStage": 3,
+        "totalSteps": 149,
+        "totalErrors": 0,
+        "totalResets": 28,
+        "totalCodeRuns": 40,
+        "codeRunSuccessRate": 1,
+        "totalHintsShown": 0,
+        "questsCompleted": 5,
+        "avgFrustration": 0.3,
+        "avgFlow": 0.65
+      },
+      "questAttempts": {
+        "tut_0": {
+          "startTime": 1786593433349,
+          "errors": 0,
+          "resets": 16,
+          "codeRuns": 20,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0.003395086178604167,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.7363583333333333
+          ],
+          "endTime": 1786593732405,
+          "durationSeconds": 299.056,
+          "featureVectorAtEnd": [
+            0,
+            0.03329728278685351,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "proficiencyLabel": 0.8,
+          "ddaAction": 0,
+          "stage": 1
+        },
+        "tut_1": {
+          "startTime": 1786593884142,
+          "errors": 0,
+          "resets": 3,
+          "codeRuns": 3,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0.036167639792564675,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "endTime": 1786593961869,
+          "durationSeconds": 77.727,
+          "featureVectorAtEnd": [
+            0,
+            0.04036421817427291,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "proficiencyLabel": 0.88,
+          "ddaAction": 0,
+          "stage": 1
+        },
+        "tut_2": {
+          "startTime": 1786594041829,
+          "errors": 0,
+          "resets": 2,
+          "codeRuns": 8,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0.036593608603372636,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "endTime": 1786594145996,
+          "durationSeconds": 104.167,
+          "featureVectorAtEnd": [
+            0,
+            0.04082346038126865,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "proficiencyLabel": 0.92,
+          "ddaAction": 0,
+          "stage": 1
+        },
+        "crop_wheat_1": {
+          "startTime": 1786594146711,
+          "errors": 0,
+          "resets": 2,
+          "codeRuns": 2,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0.04153543920920515,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "endTime": 1786594482208,
+          "durationSeconds": 335.497,
+          "featureVectorAtEnd": [
+            0,
+            0.03930630958599112,
+            1,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "proficiencyLabel": 0.92,
+          "ddaAction": 0,
+          "stage": 3
+        },
+        "cs_loop_0": {
+          "startTime": 1786594333957,
+          "errors": 0,
+          "resets": 5,
+          "codeRuns": 6,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0.03670481743145148,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "endTime": 1786594335538,
+          "durationSeconds": 1.581,
+          "featureVectorAtEnd": [
+            0,
+            0.03694909505003271,
+            1,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "proficiencyLabel": 1,
+          "ddaAction": 0,
+          "stage": 3
+        }
+      },
+      "featureSnapshots": [
+        {
+          "index": 0,
+          "vector": [
+            0,
+            0.036593608603372636,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 1,
+          "vector": [
+            0,
+            0.036593608603372636,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 2,
+          "vector": [
+            0,
+            0.03683761105975174,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 3,
+          "vector": [
+            0,
+            0.03683755906712057,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 4,
+          "vector": [
+            0,
+            0.03762756156861448,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 5,
+          "vector": [
+            0,
+            0.03762756156861448,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 6,
+          "vector": [
+            0,
+            0.03799810560169174,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 7,
+          "vector": [
+            0,
+            0.03799810560169174,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 8,
+          "vector": [
+            0,
+            0.04153543920920515,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 9,
+          "vector": [
+            0,
+            0.04153543920920515,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 10,
+          "vector": [
+            0,
+            0.03670481743145148,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 11,
+          "vector": [
+            0,
+            0.03670481743145148,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 12,
+          "vector": [
+            0,
+            0.03838257958281164,
+            1,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 13,
+          "vector": [
+            0,
+            0.03838257958281164,
+            1,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 14,
+          "vector": [
+            0,
+            0.03891020227454025,
+            1,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 15,
+          "vector": [
+            0,
+            0.03891020227454025,
+            1,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 16,
+          "vector": [
+            0,
+            0.03943674589395313,
+            1,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 17,
+          "vector": [
+            0,
+            0.03943674589395313,
+            1,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 18,
+          "vector": [
+            0,
+            0.03888062589872875,
+            1,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        },
+        {
+          "index": 19,
+          "vector": [
+            0,
+            0.03888062589872875,
+            1,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 3
+        }
+      ],
+      "ddaLog": [
+        {
+          "timestamp": 94025,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 539157,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 541472,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 578509,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 696843,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 708515,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 725532,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 726352,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 801725,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 988971,
+          "actionId": 0,
+          "stage": 3
+        },
+        {
+          "timestamp": 1023902,
+          "actionId": 0,
+          "stage": 3
+        },
+        {
+          "timestamp": 1025438,
+          "actionId": 0,
+          "stage": 3
+        },
+        {
+          "timestamp": 1026961,
+          "actionId": 0,
+          "stage": 3
+        },
+        {
+          "timestamp": 1134241,
+          "actionId": 0,
+          "stage": 3
+        }
+      ],
+      "rawEventCount": 248
+    },
+    {
+      "summary": {
+        "sessionId": "e19d30e5-c1a9-4577-a847-14d5a029ae80",
+        "participantId": "p_731ba31a",
+        "startTime": "2026-08-13T02:36:27.339Z",
+        "durationMinutes": 220.73,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 84,
+        "totalErrors": 0,
+        "totalResets": 13,
+        "totalCodeRuns": 14,
+        "codeRunSuccessRate": 1,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0.3,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 111
+    },
+    {
+      "dataset_version": "v1",
+      "export_date": "2026-08-13T06:28:37.206Z",
+      "feature_schema_version": "10f",
+      "label_formula": "0.40*completion + 0.25*(1-errors) + 0.20*(1-resets) + 0.15*(1-hints)",
+      "student_id": "p_731ba31a",
+      "session_id": "c70f2232-82f7-4f10-a235-6ae8042abef1",
+      "start_time": "2026-08-13T06:18:50.402Z",
+      "duration_minutes": 9.78,
+      "editor_mode_primary": "blockly",
+      "dda_mode": "bootstrap",
+      "quest_attempts": [
+        {
+          "quest_key": "tut_0",
+          "stage": 1,
+          "start_time": "2026-08-13T06:20:44.167Z",
+          "end_time": "2026-08-13T06:20:53.481Z",
+          "duration_seconds": 9.314,
+          "completed": true,
+          "errors": 0,
+          "resets": 2,
+          "code_runs": 4,
+          "hints_shown": 0,
+          "dda_action": 0,
+          "feature_vector_start": [
+            0,
+            0.0026370148991341803,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.9480416666666667
+          ],
+          "feature_vector_end": [
+            0,
+            0.0024374588678816047,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "proficiency_label": 0.96
+        },
+        {
+          "quest_key": "tut_1",
+          "stage": 1,
+          "start_time": "2026-08-13T06:23:11.384Z",
+          "end_time": null,
+          "duration_seconds": 0,
+          "completed": false,
+          "errors": 0,
+          "resets": 15,
+          "code_runs": 13,
+          "hints_shown": 0,
+          "dda_action": 0,
+          "feature_vector_start": [
+            0,
+            0.009196036508264938,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "feature_vector_end": [],
+          "proficiency_label": null
+        }
+      ],
+      "feature_timeseries": [
+        {
+          "index": 0,
+          "vector": [
+            0,
+            0.0026370148991341803,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.9480416666666667
+          ],
+          "stage": 1
+        },
+        {
+          "index": 1,
+          "vector": [
+            0,
+            0.0025066216588822137,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0.9973583333333333
+          ],
+          "stage": 1
+        },
+        {
+          "index": 2,
+          "vector": [
+            0,
+            0.009196036508264938,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 3,
+          "vector": [
+            0,
+            0.009196036508264938,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 4,
+          "vector": [
+            0,
+            0.01398867276190203,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 5,
+          "vector": [
+            0,
+            0.01398867276190203,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 6,
+          "vector": [
+            0,
+            0.015026134741496817,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 7,
+          "vector": [
+            0,
+            0.015026134741496817,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        }
+      ],
+      "dda_log": [
+        {
+          "timestamp": 119683,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 260982,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 278797,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 279513,
+          "actionId": 0,
+          "stage": 1
+        }
+      ],
+      "replay_buffer": [
+        {
+          "state": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "action": 0,
+          "reward": -0.6,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786593884143
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786593886458
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786593923495
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786594041829
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786594053501
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786594070518
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786594071338
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786594146711
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.6,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 3,
+          "timestamp": 1786594333957
+        },
+        {
+          "state": [
+            0.5,
+            0.6,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0.3,
+          "nextState": [
+            0.5,
+            0.6,
+            0.3,
+            0.65
+          ],
+          "done": false,
+          "stage": 3,
+          "timestamp": 1786594368888
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786602191384
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786602209199
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786602209915
+        }
+      ],
+      "raw_events": [
+        {
+          "t": 113760,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 113765,
+          "event": "quest_start",
+          "quest": "tut_0"
+        },
+        {
+          "t": 113765,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 113778,
+          "event": "code_reset"
+        },
+        {
+          "t": 119554,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 119564,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 119683,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 123079,
+          "event": "quest_complete",
+          "quest": "tut_0",
+          "label": 0.96
+        },
+        {
+          "t": 208785,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 208791,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 220822,
+          "event": "code_reset"
+        },
+        {
+          "t": 254664,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 254685,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 255514,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 256325,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 260981,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 260982,
+          "event": "quest_start",
+          "quest": "tut_1"
+        },
+        {
+          "t": 260982,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 260982,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 261712,
+          "event": "code_reset"
+        },
+        {
+          "t": 276277,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 276287,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 277141,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 277968,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 278796,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 278797,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 278797,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 279512,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 279513,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 279513,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 280207,
+          "event": "code_reset"
+        },
+        {
+          "t": 293630,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 293650,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 294461,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 295305,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 296105,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 296612,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 309024,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 309033,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 309879,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 310684,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 311521,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 319190,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 319216,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 320035,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 320832,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 321668,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 322494,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 323230,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 323935,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 324763,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 325484,
+          "event": "code_reset"
+        },
+        {
+          "t": 325724,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 325749,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 326566,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 327403,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 328229,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 329066,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 329766,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 330491,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 331335,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 332017,
+          "event": "code_reset"
+        },
+        {
+          "t": 373798,
+          "event": "code_reset"
+        },
+        {
+          "t": 374558,
+          "event": "code_reset"
+        },
+        {
+          "t": 375616,
+          "event": "code_reset"
+        },
+        {
+          "t": 375845,
+          "event": "code_reset"
+        },
+        {
+          "t": 395672,
+          "event": "code_reset"
+        },
+        {
+          "t": 406463,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 406467,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 407276,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 408096,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 408892,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 409721,
+          "event": "bot_action",
+          "action": "destroy"
+        },
+        {
+          "t": 410560,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 411292,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 411995,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 412824,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 413070,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 416927,
+          "event": "code_reset"
+        },
+        {
+          "t": 420103,
+          "event": "code_reset"
+        },
+        {
+          "t": 463795,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 463809,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 464516,
+          "event": "code_reset"
+        },
+        {
+          "t": 475086,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 475109,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 475850,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 476658,
+          "event": "code_reset"
+        },
+        {
+          "t": 492791,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 492796,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 493531,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 494336,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 495069,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 495899,
+          "event": "code_reset"
+        },
+        {
+          "t": 547144,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 547149,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 547855,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 548687,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 549419,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 550212,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 551052,
+          "event": "bot_action",
+          "action": "harvest"
+        },
+        {
+          "t": 551878,
+          "event": "code_reset"
+        }
+      ],
+      "summary": {
+        "total_quests_attempted": 2,
+        "total_quests_completed": 1,
+        "total_errors": 0,
+        "total_resets": 17,
+        "total_code_runs": 18,
+        "code_run_success_rate": 1,
+        "total_hints_shown": 0,
+        "max_stage_reached": 1,
+        "avg_frustration": 0.3,
+        "avg_flow": 0.5,
+        "total_interpreter_steps": 68,
+        "replay_buffer_size": 13,
+        "agent_episode_count": 3
+      }
+    }
+  ]
+}

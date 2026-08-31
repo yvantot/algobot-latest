@@ -40,9 +40,9 @@ def load_data(data_dir):
     X_test = np.load(data_path / "X_test.npy")
     y_test = np.load(data_path / "y_test.npy")
 
-    print(f"Train: {X_train.shape} → {y_train.shape}")
-    print(f"Val:   {X_val.shape} → {y_val.shape}")
-    print(f"Test:  {X_test.shape} → {y_test.shape}")
+    print(f"Train: {X_train.shape} -> {y_train.shape}")
+    print(f"Val:   {X_val.shape} -> {y_val.shape}")
+    print(f"Test:  {X_test.shape} -> {y_test.shape}")
 
     return X_train, y_train, X_val, y_val, X_test, y_test
 
@@ -89,7 +89,7 @@ def train(model, X_train, y_train, X_val, y_val, epochs=100, batch_size=32,
     """Train the model with early stopping and learning rate reduction."""
 
     if augment and len(X_train) < 100:
-        print("Small dataset detected — applying Gaussian noise augmentation")
+        print("Small dataset detected - applying Gaussian noise augmentation")
         X_train, y_train = augment_data(X_train, y_train)
         print(f"Augmented train size: {X_train.shape}")
 
@@ -131,7 +131,7 @@ def evaluate(model, X_test, y_test):
     baseline_mse = np.mean((y_test - y_mean) ** 2)
     baseline_rmse = np.sqrt(baseline_mse)
 
-    # R² score
+    # R2 score
     ss_res = np.sum((y_test - model.predict(X_test, verbose=0).flatten()) ** 2)
     ss_tot = np.sum((y_test - y_mean) ** 2)
     r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
@@ -141,7 +141,7 @@ def evaluate(model, X_test, y_test):
     print("=" * 50)
     print(f"  LSTM RMSE:     {rmse:.4f}")
     print(f"  LSTM MAE:      {mae:.4f}")
-    print(f"  LSTM R²:       {r2:.4f}")
+    print(f"  LSTM R^2:      {r2:.4f}")
     print(f"  Baseline RMSE: {baseline_rmse:.4f} (always predict mean)")
     print(f"  Improvement:   {((baseline_rmse - rmse) / baseline_rmse * 100):.1f}% over baseline")
     print("=" * 50)

@@ -1,0 +1,2245 @@
+{
+  "dataset_version": "v1",
+  "export_date": "2026-08-13T04:12:42.713Z",
+  "participant_count": 1,
+  "session_count": 5,
+  "feature_schema_version": "10f",
+  "label_formula": "0.40*completion + 0.25*(1-errors) + 0.20*(1-resets) + 0.15*(1-hints)",
+  "sessions": [
+    {
+      "summary": {
+        "sessionId": "3f85320c-1e04-4719-96c9-82b8ad679cbd",
+        "participantId": "p_808b8d4c",
+        "startTime": "2026-08-11T03:02:49.643Z",
+        "durationMinutes": 9.64,
+        "editorMode": "text",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 1,
+        "totalCodeRuns": 1,
+        "codeRunSuccessRate": 1,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 3
+    },
+    {
+      "summary": {
+        "sessionId": "46c17a85-ea88-457f-86a6-84c1261f60a5",
+        "participantId": "p_808b8d4c",
+        "startTime": "2026-08-11T03:12:28.838Z",
+        "durationMinutes": 26.42,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 0
+    },
+    {
+      "summary": {
+        "sessionId": "873f4d36-3626-46a2-b9e8-cc468a02c4be",
+        "participantId": "p_808b8d4c",
+        "startTime": "2026-08-13T02:33:24.643Z",
+        "durationMinutes": 65.21,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 2
+    },
+    {
+      "summary": {
+        "sessionId": "51483936-11c8-497d-9c06-b5fc73a0ef86",
+        "participantId": "p_808b8d4c",
+        "startTime": "2026-08-13T03:38:58.952Z",
+        "durationMinutes": 16.01,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 39,
+        "totalErrors": 0,
+        "totalResets": 31,
+        "totalCodeRuns": 9,
+        "codeRunSuccessRate": 1,
+        "totalHintsShown": 0,
+        "questsCompleted": 2,
+        "avgFrustration": 0.3,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {
+        "tut_0": {
+          "startTime": 1786592729414,
+          "errors": 0,
+          "resets": 28,
+          "codeRuns": 6,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0.0007683206048219801,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "endTime": 1786592747231,
+          "durationSeconds": 17.817,
+          "featureVectorAtEnd": [
+            0,
+            0.001469583299655383,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "proficiencyLabel": 1,
+          "ddaAction": 0,
+          "stage": 1
+        },
+        "tut_1": {
+          "startTime": 1786592998253,
+          "errors": 0,
+          "resets": 1,
+          "codeRuns": 1,
+          "hintsShown": 0,
+          "completed": true,
+          "featureVectorAtStart": [
+            0,
+            0.008190492658133385,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "endTime": 1786593002865,
+          "durationSeconds": 4.612,
+          "featureVectorAtEnd": [
+            0,
+            0.009037328686138095,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "proficiencyLabel": 0.96,
+          "ddaAction": 0,
+          "stage": 1
+        },
+        "tut_2": {
+          "startTime": 1786593154912,
+          "errors": 0,
+          "resets": 2,
+          "codeRuns": 1,
+          "hintsShown": 0,
+          "completed": false,
+          "featureVectorAtStart": [
+            0,
+            0.008823961958919555,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ]
+        }
+      },
+      "featureSnapshots": [
+        {
+          "index": 0,
+          "vector": [
+            0,
+            0.0007683206048219801,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 1,
+          "vector": [
+            0,
+            0.0014688242062229184,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 2,
+          "vector": [
+            0,
+            0.008190492658133385,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 3,
+          "vector": [
+            0,
+            0.008190492658133385,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 4,
+          "vector": [
+            0,
+            0.008635748666382849,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 5,
+          "vector": [
+            0,
+            0.008635748666382849,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 6,
+          "vector": [
+            0,
+            0.0090804115847891,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 7,
+          "vector": [
+            0,
+            0.0090804115847891,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 8,
+          "vector": [
+            0,
+            0.00882395114472383,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 9,
+          "vector": [
+            0,
+            0.00882395114472383,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 10,
+          "vector": [
+            0,
+            0.009182342966631365,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 11,
+          "vector": [
+            0,
+            0.009182342966631365,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 12,
+          "vector": [
+            0,
+            0.009539697371446464,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 13,
+          "vector": [
+            0,
+            0.009539697371446464,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 14,
+          "vector": [
+            0,
+            0.012051566933254978,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 15,
+          "vector": [
+            0,
+            0.012051566933254978,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        }
+      ],
+      "ddaLog": [
+        {
+          "timestamp": 408490,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 659301,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 660047,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 660763,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 815961,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 816785,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 817636,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 871256,
+          "actionId": 0,
+          "stage": 1
+        }
+      ],
+      "rawEventCount": 95
+    },
+    {
+      "dataset_version": "v1",
+      "export_date": "2026-08-13T04:12:42.713Z",
+      "feature_schema_version": "10f",
+      "label_formula": "0.40*completion + 0.25*(1-errors) + 0.20*(1-resets) + 0.15*(1-hints)",
+      "student_id": "p_808b8d4c",
+      "session_id": "d6410884-4e39-4f96-993e-d7d5f44e3155",
+      "start_time": "2026-08-13T03:55:00.381Z",
+      "duration_minutes": 17.71,
+      "editor_mode_primary": "blockly",
+      "dda_mode": "bootstrap",
+      "quest_attempts": [
+        {
+          "quest_key": "tut_0",
+          "stage": 1,
+          "start_time": "2026-08-13T04:00:00.476Z",
+          "end_time": "2026-08-13T04:00:05.879Z",
+          "duration_seconds": 5.403,
+          "completed": true,
+          "errors": 0,
+          "resets": 18,
+          "code_runs": 7,
+          "hints_shown": 0,
+          "dda_action": 0,
+          "feature_vector_start": [
+            0,
+            0.0009996834335793665,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "feature_vector_end": [
+            0,
+            0.006874022088524311,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "proficiency_label": 1
+        },
+        {
+          "quest_key": "tut_1",
+          "stage": 1,
+          "start_time": "2026-08-13T04:05:58.899Z",
+          "end_time": "2026-08-13T04:07:28.534Z",
+          "duration_seconds": 89.635,
+          "completed": true,
+          "errors": 0,
+          "resets": 7,
+          "code_runs": 17,
+          "hints_shown": 0,
+          "dda_action": 0,
+          "feature_vector_start": [
+            0,
+            0.01640046285750731,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "feature_vector_end": [
+            0,
+            0.033682949877899306,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "proficiency_label": 0.8
+        },
+        {
+          "quest_key": "tut_2",
+          "stage": 1,
+          "start_time": "2026-08-13T04:07:58.889Z",
+          "end_time": null,
+          "duration_seconds": 0,
+          "completed": false,
+          "errors": 0,
+          "resets": 8,
+          "code_runs": 9,
+          "hints_shown": 0,
+          "dda_action": 0,
+          "feature_vector_start": [
+            0,
+            0.032754962055624344,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "feature_vector_end": [],
+          "proficiency_label": null
+        }
+      ],
+      "feature_timeseries": [
+        {
+          "index": 0,
+          "vector": [
+            0,
+            0.0009996834335793665,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 1,
+          "vector": [
+            0,
+            0.020086667273730388,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 2,
+          "vector": [
+            0,
+            0.01640046285750731,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 3,
+          "vector": [
+            0,
+            0.016400437952435693,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 4,
+          "vector": [
+            0,
+            0.01798626901901719,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 5,
+          "vector": [
+            0,
+            0.01798626901901719,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 6,
+          "vector": [
+            0,
+            0.034941569930283245,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 7,
+          "vector": [
+            0,
+            0.034941569930283245,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 8,
+          "vector": [
+            0,
+            0.032754962055624344,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 9,
+          "vector": [
+            0,
+            0.032754962055624344,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 10,
+          "vector": [
+            0,
+            0.03350677260455461,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 11,
+          "vector": [
+            0,
+            0.03350677260455461,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 12,
+          "vector": [
+            0,
+            0.03593716348733215,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 13,
+          "vector": [
+            0,
+            0.03593716348733215,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 14,
+          "vector": [
+            0,
+            0.03668037510778044,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 15,
+          "vector": [
+            0,
+            0.03668037510778044,
+            0,
+            0.6,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        }
+      ],
+      "dda_log": [
+        {
+          "timestamp": 373382,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 658519,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 683855,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 721204,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 778508,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 778947,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 784703,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 785161,
+          "actionId": 0,
+          "stage": 1
+        }
+      ],
+      "replay_buffer": [
+        {
+          "state": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "action": 0,
+          "reward": -0.3,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.65
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786593958900
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.65
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.65
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786593984236
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.65
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.65
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786594021585
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.65
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.65
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786594078889
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.65
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.65
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786594079328
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.65
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.65
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786594085084
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.65
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.65
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786594085542
+        }
+      ],
+      "raw_events": [
+        {
+          "t": 300089,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 300095,
+          "event": "quest_start",
+          "quest": "tut_0"
+        },
+        {
+          "t": 300095,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 300134,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 303772,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 304003,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 304238,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 304473,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 305498,
+          "event": "quest_complete",
+          "quest": "tut_0",
+          "label": 1
+        },
+        {
+          "t": 307649,
+          "event": "code_reset"
+        },
+        {
+          "t": 361157,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 361176,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 361396,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 361607,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 361815,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 362035,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 362272,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 362496,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 362684,
+          "event": "code_reset"
+        },
+        {
+          "t": 365354,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 365378,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 368584,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 368807,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 369033,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 369280,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 369510,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 369717,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 369910,
+          "event": "code_reset"
+        },
+        {
+          "t": 373382,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 376978,
+          "event": "code_reset"
+        },
+        {
+          "t": 378253,
+          "event": "code_reset"
+        },
+        {
+          "t": 383111,
+          "event": "code_reset"
+        },
+        {
+          "t": 383327,
+          "event": "code_reset"
+        },
+        {
+          "t": 412409,
+          "event": "code_reset"
+        },
+        {
+          "t": 413033,
+          "event": "code_reset"
+        },
+        {
+          "t": 422351,
+          "event": "code_reset"
+        },
+        {
+          "t": 431367,
+          "event": "code_reset"
+        },
+        {
+          "t": 431829,
+          "event": "code_reset"
+        },
+        {
+          "t": 432062,
+          "event": "code_reset"
+        },
+        {
+          "t": 432274,
+          "event": "code_reset"
+        },
+        {
+          "t": 499554,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 499562,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 499806,
+          "event": "if_condition",
+          "result": true
+        },
+        {
+          "t": 499811,
+          "event": "if_condition",
+          "result": true
+        },
+        {
+          "t": 499811,
+          "event": "code_reset"
+        },
+        {
+          "t": 501966,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 501981,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 502217,
+          "event": "if_condition",
+          "result": true
+        },
+        {
+          "t": 502223,
+          "event": "if_condition",
+          "result": true
+        },
+        {
+          "t": 502224,
+          "event": "code_reset"
+        },
+        {
+          "t": 564611,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 564623,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 564821,
+          "event": "if_condition",
+          "result": true
+        },
+        {
+          "t": 564823,
+          "event": "if_condition",
+          "result": true
+        },
+        {
+          "t": 564823,
+          "event": "code_reset"
+        },
+        {
+          "t": 623336,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 623343,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 623572,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 623812,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 624026,
+          "event": "code_reset"
+        },
+        {
+          "t": 657635,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 657650,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 657885,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 658093,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 658312,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 658517,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 658518,
+          "event": "quest_start",
+          "quest": "tut_1"
+        },
+        {
+          "t": 658518,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 658519,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 658710,
+          "event": "code_reset"
+        },
+        {
+          "t": 682958,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 682969,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 683207,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 683423,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 683648,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 683854,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 683855,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 683855,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 684055,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 684282,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 684517,
+          "event": "code_reset"
+        },
+        {
+          "t": 686646,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 686660,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 686896,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 687141,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 687364,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 687568,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 687777,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 688035,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 688268,
+          "event": "code_reset"
+        },
+        {
+          "t": 689911,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 689923,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 690136,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 690368,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 690604,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 690805,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 690996,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 691226,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 691429,
+          "event": "code_reset"
+        },
+        {
+          "t": 692353,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 692368,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 692541,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 692668,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 692678,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 692831,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 693135,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 693149,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 693330,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 693475,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 693482,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 693726,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 693946,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 694175,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 694398,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 694598,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 694846,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 695072,
+          "event": "code_reset"
+        },
+        {
+          "t": 696780,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 696793,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 696961,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 697150,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 697168,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 697332,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 697532,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 697552,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 697764,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 698008,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 698248,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 698460,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 698668,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 698905,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 699130,
+          "event": "code_reset"
+        },
+        {
+          "t": 719547,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 719557,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 719799,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 720034,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 720291,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 720491,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 720711,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 720948,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 721203,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 721204,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 721204,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 721396,
+          "event": "code_reset"
+        },
+        {
+          "t": 748153,
+          "event": "quest_complete",
+          "quest": "tut_1",
+          "label": 0.8
+        },
+        {
+          "t": 778493,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 778507,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 778508,
+          "event": "quest_start",
+          "quest": "tut_2"
+        },
+        {
+          "t": 778508,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 778508,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 778715,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 778946,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 778947,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 778947,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 779188,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 779376,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 779569,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 779816,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 780038,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 780232,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 780436,
+          "event": "check_before_action"
+        },
+        {
+          "t": 780577,
+          "event": "code_reset"
+        },
+        {
+          "t": 784683,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 784702,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 784703,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 784703,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 784928,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 785160,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 785161,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 785161,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 785379,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 785584,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 785772,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 785997,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 786248,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 786443,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 786636,
+          "event": "check_before_action"
+        },
+        {
+          "t": 786758,
+          "event": "code_reset"
+        },
+        {
+          "t": 789448,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 789460,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 789685,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 789910,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 790138,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 790345,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 790540,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 790761,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 791004,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 791208,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 791406,
+          "event": "check_before_action"
+        },
+        {
+          "t": 791549,
+          "event": "code_reset"
+        },
+        {
+          "t": 806488,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 806494,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 806724,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 806944,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 807179,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 807387,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 807588,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 807831,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 808059,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 808246,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 808447,
+          "event": "bot_action",
+          "action": "destroy"
+        },
+        {
+          "t": 808675,
+          "event": "check_before_action"
+        },
+        {
+          "t": 808802,
+          "event": "code_reset"
+        },
+        {
+          "t": 849637,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 849649,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 850811,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 851961,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 853128,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 854155,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 855183,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 856347,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 857518,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 858555,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 859584,
+          "event": "bot_action",
+          "action": "destroy"
+        },
+        {
+          "t": 860739,
+          "event": "check_before_action"
+        },
+        {
+          "t": 861445,
+          "event": "code_reset"
+        },
+        {
+          "t": 927767,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 927775,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 928930,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 930111,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 931136,
+          "event": "code_reset"
+        },
+        {
+          "t": 935712,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 935728,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 936337,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 948194,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 948203,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 949380,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 950557,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 951594,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 952758,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 953774,
+          "event": "code_reset"
+        },
+        {
+          "t": 985296,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 985307,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 986488,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 987629,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 988672,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 989837,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 990849,
+          "event": "bot_action",
+          "action": "extinguish"
+        },
+        {
+          "t": 990862,
+          "event": "loop_execution",
+          "type": "while"
+        },
+        {
+          "t": 990864,
+          "event": "check_before_action"
+        },
+        {
+          "t": 990864,
+          "event": "loop_execution",
+          "type": "while"
+        },
+        {
+          "t": 990896,
+          "event": "code_reset"
+        }
+      ],
+      "summary": {
+        "total_quests_attempted": 3,
+        "total_quests_completed": 2,
+        "total_errors": 0,
+        "total_resets": 33,
+        "total_code_runs": 34,
+        "code_run_success_rate": 1,
+        "total_hints_shown": 0,
+        "max_stage_reached": 1,
+        "avg_frustration": 0.3,
+        "avg_flow": 0.65,
+        "total_interpreter_steps": 146,
+        "replay_buffer_size": 7,
+        "agent_episode_count": 7
+      }
+    }
+  ]
+}

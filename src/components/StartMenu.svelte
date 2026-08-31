@@ -106,7 +106,7 @@
           >
         </div>
 
-        <div class="space-y-3 text-xs">
+        <div class="space-y-3 text-sm">
           <!-- KAPLAY Resolution (pixelDensity) -->
           <div
             class="flex justify-between items-center bg-gray-200 p-3 rounded-lg border border-slate-300"
@@ -120,13 +120,13 @@
             <div class="flex gap-1">
               <button
                 onclick={() => updatePixelDensity(1)}
-                class="px-2.5 py-1 font-bold rounded text-xs cursor-pointer border border-slate-400 transition-colors"
+                class="px-2.5 py-1 font-bold rounded text-sm cursor-pointer border border-slate-400 transition-colors"
                 class:bg-green-300={pixelDensity === 1}
                 class:bg-gray-300={pixelDensity !== 1}>1 (Standard)</button
               >
               <button
                 onclick={() => updatePixelDensity(2)}
-                class="px-2.5 py-1 font-bold rounded text-xs cursor-pointer border border-slate-400 transition-colors"
+                class="px-2.5 py-1 font-bold rounded text-sm cursor-pointer border border-slate-400 transition-colors"
                 class:bg-green-300={pixelDensity === 2}
                 class:bg-gray-300={pixelDensity !== 2}>2 (High / Crisp)</button
               >
@@ -139,7 +139,7 @@
           >
             <div class="border-b border-slate-300 pb-1">
               <p
-                class="font-bold text-slate-800 text-xs uppercase tracking-wide"
+                class="font-bold text-slate-800 text-sm uppercase tracking-wide"
               >
                 Sound & Audio Categories
               </p>
@@ -151,7 +151,7 @@
             <!-- Master Volume -->
             <div class="space-y-1">
               <div
-                class="flex justify-between items-center text-xs font-bold text-slate-800"
+                class="flex justify-between items-center text-sm font-bold text-slate-800"
               >
                 <span>Master Volume</span>
                 <span class="font-mono text-slate-600"
@@ -173,7 +173,7 @@
             <!-- Music (Start Menu BGM) -->
             <div class="space-y-1">
               <div
-                class="flex justify-between items-center text-xs font-bold text-slate-800"
+                class="flex justify-between items-center text-sm font-bold text-slate-800"
               >
                 <span>Music (Start Menu BGM)</span>
                 <span class="font-mono text-slate-600"
@@ -195,7 +195,7 @@
             <!-- Ambiance (Farm Soundscape) -->
             <div class="space-y-1">
               <div
-                class="flex justify-between items-center text-xs font-bold text-slate-800"
+                class="flex justify-between items-center text-sm font-bold text-slate-800"
               >
                 <span>Ambiance (Farm Soundscape)</span>
                 <span class="font-mono text-slate-600"
@@ -217,7 +217,7 @@
             <!-- Sound Effects (SFX & UI) -->
             <div class="space-y-1">
               <div
-                class="flex justify-between items-center text-xs font-bold text-slate-800"
+                class="flex justify-between items-center text-sm font-bold text-slate-800"
               >
                 <span>Sound Effects (SFX & UI)</span>
                 <span class="font-mono text-slate-600"
@@ -240,7 +240,7 @@
 
         <button
           onclick={() => (activeModal = null)}
-          class="w-full py-2 bg-gray-300 hover:bg-gray-400 font-bold rounded-lg text-xs text-slate-800 border border-slate-400 cursor-pointer"
+          class="w-full py-2 bg-gray-300 hover:bg-gray-400 font-bold rounded-lg text-sm text-slate-800 border border-slate-400 cursor-pointer"
           >Close</button
         >
       </div>
@@ -268,9 +268,9 @@
           >
         </div>
 
-        <div class="space-y-3 text-xs leading-relaxed text-slate-700">
+        <div class="space-y-3 text-sm leading-relaxed text-slate-700">
           <div class="bg-green-100 border-2 border-green-300 rounded-lg p-3">
-            <h4 class="font-bold text-green-800 text-xs mb-1">
+            <h4 class="font-bold text-green-800 text-sm mb-1">
               Educational Purpose
             </h4>
             <p>
@@ -283,7 +283,7 @@
           <div
             class="bg-gray-200 p-3 rounded-lg border border-slate-300 space-y-1"
           >
-            <h4 class="font-bold text-slate-800 text-xs">Research & Authors</h4>
+            <h4 class="font-bold text-slate-800 text-sm">Research & Authors</h4>
             <p class="text-slate-600 italic">City College of Calamba</p>
             <p>
               Developed as an interactive learning tool for computing education
@@ -294,7 +294,7 @@
           <div
             class="bg-gray-200 p-3 rounded-lg border border-slate-300 space-y-1"
           >
-            <h4 class="font-bold text-slate-800 text-xs">
+            <h4 class="font-bold text-slate-800 text-sm">
               Core Learning Objectives
             </h4>
             <ul class="list-disc list-inside space-y-0.5 text-slate-700">
@@ -308,7 +308,7 @@
 
         <button
           onclick={() => (activeModal = null)}
-          class="w-full py-2 bg-gray-300 hover:bg-gray-400 font-bold rounded-lg text-xs text-slate-800 border border-slate-400 cursor-pointer"
+          class="w-full py-2 bg-gray-300 hover:bg-gray-400 font-bold rounded-lg text-sm text-slate-800 border border-slate-400 cursor-pointer"
           >Close</button
         >
       </div>

@@ -416,66 +416,154 @@
         <strong>Editor Mode:</strong> Blockly vs. Text editor mode is tracked as session metadata for qualitative research, but excluded from the ML feature vector because mode selection does not directly correlate with algorithmic proficiency.
       </p>
 
-      <h3>C. Deep Q-Network (DQN) Action Policy</h3>
+      <h3>C. Deep Q-Network (DQN) Action Policy & Value Dynamics</h3>
+      
+      <h4>1. What are Q-Values?</h4>
       <p>
-        <strong>State Vector S<sub>t</sub> (4 features):</strong>
+        In the Algobot DDA system, <strong>Q-values</strong> represent the expected long-term <em>pedagogical reward</em> of taking a specific dynamic difficulty adjustment (DDA) action given the student's current learning and emotional state.
+      </p>
+      <p>
+        When the agent runs inference, the DQN receives a 4-dimensional state vector and outputs an array of <strong>5 real numbers (Q-values)</strong>:
       </p>
       <div class="formula-box">
-        S<sub>t</sub> = [ Proficiency (LSTM Output), Stage / 5.0, FrustrationScore, FlowScore ]
+        Q-Values = [ Q<sub>0</sub>, Q<sub>1</sub>, Q<sub>2</sub>, Q<sub>3</sub>, Q<sub>4</sub> ]
       </div>
+      <p>
+        Each number corresponds to one of the 5 discrete DDA actions. In deployed ML Mode, the agent uses a <strong>greedy policy</strong> (&epsilon; = 0.0), selecting whichever action currently yields the maximum Q-value:
+      </p>
+      <pre><code>const selectedAction = qValues.indexOf(Math.max(...qValues));</code></pre>
 
+      <h4>2. The 4 State Vector Inputs (What Directly Changes Q-Values)</h4>
+      <p>
+        The predicted Q-values shift dynamically in real time based on 4 telemetry variables:
+      </p>
       <table>
         <thead>
           <tr>
-            <th>Action ID</th>
-            <th>Name</th>
-            <th>Trigger Condition</th>
-            <th>Game Mechanics Adjustment</th>
+            <th>State Feature</th>
+            <th>Range</th>
+            <th>Source</th>
+            <th>What Drives It UP (&uarr;)</th>
+            <th>What Drives It DOWN (&darr;)</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td><code>0</code></td>
-            <td><strong>NORMAL</strong></td>
-            <td>Nominal progression</td>
-            <td>Standard base parameters</td>
+            <td><strong>1. Student Proficiency</strong></td>
+            <td><code>0.0 – 1.0</code></td>
+            <td>Output by LSTM model over 20 timesteps</td>
+            <td>Successful quest completions, low error rate, zero resets, zero hints used</td>
+            <td>Execution order errors (e.g. planting before tilling), runtime crashes, repeated code resets</td>
           </tr>
           <tr>
-            <td><code>1</code></td>
-            <td><strong>SCAFFOLD</strong></td>
-            <td>High frustration / Logic Wall</td>
-            <td>Crop growth +30%, spoilage time +50%, pests -70%, show hint</td>
+            <td><strong>2. CS1 Stage</strong></td>
+            <td><code>0.2 – 1.0</code></td>
+            <td><code>currentStage / 5.0</code></td>
+            <td>Progressing from Stage 1 (Sequential) up to Stage 5 (State Optimization)</td>
+            <td>Static within a milestone</td>
           </tr>
           <tr>
-            <td><code>2</code></td>
-            <td><strong>CHALLENGE</strong></td>
-            <td>High flow / high proficiency</td>
-            <td>Spoilage time -20%, pest spawn frequency +50%</td>
+            <td><strong>3. Frustration Score</strong></td>
+            <td><code>0.0 – 1.0</code></td>
+            <td>Event thresholding in <code>telemetry.js</code></td>
+            <td>+0.3 if errors &gt; 5<br/>+0.3 if resets &gt; 3<br/>+0.3 if crop spoilage &gt; 40%</td>
+            <td>Clean quest completion without resets, avoiding syntax/order errors, fresh harvests</td>
           </tr>
           <tr>
-            <td><code>3</code></td>
-            <td><strong>GREEDY_GUIDE</strong></td>
-            <td>Suboptimal harvest choices (Stage 4+)</td>
-            <td>Highlight crop closest to spoilage, show greedy decision tip</td>
-          </tr>
-          <tr>
-            <td><code>4</code></td>
-            <td><strong>STATE_OPTIMIZE</strong></td>
-            <td>Moderate performance (Stage 5)</td>
-            <td>Modulate stochastic events, display state planning tips</td>
+            <td><strong>4. Flow Score</strong></td>
+            <td><code>0.0 – 1.0</code></td>
+            <td>Accumulator in <code>telemetry.js</code></td>
+            <td>+0.15 for sequential farming chains<br/>+0.15 for <code>if</code> checks<br/>+0.15 for loop executions</td>
+            <td>&minus;0.30 penalty whenever Frustration Score &gt; 0.5</td>
           </tr>
         </tbody>
       </table>
 
+      <h4>3. The 5 DDA Actions & Live In-Game Mechanics Overrides</h4>
       <p>
-        <strong>Reward Function:</strong> Evaluates state deltas:
+        When a specific action has the highest predicted Q-value, <code>dda.js</code> immediately overrides game parameters:
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Action ID & Name</th>
+            <th>Growth Speed</th>
+            <th>Spoilage Window</th>
+            <th>Pest / Fire Spawns</th>
+            <th>Injected Pedagogical Tip</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>0: NORMAL</code><br/><strong>(Baseline Mode)</strong></td>
+            <td><code>1.0x</code> (default)</td>
+            <td><code>1.0x</code> (default)</td>
+            <td><code>1.0x</code> (default)</td>
+            <td><em>(None)</em></td>
+          </tr>
+          <tr>
+            <td><code>1: SCAFFOLD</code><br/><strong>(Logic Wall Helper)</strong></td>
+            <td><strong><code>0.7x</code></strong> (30% faster)</td>
+            <td><strong><code>1.5x</code></strong> (50% longer)</td>
+            <td><strong><code>0.3x</code></strong> (70% fewer)</td>
+            <td>"Tip: Order matters! Make sure to till the soil before planting seeds."</td>
+          </tr>
+          <tr>
+            <td><code>2: CHALLENGE</code><br/><strong>(High Skill Engagement)</strong></td>
+            <td><code>1.0x</code></td>
+            <td><strong><code>0.8x</code></strong> (20% faster)</td>
+            <td><strong><code>1.5x</code></strong> (50% more)</td>
+            <td>"Challenge Active: Pests and spoilage are faster! Can you automate with a loop?"</td>
+          </tr>
+          <tr>
+            <td><code>3: GREEDY_GUIDE</code><br/><strong>(Algorithmic Tutor)</strong></td>
+            <td><code>1.0x</code></td>
+            <td><strong><code>1.2x</code></strong> (20% longer)</td>
+            <td><code>1.0x</code></td>
+            <td>"Greedy Choice Tip: Always inspect crops and harvest the one closest to spoiling first!"</td>
+          </tr>
+          <tr>
+            <td><code>4: STATE_OPTIMIZE</code><br/><strong>(Stochastic Planner)</strong></td>
+            <td><strong><code>0.9x</code></strong> (10% faster)</td>
+            <td><strong><code>1.1x</code></strong> (10% longer)</td>
+            <td><strong><code>1.2x</code></strong> (20% more)</td>
+            <td>"State Strategy Tip: Prepare for unexpected pests by checking crop status inside loops!"</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h4>4. Pedagogical Reward Function</h4>
+      <p>
+        During offline reinforcement learning with <code>training/train_dqn.py</code>, the policy network was trained to maximize:
       </p>
       <div class="formula-box">
-        Reward = &Delta;Flow &times; 2.0 &minus; &Delta;Frustration &times; 2.0 &minus; &Delta;ErrorRate &times; 1.0 + Bonuses/Penalties
+        Reward R = 2.0 &times; &Delta;Flow &minus; 2.0 &times; &Delta;Frustration + R<sub>quest</sub> &minus; P<sub>misaligned</sub>
       </div>
-      <p>
-        Incorporates quest completion bonuses (+1.0) and misaligned scaffolding/challenge penalties (-0.5).
-      </p>
+      <ul>
+        <li><strong>&Delta;Flow (&times; 2.0):</strong> Encourages selecting actions that help the student enter and sustain a flow state.</li>
+        <li><strong>&Delta;Frustration (&minus; 2.0):</strong> Strong negative feedback if an action causes frustration to spike; positive reward when frustration drops.</li>
+        <li><strong>Quest Completion Bonus (+1.0):</strong> Awarded when an action directly supports solving the active quest.</li>
+        <li><strong>Inappropriate Scaffold Penalty (&minus;0.5):</strong> Penalizes the model if it triggers <code>SCAFFOLD</code> when the player is already proficient (&gt; 0.7), preventing patronizing assistance.</li>
+        <li><strong>Inappropriate Challenge Penalty (&minus;0.5):</strong> Penalizes the model if it triggers <code>CHALLENGE</code> when the player is struggling (&lt; 0.3), preventing cognitive overload.</li>
+      </ul>
+
+      <h4>5. Step-by-Step Gameplay Scenarios</h4>
+      
+      <div class="module-card">
+        <h4>Scenario A: Student Hits the "Logic Wall" (Struggling with Sequential Order)</h4>
+        <p><strong>1. Trigger:</strong> The student attempts to plant seeds on untilled soil 4 times, triggering order errors, and repeatedly clicks "Reset Code".</p>
+        <p><strong>2. Telemetry Updates:</strong> <code>errors &gt; 5</code>, <code>resets &gt; 3</code> &rarr; <var>FrustrationScore</var> rises to <code>0.60</code>, <var>FlowScore</var> drops to <code>0.20</code>. LSTM encodes the sequence of failures &rarr; <var>Proficiency</var> drops to <code>0.18</code>.</p>
+        <p><strong>3. DQN Response:</strong> Given state <code>[0.18, 0.20, 0.60, 0.20]</code>, the network outputs <strong>Q<sub>1</sub> (SCAFFOLD) as the highest Q-value</strong> (e.g. Q<sub>1</sub> = +0.85, Q<sub>2</sub> = &minus;1.20).</p>
+        <p><strong>4. In-Game Adjustment:</strong> Spoilage window extends by +50%, pests decrease by &minus;70%, and an in-game hint appears explaining the proper sequential order.</p>
+      </div>
+
+      <div class="module-card">
+        <h4>Scenario B: Student Masters Loops & Achieves Flow</h4>
+        <p><strong>1. Trigger:</strong> The student writes an efficient <code>for</code> loop that tills, plants, and waters a full 3&times;3 plot in a single run with zero errors.</p>
+        <p><strong>2. Telemetry Updates:</strong> <code>forLoopExecutions</code> rises, crops are harvested fresh &rarr; <var>FrustrationScore</var> drops to <code>0.00</code>, <var>FlowScore</var> rises to <code>0.85</code>. LSTM encodes consistent clean actions &rarr; <var>Proficiency</var> rises to <code>0.92</code>.</p>
+        <p><strong>3. DQN Response:</strong> Given state <code>[0.92, 0.60, 0.00, 0.85]</code>, the network outputs <strong>Q<sub>2</sub> (CHALLENGE) as the highest Q-value</strong> (Q<sub>2</sub> = +0.78).</p>
+        <p><strong>4. In-Game Adjustment:</strong> Spoilage accelerates by 20% and pest spawns increase by 50%, challenging the student to optimize their automation script.</p>
+      </div>
     </section>
 
     <!-- Section 3 -->
@@ -624,6 +712,15 @@
       </div>
 
       <div class="module-card">
+        <h4>training/export_tfjs.py — Model Conversion Script</h4>
+        <p><strong>Role:</strong> Converter script for browser deployment.</p>
+        <p><strong>Key Responsibilities:</strong></p>
+        <ul>
+          <li>Converts trained <code>.keras</code> artifacts into TensorFlow.js layers format (<code>model.json</code> and binary weight shards) deposited into <code>public/models/lstm/</code> and <code>public/models/dqn/</code>.</li>
+        </ul>
+      </div>
+
+      <div class="module-card">
         <h4>training/train_dqn.py — Offline DQN Policy Trainer</h4>
         <p><strong>Role:</strong> Model trainer for DDA action policy network.</p>
         <p><strong>Key Responsibilities:</strong></p>
@@ -631,15 +728,6 @@
           <li>Ingests experience replay tuples from Bootstrap session logs.</li>
           <li>Trains a Keras policy network using Q-learning, target network hard updates, and temporal difference loss minimization (<code>gamma=0.95</code>).</li>
           <li>Analyzes Q-value distributions across state spaces and action selection frequencies.</li>
-        </ul>
-      </div>
-
-      <div class="module-card">
-        <h4>training/export_tfjs.sh — Model Conversion Script</h4>
-        <p><strong>Role:</strong> Converter script for browser deployment.</p>
-        <p><strong>Key Responsibilities:</strong></p>
-        <ul>
-          <li>Converts trained <code>.keras</code> artifacts into TensorFlow.js layers format (<code>model.json</code> and binary weight shards) deposited into <code>public/models/lstm/</code> and <code>public/models/dqn/</code>.</li>
         </ul>
       </div>
 
@@ -704,7 +792,7 @@
                       │                                                 │
                       └────────────────────────┬────────────────────────┘
                                                ▼
-                                      bash export_tfjs.sh
+                                      python export_tfjs.py
                                                │
                                                ▼
                                  Exports TensorFlow.js models to:
@@ -750,7 +838,7 @@ python training/train_lstm.py --data training/data/processed/ --output training/
 python training/train_dqn.py --data training/data/raw/ --output training/models/
 
 # 5. Export models to TensorFlow.js format
-bash training/export_tfjs.sh</code></pre>
+python training/export_tfjs.py</code></pre>
 
       <h3>Phase 3: Adaptive ML Deployment</h3>
       <p>

@@ -82,23 +82,124 @@ To solve the **cold-start problem** (absence of prior student training data) wit
 
 > **Editor Mode**: Blockly vs. Text editor mode is tracked as session metadata for qualitative research, but excluded from the ML feature vector because mode selection does not directly correlate with algorithmic proficiency.
 
-### C. Deep Q-Network (DQN) Action Policy
-* **State Vector S<sub>t</sub> (4 features)**:
-  ```
-  State S = [ Proficiency (LSTM Output), Stage / 5.0, FrustrationScore, FlowScore ]
-  ```
-* **Discrete Action Space (5 Actions)**:
-  * `0: NORMAL` — Baseline parameters
-  * `1: SCAFFOLD` — Extend crop spoilage time (+50%), speed growth (+30%), reduce pest/fire events (-70%), show procedural hint
-  * `2: CHALLENGE` — Accelerate spoilage (-20%), increase pest/fire events (+50%)
-  * `3: GREEDY_GUIDE` — Highlight optimal crops closest to spoilage, show greedy decision tip
-  * `4: STATE_OPTIMIZE` — Modulate stochastic events, display state planning tips
-* **Reward Function**: Evaluates state deltas:
-  ```
-  Reward = ΔFlow * 2.0 - ΔFrustration * 2.0 - ΔErrorRate * 1.0 + Bonuses/Penalties
-  ```
-  Incorporates quest completion bonuses (+1.0) and misaligned scaffolding/challenge penalties (-0.5).
-* **Offline RL Training**: Trained offline in Python from experience replay tuples `(s, a, r, s', done)` collected during Version 1 (Bootstrap mode).
+### C. Deep Q-Network (DQN) Action Policy & Value Dynamics
+
+#### 1. What are Q-Values?
+In the Algobot DDA system, **Q-values** represent the expected long-term *pedagogical reward* of taking a specific dynamic difficulty adjustment (DDA) action given the student's current learning and emotional state.
+
+When the agent runs inference, the DQN receives a 4-dimensional state vector and outputs an array of **5 real numbers (Q-values)**:
+```
+Q-Values = [ Q_0, Q_1, Q_2, Q_3, Q_4 ]
+```
+Each number corresponds to one of the 5 discrete DDA actions. In deployed ML Mode, the agent uses a **greedy policy** ($\epsilon = 0.0$), selecting whichever action currently has the highest Q-value:
+```javascript
+const selectedAction = qValues.indexOf(Math.max(...qValues));
+```
+
+```mermaid
+flowchart LR
+    subgraph S["Student State Input (S_t)"]
+        direction TB
+        S1["Proficiency (0.0 to 1.0)<br/>From LSTM Sequence Model"]
+        S2["Curriculum Stage (0.2 to 1.0)<br/>Stage / 5.0 (Milestones 1 - 5)"]
+        S3["Frustration Score (0.0 to 1.0)<br/>Errors, Resets, Crop Spoilage"]
+        S4["Flow Score (0.0 to 1.0)<br/>Smooth Runs, Loop/If Progress"]
+    end
+
+    subgraph DQN["DQN Neural Network"]
+        direction TB
+        D1["Dense(16, ReLU)"] --> D2["Dense(16, ReLU)"] --> D3["Dense(5, Linear)"]
+    end
+
+    subgraph Q["Predicted Q-Values"]
+        direction TB
+        Q0["Q_0 : Normal Mode"]
+        Q1["Q_1 : Scaffold Mode"]
+        Q2["Q_2 : Challenge Mode"]
+        Q3["Q_3 : Greedy Guide"]
+        Q4["Q_4 : State Optimize"]
+    end
+
+    subgraph ACT["DDA Execution"]
+        A["argmax(Q) -> Apply Live Game Overrides"]
+    end
+
+    S --> DQN --> Q --> ACT
+```
+
+---
+
+#### 2. The 4 State Vector Inputs (What Directly Changes Q-Values)
+
+The DQN does not evaluate actions in isolation; its predicted Q-values shift continuously based on 4 telemetry variables:
+
+| State Feature | Range | Mathematical Source | What Drives It UP (↑) | What Drives It DOWN (↓) |
+| :--- | :---: | :--- | :--- | :--- |
+| **1. Student Proficiency** | `0.0 - 1.0` | Output by LSTM model over the last 20 timesteps | Successful quest completions, low error frequency, few code resets, zero hints used | Execution order errors (e.g. planting before tilling), code crashes, repeated code resets |
+| **2. CS1 Stage** | `0.2 - 1.0` | `currentStage / 5.0` | Progressing from Stage 1 (Sequential) up to Stage 5 (State Optimization) | Remains static within a milestone |
+| **3. Frustration Score** | `0.0 - 1.0` | Composite event thresholding in `telemetry.js` | `+0.3` if recent errors > 5<br/>`+0.3` if code resets > 3<br/>`+0.3` if crop spoilage rate > 40% | Solving quests without resets, avoiding syntax/order errors, harvesting crops fresh |
+| **4. Flow Score** | `0.0 - 1.0` | Positive reinforcement accumulator in `telemetry.js` | `+0.15` for sequential farming chains<br/>`+0.15` for `if` checks<br/>`+0.15` for loop completions | `-0.30` penalty whenever Frustration Score exceeds 0.5 |
+
+---
+
+#### 3. The 5 DDA Actions & Live In-Game Mechanics Overrides
+
+When a specific action has the highest Q-value, [`dda.js`](file:///c:/Users/ADMIN/Documents/algobot-latest/src/game/ml/dda.js) immediately modifies the game parameters:
+
+| Action ID & Name | Growth Speed | Spoilage Window | Pest / Fire Spawns | Injected In-Game Tip |
+| :--- | :---: | :---: | :---: | :--- |
+| **`0: NORMAL`**<br/>(Baseline Mode) | `1.0x` (default) | `1.0x` (default) | `1.0x` (default) | *(No active tip)* |
+| **`1: SCAFFOLD`**<br/>(Logic Wall Helper) | **`0.7x`**<br/>*(30% faster)* | **`1.5x`**<br/>*(50% longer)* | **`0.3x`**<br/>*(70% fewer)* | *"Tip: Order matters! Make sure to till the soil before planting seeds."* |
+| **`2: CHALLENGE`**<br/>(High Skill Engagement) | `1.0x` | **`0.8x`**<br/>*(20% faster)* | **`1.5x`**<br/>*(50% more)* | *"Challenge Active: Pests and spoilage are faster! Can you automate with a loop?"* |
+| **`3: GREEDY_GUIDE`**<br/>(Algorithmic Tutor) | `1.0x` | **`1.2x`**<br/>*(20% longer)* | `1.0x` | *"Greedy Choice Tip: Always inspect crops and harvest the one closest to spoiling first!"* |
+| **`4: STATE_OPTIMIZE`**<br/>(Stochastic Planner) | **`0.9x`**<br/>*(10% faster)* | **`1.1x`**<br/>*(10% longer)* | **`1.2x`**<br/>*(20% more)* | *"State Strategy Tip: Prepare for unexpected pests by checking crop status inside loops!"* |
+
+---
+
+#### 4. The Pedagogical Reward Function (How the Model Was Trained)
+
+During offline reinforcement learning with [`train_dqn.py`](file:///c:/Users/ADMIN/Documents/algobot-latest/training/train_dqn.py), the network learned which action yields the highest reward using the following formulation:
+
+$$\text{Reward } R = 2.0 \cdot \Delta\text{Flow} - 2.0 \cdot \Delta\text{Frustration} + R_{\text{quest}} - P_{\text{misaligned}}$$
+
+```
+Reward = (ΔFlow * 2.0) - (ΔFrustration * 2.0) + QuestBonus - ScaffoldPenalty - ChallengePenalty
+```
+
+Where:
+* **$\Delta\text{Flow} = \text{Flow}_{t+1} - \text{Flow}_t$**: Encourages the model to choose actions that help the student enter and sustain a flow state.
+* **$\Delta\text{Frustration} = \text{Frustration}_{t+1} - \text{Frustration}_t$**: Strong negative feedback if an action causes frustration to increase; positive feedback when frustration drops.
+* **Quest Bonus ($+1.0$)**: Awarded when an action is associated with successful quest completion.
+* **Inappropriate Scaffold Penalty ($-0.5$)**: Penalizes the model if it triggers `SCAFFOLD` when the player is already proficient ($\text{Proficiency} > 0.7$), preventing patronizing assistance.
+* **Inappropriate Challenge Penalty ($-0.5$)**: Penalizes the model if it triggers `CHALLENGE` when the player is struggling ($\text{Proficiency} < 0.3$), preventing cognitive overload.
+
+---
+
+#### 5. Step-by-Step Gameplay Scenarios: How Q-Values Shift
+
+##### Scenario A: Student Hits the "Logic Wall" (Struggling with Sequential Order)
+1. **Student Action**: The student attempts to plant seeds on untilled soil 4 times, triggering order errors, and repeatedly clicks the "Reset Code" button.
+2. **Telemetry Updates**:
+   - `errors` rises $> 5$, `resets` rises $> 3$.
+   - $\text{FrustrationScore} \to 0.60$, $\text{FlowScore} \to 0.20$.
+   - LSTM encodes the sliding window of failures $\to \text{Proficiency} \to 0.18$.
+3. **DQN Response**:
+   - State Vector: $[0.18, 0.20, 0.60, 0.20]$.
+   - The trained network predicts **$Q_1$ (`SCAFFOLD`) as the maximum Q-value** (e.g. $Q_1 = +0.85$, whereas $Q_2 = -1.20$).
+4. **Game Result**:
+   - The DDA applies `SCAFFOLD`: Crop spoilage is relaxed by $+50\%$, pests drop by $-70\%$, and a gentle hint appears reminding the student to till before planting.
+
+##### Scenario B: Student Masters Loops & Achieves Flow
+1. **Student Action**: The student writes an efficient `for` loop that tills, plants, and waters a full $3 \times 3$ plot in a single execution with zero errors.
+2. **Telemetry Updates**:
+   - `forLoopExecutions` increases, `cropsHarvestedFresh` rises steadily.
+   - $\text{FrustrationScore} \to 0.0$, $\text{FlowScore} \to 0.85$.
+   - LSTM encodes continuous clean actions $\to \text{Proficiency} \to 0.92$.
+3. **DQN Response**:
+   - State Vector: $[0.92, 0.60, 0.00, 0.85]$.
+   - The trained network predicts **$Q_2$ (`CHALLENGE`) or $Q_0$ (`NORMAL`) as the highest Q-value** ($Q_2 = +0.78$).
+4. **Game Result**:
+   - The DDA applies `CHALLENGE`: Crop spoilage accelerates by $20\%$ and pest spawns increase by $50\%$, prompting the student to optimize their automation loop.
 
 ---
 

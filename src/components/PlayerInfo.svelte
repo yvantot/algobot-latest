@@ -43,7 +43,10 @@
   }
 </script>
 
-<div id="player-info" class="inline-flex items-center text-slate-700 select-none w-[290px]">
+<div
+  id="player-info"
+  class="inline-flex items-center text-slate-700 select-none w-[290px]"
+>
   <!-- Avatar Frame -->
   <div
     onclick={(e) => {
@@ -55,8 +58,16 @@
     onkeydown={(e) => void e}
     class="clickable group avatar-frame relative w-18 h-18 flex items-center justify-center -rotate-4 z-10"
   >
-    <img src={Personalize.AVATAR} alt="Avatar" class="avatar w-10 h-10 object-contain" />
-    <img src="/sprites/ui_player_info/change_icon.png" alt="Change property" class="object-fill group-hover:scale-75 scale-0 absolute -right-3 -top-3 transition-transform" />
+    <img
+      src={Personalize.AVATAR}
+      alt="Avatar"
+      class="avatar w-10 h-10 object-contain"
+    />
+    <img
+      src="/sprites/ui_player_info/change_icon.png"
+      alt="Change property"
+      class="object-fill group-hover:scale-75 scale-0 absolute -right-3 -top-3 transition-transform"
+    />
   </div>
   <div class="top-[-2.5px] absolute ui_outline w-[267px] h-[82px]"></div>
 
@@ -72,11 +83,22 @@
   >
     <div class="flex flex-col justify-start items-center relative pt-1 px-5">
       {#if has_reward}
-        <img src="/sprites/icon_gift.png" class="enter-anim absolute top-[-5px] right-[-35px] w-14 h-14" alt="Gift" />
+        <img
+          src="/sprites/icon_gift.png"
+          class="enter-anim absolute top-[-5px] right-[-35px] w-14 h-14"
+          alt="Gift"
+        />
       {/if}
-      <span id="player-level" class="text-sm font-bold whitespace-nowrap text-slate-100">0</span>
+      <span
+        id="player-level"
+        class="text-sm font-bold whitespace-nowrap text-slate-100">0</span
+      >
       <div class="exp_bar w-full flex-1 overflow-hidden">
-        <div id="progress-level" class="exp_progress m-1 h-2 transition-[width] duration-500" style="width: 0px"></div>
+        <div
+          id="progress-level"
+          class="exp_progress m-1 h-2 transition-[width] duration-500"
+          style="width: 0px"
+        ></div>
       </div>
     </div>
 
@@ -86,10 +108,14 @@
         e.stopPropagation();
         toggleModal(ModalTypes.FARM_PERSONALIZE);
       }}
-      class="clickable absolute left-[30px] right-0 bottom-[-12px] -rotate-1 block name-frame w-[145px] p-1 px-2 text-xs font-bold whitespace-nowrap text-slate-100 text-center group"
+      class="clickable absolute left-[30px] right-0 bottom-[-12px] -rotate-1 block name-frame w-[145px] p-1 px-2 text-sm font-bold whitespace-nowrap text-slate-100 text-center group"
     >
       {Personalize.FARM_NAME}
-      <img src="/sprites/ui_player_info/change_icon.png" alt="Change property" class="object-fill group-hover:scale-75 scale-0 absolute -right-4 -top-4 transition-transform" />
+      <img
+        src="/sprites/ui_player_info/change_icon.png"
+        alt="Change property"
+        class="object-fill group-hover:scale-75 scale-0 absolute -right-4 -top-4 transition-transform"
+      />
     </button>
   </div>
 </div>

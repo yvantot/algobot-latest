@@ -1,0 +1,1102 @@
+{
+  "dataset_version": "v1",
+  "export_date": "2026-08-13T03:54:48.166Z",
+  "participant_count": 1,
+  "session_count": 4,
+  "feature_schema_version": "10f",
+  "label_formula": "0.40*completion + 0.25*(1-errors) + 0.20*(1-resets) + 0.15*(1-hints)",
+  "sessions": [
+    {
+      "summary": {
+        "sessionId": "3f85320c-1e04-4719-96c9-82b8ad679cbd",
+        "participantId": "p_808b8d4c",
+        "startTime": "2026-08-11T03:02:49.643Z",
+        "durationMinutes": 9.64,
+        "editorMode": "text",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 1,
+        "totalCodeRuns": 1,
+        "codeRunSuccessRate": 1,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 3
+    },
+    {
+      "summary": {
+        "sessionId": "46c17a85-ea88-457f-86a6-84c1261f60a5",
+        "participantId": "p_808b8d4c",
+        "startTime": "2026-08-11T03:12:28.838Z",
+        "durationMinutes": 26.42,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 0
+    },
+    {
+      "summary": {
+        "sessionId": "873f4d36-3626-46a2-b9e8-cc468a02c4be",
+        "participantId": "p_808b8d4c",
+        "startTime": "2026-08-13T02:33:24.643Z",
+        "durationMinutes": 65.21,
+        "editorMode": "blockly",
+        "currentStage": 1,
+        "totalSteps": 0,
+        "totalErrors": 0,
+        "totalResets": 0,
+        "totalCodeRuns": 0,
+        "codeRunSuccessRate": 0,
+        "totalHintsShown": 0,
+        "questsCompleted": 0,
+        "avgFrustration": 0,
+        "avgFlow": 0.5
+      },
+      "questAttempts": {},
+      "featureSnapshots": [],
+      "ddaLog": [],
+      "rawEventCount": 2
+    },
+    {
+      "dataset_version": "v1",
+      "export_date": "2026-08-13T03:54:48.165Z",
+      "feature_schema_version": "10f",
+      "label_formula": "0.40*completion + 0.25*(1-errors) + 0.20*(1-resets) + 0.15*(1-hints)",
+      "student_id": "p_808b8d4c",
+      "session_id": "51483936-11c8-497d-9c06-b5fc73a0ef86",
+      "start_time": "2026-08-13T03:38:58.952Z",
+      "duration_minutes": 15.82,
+      "editor_mode_primary": "blockly",
+      "dda_mode": "bootstrap",
+      "quest_attempts": [
+        {
+          "quest_key": "tut_0",
+          "stage": 1,
+          "start_time": "2026-08-13T03:45:29.414Z",
+          "end_time": "2026-08-13T03:45:47.231Z",
+          "duration_seconds": 17.817,
+          "completed": true,
+          "errors": 0,
+          "resets": 28,
+          "code_runs": 6,
+          "hints_shown": 0,
+          "dda_action": 0,
+          "feature_vector_start": [
+            0,
+            0.0007683206048219801,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "feature_vector_end": [
+            0,
+            0.001469583299655383,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "proficiency_label": 1
+        },
+        {
+          "quest_key": "tut_1",
+          "stage": 1,
+          "start_time": "2026-08-13T03:49:58.253Z",
+          "end_time": "2026-08-13T03:50:02.865Z",
+          "duration_seconds": 4.612,
+          "completed": true,
+          "errors": 0,
+          "resets": 1,
+          "code_runs": 1,
+          "hints_shown": 0,
+          "dda_action": 0,
+          "feature_vector_start": [
+            0,
+            0.008190492658133385,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "feature_vector_end": [
+            0,
+            0.009037328686138095,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "proficiency_label": 0.96
+        },
+        {
+          "quest_key": "tut_2",
+          "stage": 1,
+          "start_time": "2026-08-13T03:52:34.912Z",
+          "end_time": null,
+          "duration_seconds": 0,
+          "completed": false,
+          "errors": 0,
+          "resets": 2,
+          "code_runs": 1,
+          "hints_shown": 0,
+          "dda_action": 0,
+          "feature_vector_start": [
+            0,
+            0.008823961958919555,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "feature_vector_end": [],
+          "proficiency_label": null
+        }
+      ],
+      "feature_timeseries": [
+        {
+          "index": 0,
+          "vector": [
+            0,
+            0.0007683206048219801,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 1,
+          "vector": [
+            0,
+            0.0014688242062229184,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 2,
+          "vector": [
+            0,
+            0.008190492658133385,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 3,
+          "vector": [
+            0,
+            0.008190492658133385,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 4,
+          "vector": [
+            0,
+            0.008635748666382849,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 5,
+          "vector": [
+            0,
+            0.008635748666382849,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 6,
+          "vector": [
+            0,
+            0.0090804115847891,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 7,
+          "vector": [
+            0,
+            0.0090804115847891,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 8,
+          "vector": [
+            0,
+            0.00882395114472383,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 9,
+          "vector": [
+            0,
+            0.00882395114472383,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 10,
+          "vector": [
+            0,
+            0.009182342966631365,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 11,
+          "vector": [
+            0,
+            0.009182342966631365,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 12,
+          "vector": [
+            0,
+            0.009539697371446464,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 13,
+          "vector": [
+            0,
+            0.009539697371446464,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 14,
+          "vector": [
+            0,
+            0.012051566933254978,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        },
+        {
+          "index": 15,
+          "vector": [
+            0,
+            0.012051566933254978,
+            0,
+            0,
+            0,
+            0,
+            0.3,
+            1,
+            0,
+            1
+          ],
+          "stage": 1
+        }
+      ],
+      "dda_log": [
+        {
+          "timestamp": 408490,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 659301,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 660047,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 660763,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 815961,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 816785,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 817636,
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "timestamp": 871256,
+          "actionId": 0,
+          "stage": 1
+        }
+      ],
+      "replay_buffer": [
+        {
+          "state": [
+            0.5,
+            0.2,
+            0,
+            0.5
+          ],
+          "action": 0,
+          "reward": -0.6,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786592998253
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786592998999
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786592999715
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786593154913
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786593155737
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786593156588
+        },
+        {
+          "state": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "action": 0,
+          "reward": 0,
+          "nextState": [
+            0.5,
+            0.2,
+            0.3,
+            0.5
+          ],
+          "done": false,
+          "stage": 1,
+          "timestamp": 1786593210208
+        }
+      ],
+      "raw_events": [
+        {
+          "t": 390443,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 390462,
+          "event": "quest_start",
+          "quest": "tut_0"
+        },
+        {
+          "t": 390462,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 390511,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 408276,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 408280,
+          "event": "quest_complete",
+          "quest": "tut_0",
+          "label": 1
+        },
+        {
+          "t": 408490,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 428808,
+          "event": "editor_mode",
+          "mode": "text"
+        },
+        {
+          "t": 433949,
+          "event": "editor_mode",
+          "mode": "blockly"
+        },
+        {
+          "t": 447417,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 447445,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 463533,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 464394,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 465273,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 484026,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 485110,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 485146,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 498340,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 499151,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 499957,
+          "event": "code_reset"
+        },
+        {
+          "t": 507815,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 507832,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 508658,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 509503,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 538341,
+          "event": "bot_action",
+          "action": "harvest"
+        },
+        {
+          "t": 549872,
+          "event": "code_reset"
+        },
+        {
+          "t": 616633,
+          "event": "code_reset"
+        },
+        {
+          "t": 618005,
+          "event": "code_reset"
+        },
+        {
+          "t": 618183,
+          "event": "code_reset"
+        },
+        {
+          "t": 618382,
+          "event": "code_reset"
+        },
+        {
+          "t": 618567,
+          "event": "code_reset"
+        },
+        {
+          "t": 618762,
+          "event": "code_reset"
+        },
+        {
+          "t": 618935,
+          "event": "code_reset"
+        },
+        {
+          "t": 619129,
+          "event": "code_reset"
+        },
+        {
+          "t": 619263,
+          "event": "code_reset"
+        },
+        {
+          "t": 619568,
+          "event": "code_reset"
+        },
+        {
+          "t": 619778,
+          "event": "code_reset"
+        },
+        {
+          "t": 620002,
+          "event": "code_reset"
+        },
+        {
+          "t": 620226,
+          "event": "code_reset"
+        },
+        {
+          "t": 620431,
+          "event": "code_reset"
+        },
+        {
+          "t": 620633,
+          "event": "code_reset"
+        },
+        {
+          "t": 620805,
+          "event": "code_reset"
+        },
+        {
+          "t": 621433,
+          "event": "code_reset"
+        },
+        {
+          "t": 621687,
+          "event": "code_reset"
+        },
+        {
+          "t": 621992,
+          "event": "code_reset"
+        },
+        {
+          "t": 622251,
+          "event": "code_reset"
+        },
+        {
+          "t": 622487,
+          "event": "code_reset"
+        },
+        {
+          "t": 622697,
+          "event": "code_reset"
+        },
+        {
+          "t": 622925,
+          "event": "code_reset"
+        },
+        {
+          "t": 623170,
+          "event": "code_reset"
+        },
+        {
+          "t": 623393,
+          "event": "code_reset"
+        },
+        {
+          "t": 624117,
+          "event": "code_reset"
+        },
+        {
+          "t": 659274,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 659299,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 659301,
+          "event": "quest_start",
+          "quest": "tut_1"
+        },
+        {
+          "t": 659301,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 659301,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 660046,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 660047,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 660047,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 660762,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 660763,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 660763,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 661475,
+          "event": "code_reset"
+        },
+        {
+          "t": 663913,
+          "event": "quest_complete",
+          "quest": "tut_1",
+          "label": 0.96
+        },
+        {
+          "t": 814488,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 814508,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 815232,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 815959,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 815960,
+          "event": "quest_start",
+          "quest": "tut_2"
+        },
+        {
+          "t": 815961,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 815961,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 816784,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 816785,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 816785,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 817633,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 817636,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 817636,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 818463,
+          "event": "bot_action",
+          "action": "harvest"
+        },
+        {
+          "t": 819276,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 819973,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 820693,
+          "event": "code_reset"
+        },
+        {
+          "t": 868240,
+          "event": "code_run",
+          "success": true
+        },
+        {
+          "t": 868278,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 868983,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 869719,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 870416,
+          "event": "bot_action",
+          "action": "till"
+        },
+        {
+          "t": 871255,
+          "event": "bot_action",
+          "action": "water"
+        },
+        {
+          "t": 871256,
+          "event": "stage_change",
+          "stage": 1
+        },
+        {
+          "t": 871256,
+          "event": "dda_action",
+          "actionId": 0,
+          "stage": 1
+        },
+        {
+          "t": 872107,
+          "event": "bot_action",
+          "action": "plant"
+        },
+        {
+          "t": 872959,
+          "event": "bot_action",
+          "action": "harvest"
+        },
+        {
+          "t": 873783,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 874499,
+          "event": "bot_action",
+          "action": "move"
+        },
+        {
+          "t": 875234,
+          "event": "code_reset"
+        }
+      ],
+      "summary": {
+        "total_quests_attempted": 3,
+        "total_quests_completed": 2,
+        "total_errors": 0,
+        "total_resets": 31,
+        "total_code_runs": 9,
+        "code_run_success_rate": 1,
+        "total_hints_shown": 0,
+        "max_stage_reached": 1,
+        "avg_frustration": 0.3,
+        "avg_flow": 0.5,
+        "total_interpreter_steps": 39,
+        "replay_buffer_size": 7,
+        "agent_episode_count": 7
+      }
+    }
+  ]
+}

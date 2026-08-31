@@ -1,0 +1,106 @@
+{
+  "format": "layers-model",
+  "generatedBy": "keras v2.4.0",
+  "convertedBy": "Algobot Model Converter",
+  "modelTopology": {
+    "class_name": "Sequential",
+    "config": {
+      "name": "sequential_dqn",
+      "layers": [
+        {
+          "class_name": "Dense",
+          "config": {
+            "name": "hidden1",
+            "trainable": true,
+            "batch_input_shape": [
+              null,
+              4
+            ],
+            "dtype": "float32",
+            "units": 16,
+            "activation": "relu",
+            "use_bias": true
+          }
+        },
+        {
+          "class_name": "Dense",
+          "config": {
+            "name": "hidden2",
+            "trainable": true,
+            "dtype": "float32",
+            "units": 16,
+            "activation": "relu",
+            "use_bias": true
+          }
+        },
+        {
+          "class_name": "Dense",
+          "config": {
+            "name": "q_values",
+            "trainable": true,
+            "dtype": "float32",
+            "units": 5,
+            "activation": "linear",
+            "use_bias": true
+          }
+        }
+      ]
+    },
+    "keras_version": "2.4.0",
+    "backend": "tensorflow"
+  },
+  "weightsManifest": [
+    {
+      "paths": [
+        "group1-shard1of1.bin"
+      ],
+      "weights": [
+        {
+          "name": "hidden1/kernel",
+          "shape": [
+            4,
+            16
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "hidden1/bias",
+          "shape": [
+            16
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "hidden2/kernel",
+          "shape": [
+            16,
+            16
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "hidden2/bias",
+          "shape": [
+            16
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "q_values/kernel",
+          "shape": [
+            16,
+            5
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "q_values/bias",
+          "shape": [
+            5
+          ],
+          "dtype": "float32"
+        }
+      ]
+    }
+  ]
+}

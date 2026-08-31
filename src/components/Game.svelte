@@ -16,14 +16,14 @@
   import UnlockFlyOverlay from "./UnlockFlyOverlay.svelte";
   import EventBanner from "./EventBanner.svelte";
   import { createResizable, panelIn, panelOut } from "./interface.svelte.js";
-  import { ModalTypes } from "../game/global/enum.js";
-  import { Modals, triggerDidYouKnow } from "./global.svelte";
+  import { Modals, triggerDidYouKnow, ONBOARDING } from "./global.svelte.js";
   import GameDevTools from "./GameDevTools.svelte";
   import DDADashboard from "./DDADashboard.svelte";
   import { k } from "../lib/kaplay.js";
   import { onMount, onDestroy } from "svelte";
   import { telemetry } from "../game/ml/telemetry.js";
   import { eventScheduler } from "../game/ml/event-scheduler.js";
+  import { mlAgent } from "../game/ml/agent.js";
 
   let { onReturnMenu } = $props();
 
@@ -85,10 +85,13 @@
   let game_speed = $state(k.debug.timeScale);
   let camera_scale = $state(1);
 
-  onMount(() => {
+  onMount(async () => {
     const isHidden = localStorage.getItem("algobot_hide_onboarding") === "true";
     if (!isHidden) {
       showOnboarding = true;
+      ONBOARDING.isModalOpen = true;
+    } else {
+      ONBOARDING.isModalOpen = false;
     }
 
     // ML Pipeline: Initialize telemetry session
@@ -99,7 +102,12 @@
       localStorage.setItem("algobot_participant_id", participantId);
     }
     telemetry.setParticipantId(participantId);
-    console.log(`Telemetry session started: ${telemetry.getSessionId()} (${participantId})`);
+    console.log(
+      `Telemetry session started: ${telemetry.getSessionId()} (${participantId})`,
+    );
+
+    // ML Pipeline: Load pretrained LSTM + DQN models (determines bootstrap vs ML mode)
+    await mlAgent.init();
 
     // Start automated event scheduler (Bootstrap or ML mode)
     eventScheduler.start();
@@ -115,7 +123,9 @@
           rawEventCount: telemetry.getRawEvents().length,
         };
         // Append to stored sessions list
-        const stored = JSON.parse(localStorage.getItem("algobot_sessions") || "[]");
+        const stored = JSON.parse(
+          localStorage.getItem("algobot_sessions") || "[]",
+        );
         stored.push(sessionData);
         localStorage.setItem("algobot_sessions", JSON.stringify(stored));
         console.log("💾 Session data saved to localStorage");
@@ -136,11 +146,17 @@
     k.setCamScale(camera_scale);
   });
 
+  $effect(() => {
+    ONBOARDING.isModalOpen = showOnboarding;
+  });
+
   function toggleEditor() {
     current_editor =
       current_editor === Editors.TEXT ? Editors.BLOCK : Editors.TEXT;
     // ML Pipeline: track editor mode as metadata (not ML feature)
-    telemetry.recordEditorMode(current_editor === Editors.TEXT ? "text" : "blockly");
+    telemetry.recordEditorMode(
+      current_editor === Editors.TEXT ? "text" : "blockly",
+    );
   }
 
   function toggleMenu(menu) {
@@ -281,9 +297,7 @@
                   >
                     {btn.title}
                   </p>
-                  <p
-                    class="text-[10px] text-slate-600 leading-snug font-medium"
-                  >
+                  <p class="text-sm text-slate-600 leading-snug font-medium">
                     {btn.description}
                   </p>
 
@@ -332,7 +346,7 @@
                 >
                   Help & Guide
                 </p>
-                <p class="text-[10px] text-slate-600 leading-snug font-medium">
+                <p class="text-sm text-slate-600 leading-snug font-medium">
                   Learn game controls, shortcuts, and gameplay tips.
                 </p>
 
@@ -378,9 +392,7 @@
                   >
                     Start Menu
                   </p>
-                  <p
-                    class="text-[10px] text-slate-600 leading-snug font-medium"
-                  >
+                  <p class="text-sm text-slate-600 leading-snug font-medium">
                     Return to the main menu.
                   </p>
 
@@ -495,13 +507,13 @@
         </h3>
         <button
           onclick={() => (showConfirmReturn = false)}
-          class="text-slate-500 hover:text-slate-800 font-bold text-xs cursor-pointer"
+          class="text-slate-500 hover:text-slate-800 font-bold text-sm cursor-pointer"
           >✕</button
         >
       </div>
 
       <p
-        class="text-xs text-slate-600 leading-relaxed bg-white p-3 rounded-lg border border-slate-300"
+        class="text-sm text-slate-600 leading-relaxed bg-white p-3 rounded-lg border border-slate-300"
       >
         Are you sure you want to return to the Start Menu? Any unsaved progress
         will be lost.
@@ -510,7 +522,7 @@
       <div class="flex justify-end gap-2 pt-1">
         <button
           onclick={() => (showConfirmReturn = false)}
-          class="px-4 py-1.5 bg-gray-300 hover:bg-gray-400 text-slate-800 font-bold rounded-lg text-xs border border-slate-400 cursor-pointer transition-colors"
+          class="px-4 py-1.5 bg-gray-300 hover:bg-gray-400 text-slate-800 font-bold rounded-lg text-sm border border-slate-400 cursor-pointer transition-colors"
         >
           Cancel
         </button>
@@ -520,7 +532,7 @@
             showConfirmReturn = false;
             if (onReturnMenu) onReturnMenu();
           }}
-          class="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs shadow cursor-pointer transition-colors"
+          class="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-sm shadow cursor-pointer transition-colors"
         >
           Confirm
         </button>

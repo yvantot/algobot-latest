@@ -181,7 +181,7 @@
       />
       <div>
         <h1 class="font-bold text-base">Help & Game Guide</h1>
-        <p class="text-xs px-0 text-slate-500">
+        <p class="text-sm px-0 text-slate-500">
           Everything you need to know about playing & programming in AlgoBot
         </p>
       </div>
@@ -195,7 +195,7 @@
     {/if}
   </div>
 
-  <div class="flex flex-col gap-2 overflow-hidden text-xs flex-grow">
+  <div class="flex flex-col gap-2 overflow-hidden text-sm flex-grow">
     <!-- Tab Buttons -->
     <div class="flex flex-wrap gap-1 justify-center shrink-0">
       <button
@@ -240,12 +240,12 @@
             <h3 class="font-extrabold text-sm text-slate-800">
               {SLIDES[currentSlide].title}
             </h3>
-            <span class="text-xs font-bold text-slate-500"
+            <span class="text-sm font-bold text-slate-500"
               >{currentSlide + 1} / {SLIDES.length}</span
             >
           </div>
 
-          <p class="text-xs text-green-800 font-bold uppercase">
+          <p class="text-sm text-green-800 font-bold uppercase">
             {SLIDES[currentSlide].subtitle}
           </p>
 
@@ -270,7 +270,7 @@
               <span class="text-sm font-extrabold text-slate-700 mb-1"
                 >{SLIDES[currentSlide].fallbackText}</span
               >
-              <p class="text-xs text-slate-600 font-medium max-w-sm">
+              <p class="text-sm text-slate-600 font-medium max-w-sm">
                 {SLIDES[currentSlide].description}
               </p>
             </div>
@@ -280,7 +280,7 @@
             class="bg-gray-100 p-2.5 rounded-lg border border-slate-300 space-y-1"
           >
             {#each SLIDES[currentSlide].highlights as h}
-              <div class="flex items-center gap-2 text-xs">
+              <div class="flex items-center gap-2 text-sm">
                 <span class="text-green-700 font-bold">✓</span>
                 <span>{h}</span>
               </div>
@@ -291,7 +291,7 @@
             <button
               disabled={currentSlide === 0}
               onclick={() => currentSlide > 0 && currentSlide--}
-              class="px-3 py-1 bg-gray-300 hover:bg-gray-400 disabled:opacity-40 font-bold rounded text-slate-800 border border-slate-400 text-xs cursor-pointer"
+              class="px-3 py-1 bg-gray-300 hover:bg-gray-400 disabled:opacity-40 font-bold rounded text-slate-800 border border-slate-400 text-sm cursor-pointer"
               >Prev</button
             >
             <div class="flex gap-1">
@@ -307,7 +307,7 @@
             <button
               disabled={currentSlide === SLIDES.length - 1}
               onclick={() => currentSlide < SLIDES.length - 1 && currentSlide++}
-              class="px-3 py-1 bg-gray-300 hover:bg-gray-400 disabled:opacity-40 font-bold rounded text-slate-800 border border-slate-400 text-xs cursor-pointer"
+              class="px-3 py-1 bg-gray-300 hover:bg-gray-400 disabled:opacity-40 font-bold rounded text-slate-800 border border-slate-400 text-sm cursor-pointer"
               >Next</button
             >
           </div>
@@ -326,7 +326,7 @@
             <div class="flex items-center justify-between">
               <h3 class="font-bold text-sm text-slate-800">{item.title}</h3>
               <span
-                class="text-[10px] font-bold px-2 py-0.5 bg-[#262b36] text-green-300 rounded uppercase"
+                class="text-sm font-bold px-2 py-0.5 bg-[#262b36] text-green-300 rounded uppercase"
                 >{item.type}</span
               >
             </div>
@@ -349,13 +349,13 @@
               <div
                 class="hidden absolute inset-0 flex flex-col items-center justify-center p-2 text-center bg-gray-200"
               >
-                <span class="text-xs font-extrabold text-slate-700"
+                <span class="text-sm font-extrabold text-slate-700"
                   >{item.fallbackText}</span
                 >
               </div>
             </div>
 
-            <p class="text-xs text-slate-600 leading-relaxed">
+            <p class="text-sm text-slate-600 leading-relaxed">
               {item.description}
             </p>
           </div>
@@ -375,8 +375,13 @@
   }
 
   @keyframes bot-teacher-bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-4px); }
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
   }
   .bot-teacher-idle {
     animation: bot-teacher-bounce 1.6s ease-in-out infinite;

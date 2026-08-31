@@ -4,7 +4,7 @@
   import "blockly/blocks";
   import { javascriptGenerator } from "blockly/javascript";
   import { CONFIG, DOCUMENT_DATA } from "../game/global/global";
-  import { robots, robots_state, UNLOCK_VERSION } from "./global.svelte.js";
+  import { robots, robots_state, UNLOCK_VERSION, ONBOARDING } from "./global.svelte.js";
   import { trackQuest } from "./global.svelte.js";
   import { createResizable } from "./interface.svelte.js";
   import { createInit } from "../game/global/interpreter.js";
@@ -16,6 +16,8 @@
   let workspace;
   let selected_robot = $state(0);
   let is_command_ready = $state(false);
+  let startBtnRef = $state(null);
+  let spotlightRect = $state(null);
 
   const slateTheme = Blockly.Theme.defineTheme("slate", {
     base: Blockly.Themes.Classic,
@@ -729,7 +731,7 @@
     <block type="bot_say">
       <value name="TEXT">
         <shadow type="text">
-          <field name="TEXT">Hello!</field>
+          <field name="TEXT">Hello World!</field>
         </shadow>
       </value>
     </block>
@@ -740,7 +742,7 @@
       if (!robots_state[index]) {
         robots_state[index] = {
           robot: bot,
-          text_code: `// Robot ${index} Script\nbot.right()\nbot.down()\nbot.left()\nbot.up()`,
+          text_code: `bot.say("Hello World!")`,
           block_code: ``,
           interpreter: null,
           is_running: false,
@@ -862,6 +864,7 @@
   }
 
   function handleStart(index) {
+    ONBOARDING.startClicked = true;
     if (index === selected_robot && workspace) {
       robots_state[index].block_code =
         javascriptGenerator.workspaceToCode(workspace);
@@ -896,6 +899,21 @@
     if (index === selected_robot && workspace) {
       workspace.highlightBlock(null);
     }
+  }
+
+  function handleClear(index) {
+    handleReset(index);
+    if (index === selected_robot && workspace) {
+      workspace.clear();
+    }
+    robots_state[index].blockly_xml = `<xml></xml>`;
+    robots_state[index].block_code = ``;
+  }
+
+  function handleClearAll() {
+    robots_state.forEach((_, index) => {
+      handleClear(index);
+    });
   }
 
   function selectRobot(index) {
@@ -979,6 +997,37 @@
     }
   });
 
+  // Onboarding spotlight: position the spotlight over the Start button
+  $effect(() => {
+    if (
+      startBtnRef &&
+      is_command_ready &&
+      !ONBOARDING.startClicked &&
+      !ONBOARDING.isModalOpen
+    ) {
+      const _ = resize.width; // reposition on panel resize
+      const updatePosition = () => {
+        if (!startBtnRef) return;
+        const rect = startBtnRef.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        spotlightRect = {
+          left: rect.left - 8,
+          top: rect.top - 8,
+          width: rect.width + 16,
+          height: rect.height + 16,
+          labelTop: rect.top - 12,
+          labelLeft: rect.left + rect.width / 2,
+        };
+      };
+
+      updatePosition();
+      const timer = setTimeout(updatePosition, 100);
+      return () => clearTimeout(timer);
+    } else {
+      spotlightRect = null;
+    }
+  });
+
   onDestroy(() => {
     if (workspace && robots_state[selected_robot]) {
       const dom = Blockly.Xml.workspaceToDom(workspace);
@@ -1023,13 +1072,14 @@
   <div
     class="p-2 bg-slate-200 border-t-2 border-slate-400 flex flex-col gap-2 shrink-0"
   >
-    <div class="grid grid-cols-3 gap-2">
+    <div class="grid grid-cols-4 gap-2">
       {#if robots_state[selected_robot]}
         <button
+          bind:this={startBtnRef}
           disabled={!is_command_ready}
           onclick={() => handleStart(selected_robot)}
-          class="btn-primary"
-          >{robots_state[selected_robot].is_running ? "Stop" : "Start"}</button
+          class="{robots_state[selected_robot].is_running ? 'btn-stop' : (!ONBOARDING.startClicked ? 'btn-start' : 'btn-primary')}"
+          >{robots_state[selected_robot].is_running ? "⏹ Stop" : "▶ Start"}</button
         >
         <button
           onclick={() => handleStep(selected_robot)}
@@ -1042,6 +1092,11 @@
           onclick={() => handleReset(selected_robot)}
           class="btn-primary">Reset</button
         >
+        <button
+          disabled={!is_command_ready || robots_state[selected_robot].is_running}
+          onclick={() => handleClear(selected_robot)}
+          class="btn-primary">Clear</button
+        >
       {/if}
     </div>
   </div>
@@ -1049,7 +1104,7 @@
     <div
       class="p-2 bg-slate-300 border-t-2 border-slate-400 flex flex-col gap-2 shrink-0"
     >
-      <div class="grid grid-cols-3 gap-2">
+      <div class="grid grid-cols-4 gap-2">
         <button
           disabled={!is_command_ready}
           onclick={handleStartAll}
@@ -1065,10 +1120,25 @@
           onclick={handleResetAll}
           class="btn-primary">Reset All</button
         >
+        <button
+          disabled={!is_command_ready}
+          onclick={handleClearAll}
+          class="btn-primary">Clear All</button
+        >
       </div>
     </div>
   {/if}
 </div>
+
+{#if spotlightRect}
+  <div class="spotlight-hole" style="left: {spotlightRect.left}px; top: {spotlightRect.top}px; width: {spotlightRect.width}px; height: {spotlightRect.height}px;"></div>
+  <div class="spotlight-label" style="left: {spotlightRect.labelLeft}px; top: {spotlightRect.labelTop}px;">
+    <div class="spotlight-bounce-wrapper">
+      <div class="spotlight-label-bubble">👆 Click <strong>▶ Start</strong> to run your code!</div>
+      <div class="spotlight-label-arrow"></div>
+    </div>
+  </div>
+{/if}
 
 <style>
   :global(.blocklyMainBackground) {

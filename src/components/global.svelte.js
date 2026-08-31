@@ -11,6 +11,11 @@ export const robots = $state([]);
 
 export const robots_state = $state([])
 
+export const ONBOARDING = $state({
+	startClicked: false,
+	isModalOpen: false,
+});
+
 export const Personalize = $state({
 	FARM_NAME: "My Amazing Farm",
 	AVATAR: AvatarTypes.FARMER,

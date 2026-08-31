@@ -40,7 +40,7 @@
             {EVENT_BANNER_STATE.title}
           </span>
         </div>
-        <p class="text-xs text-amber-100/90 font-medium leading-snug truncate">
+        <p class="text-sm text-amber-100/90 font-medium leading-snug truncate">
           {EVENT_BANNER_STATE.subtitle}
         </p>
       </div>
@@ -51,10 +51,10 @@
           EVENT_BANNER_STATE.rank
         ] || RANK_COLORS.Easy}"
       >
-        <span class="font-extrabold text-xs uppercase tracking-wider">
+        <span class="font-extrabold text-sm uppercase tracking-wider">
           {EVENT_BANNER_STATE.rank}
         </span>
-        <span class="text-[10px] font-bold font-mono opacity-90">
+        <span class="text-sm font-bold font-mono opacity-90">
           {EVENT_BANNER_STATE.difficultyPoints.toLocaleString()} PTS
         </span>
       </div>

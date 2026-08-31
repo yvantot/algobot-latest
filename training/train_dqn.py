@@ -37,24 +37,32 @@ def load_experiences(input_dir):
     # Load from replay buffer exports
     for json_file in input_path.glob("*replay*.json"):
         with open(json_file, "r") as f:
-            data = json.load(f)
+            try:
+                data = json.load(f)
+            except Exception:
+                continue
         if isinstance(data, list):
             experiences.extend(data)
 
     # Also extract from full session exports
     for json_file in input_path.glob("*dataset*.json"):
         with open(json_file, "r") as f:
-            data = json.load(f)
-        if "sessions" in data:
+            try:
+                data = json.load(f)
+            except Exception:
+                continue
+        if isinstance(data, dict) and "sessions" in data:
             for session in data["sessions"]:
-                buf = session.get("replay_buffer", [])
-                if isinstance(buf, list):
-                    experiences.extend(buf)
+                if isinstance(session, dict):
+                    buf = session.get("replay_buffer", [])
+                    if isinstance(buf, list):
+                        experiences.extend(buf)
 
     # Filter valid experiences
     valid = []
     for exp in experiences:
-        if (isinstance(exp.get("state"), list) and len(exp["state"]) == STATE_SIZE
+        if (isinstance(exp, dict)
+                and isinstance(exp.get("state"), list) and len(exp["state"]) == STATE_SIZE
                 and isinstance(exp.get("nextState"), list) and len(exp["nextState"]) == STATE_SIZE
                 and isinstance(exp.get("action"), (int, float))
                 and isinstance(exp.get("reward"), (int, float))):
@@ -132,13 +140,13 @@ def train_dqn(experiences, epochs=50, batch_size=32, gamma=0.95,
             target_net.set_weights(main_net.get_weights())
 
         if (epoch + 1) % 10 == 0:
-            print(f"  Epoch {epoch + 1}/{epochs} — Loss: {loss:.6f}")
+            print(f"  Epoch {epoch + 1}/{epochs} - Loss: {loss:.6f}")
 
     return main_net, losses
 
 
 def evaluate_dqn(model, experiences):
-    """Evaluate trained DQN — show Q-value distributions and action preferences."""
+    """Evaluate trained DQN - show Q-value distributions and action preferences."""
     states = np.array([e["state"] for e in experiences], dtype=np.float32)
     q_values = model.predict(states, verbose=0)
     selected_actions = np.argmax(q_values, axis=1)
@@ -152,7 +160,7 @@ def evaluate_dqn(model, experiences):
     for i, name in enumerate(ACTION_NAMES):
         count = np.sum(selected_actions == i)
         pct = count / len(selected_actions) * 100
-        bar = "█" * int(pct / 2)
+        bar = "#" * int(pct / 2)
         print(f"  {name:20s}: {count:4d} ({pct:5.1f}%) {bar}")
 
     # Q-value statistics per action

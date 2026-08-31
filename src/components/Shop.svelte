@@ -2,7 +2,12 @@
   import { ModalTypes } from "../game/global/enum.js";
   import { Modals, robots, UNLOCK_VERSION } from "./global.svelte.js";
   import { PLAYER_DATA, SHOP_DATA } from "../game/global/global.js";
-  import { buyPlants, buyUpgrade, buyLand, buyBot } from "../game/global/shop.js";
+  import {
+    buyPlants,
+    buyUpgrade,
+    buyLand,
+    buyBot,
+  } from "../game/global/shop.js";
   import { toTitleCase } from "../game/utils/string.js";
   import { createResizable } from "./interface.svelte.js";
 
@@ -28,7 +33,10 @@
     const rawTop = cardRect.top - containerRect.top;
     const rawBottom = cardRect.bottom - containerRect.top;
 
-    const clampedLeft = Math.max(95, Math.min(containerRect.width - 95, rawLeft));
+    const clampedLeft = Math.max(
+      95,
+      Math.min(containerRect.width - 95, rawLeft),
+    );
     const isTopPart = rawTop < containerRect.height * 0.45;
 
     hoveredItem = {
@@ -58,9 +66,13 @@
   ></div>
   <div>
     <h1 class="font-bold text-base text-center">Shop</h1>
-    <p class="text-xs text-center px-2">Buy seeds, bot upgrades and land expansions!</p>
+    <p class="text-sm text-center px-2">
+      Buy seeds, bot upgrades and land expansions!
+    </p>
   </div>
-  <div class="flex flex-col gap-2 overflow-hidden items-center text-xs flex-grow">
+  <div
+    class="flex flex-col gap-2 overflow-hidden items-center text-sm flex-grow"
+  >
     <!-- Categories -->
     <div class="flex justify-center gap-1 w-28">
       {#each Object.keys(SHOP_DATA) as category}
@@ -94,7 +106,7 @@
         >
           {#if !isUnlocked}
             <span
-              class="absolute top-1 right-1 bg-red-600 text-white font-bold text-[10px] px-1.5 py-0.5 rounded-full shadow"
+              class="absolute top-1 right-1 bg-red-600 text-white font-bold text-sm px-1.5 py-0.5 rounded-full shadow"
               >Locked</span
             >
           {/if}
@@ -143,7 +155,8 @@
               if (current_category === "seeds") buyPlants(name, 1);
               if (current_category === "land") buyLand(name, 1);
               if (current_category === "bots") buyBot();
-              if (current_category === "bot_upgrades") buyUpgrade(name, selected_bot);
+              if (current_category === "bot_upgrades")
+                buyUpgrade(name, selected_bot);
             }}
           >
             {#if isUnlocked}
@@ -174,7 +187,7 @@
         >
           {toTitleCase(hoveredItem.name)}
         </p>
-        <p class="text-[10px] text-slate-600 leading-snug font-medium">
+        <p class="text-sm text-slate-600 leading-snug font-medium">
           {hoveredItem.definition}
         </p>
 

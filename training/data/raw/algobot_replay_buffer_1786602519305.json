@@ -1,0 +1,249 @@
+[
+  {
+    "state": [
+      0.5,
+      0.2,
+      0,
+      0.5
+    ],
+    "action": 0,
+    "reward": -0.6,
+    "nextState": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "done": false,
+    "stage": 1,
+    "timestamp": 1786593884143
+  },
+  {
+    "state": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "action": 0,
+    "reward": 0,
+    "nextState": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "done": false,
+    "stage": 1,
+    "timestamp": 1786593886458
+  },
+  {
+    "state": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "action": 0,
+    "reward": 0,
+    "nextState": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "done": false,
+    "stage": 1,
+    "timestamp": 1786593923495
+  },
+  {
+    "state": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "action": 0,
+    "reward": 0,
+    "nextState": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "done": false,
+    "stage": 1,
+    "timestamp": 1786594041829
+  },
+  {
+    "state": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "action": 0,
+    "reward": 0,
+    "nextState": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "done": false,
+    "stage": 1,
+    "timestamp": 1786594053501
+  },
+  {
+    "state": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "action": 0,
+    "reward": 0,
+    "nextState": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "done": false,
+    "stage": 1,
+    "timestamp": 1786594070518
+  },
+  {
+    "state": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "action": 0,
+    "reward": 0,
+    "nextState": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "done": false,
+    "stage": 1,
+    "timestamp": 1786594071338
+  },
+  {
+    "state": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "action": 0,
+    "reward": 0,
+    "nextState": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "done": false,
+    "stage": 1,
+    "timestamp": 1786594146711
+  },
+  {
+    "state": [
+      0.5,
+      0.2,
+      0.3,
+      0.5
+    ],
+    "action": 0,
+    "reward": 0,
+    "nextState": [
+      0.5,
+      0.6,
+      0.3,
+      0.5
+    ],
+    "done": false,
+    "stage": 3,
+    "timestamp": 1786594333957
+  },
+  {
+    "state": [
+      0.5,
+      0.6,
+      0.3,
+      0.5
+    ],
+    "action": 0,
+    "reward": 0.3,
+    "nextState": [
+      0.5,
+      0.6,
+      0.3,
+      0.65
+    ],
+    "done": false,
+    "stage": 3,
+    "timestamp": 1786594368888
+  },
+  {
+    "state": [
+      0.5,
+      0.2,
+      0,
+      0.5
+    ],
+    "action": 0,
+    "reward": 0,
+    "nextState": [
+      0.5,
+      0.2,
+      0,
+      0.5
+    ],
+    "done": false,
+    "stage": 1,
+    "timestamp": 1786602191384
+  },
+  {
+    "state": [
+      0.5,
+      0.2,
+      0,
+      0.5
+    ],
+    "action": 0,
+    "reward": 0,
+    "nextState": [
+      0.5,
+      0.2,
+      0,
+      0.5
+    ],
+    "done": false,
+    "stage": 1,
+    "timestamp": 1786602209199
+  },
+  {
+    "state": [
+      0.5,
+      0.2,
+      0,
+      0.5
+    ],
+    "action": 0,
+    "reward": 0,
+    "nextState": [
+      0.5,
+      0.2,
+      0,
+      0.5
+    ],
+    "done": false,
+    "stage": 1,
+    "timestamp": 1786602209915
+  }
+]

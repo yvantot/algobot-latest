@@ -36,30 +36,63 @@ def load_sessions_by_group(input_dir):
     input_path = Path(input_dir)
     group_a = []  # Bootstrap DDA
     group_b = []  # ML DDA
+    seen_session_ids = set()
 
-    for json_file in input_path.glob("*.json"):
+    json_files = [f for f in input_path.glob("*.json") if "replay" not in f.name.lower()]
+
+    for json_file in json_files:
         with open(json_file, "r") as f:
-            data = json.load(f)
+            try:
+                data = json.load(f)
+            except Exception:
+                continue
 
-        sessions = data.get("sessions", [data])
-        for session in sessions:
+        if not isinstance(data, dict):
+            continue
+
+        raw_sessions = data.get("sessions", [data])
+        if not isinstance(raw_sessions, list):
+            raw_sessions = [raw_sessions]
+
+        for session in raw_sessions:
+            if not isinstance(session, dict):
+                continue
+
+            sid = (
+                session.get("session_id")
+                or session.get("sessionId")
+                or session.get("summary", {}).get("sessionId")
+                or session.get("summary", {}).get("session_id")
+            )
+            if sid:
+                if sid in seen_session_ids:
+                    continue
+                seen_session_ids.add(sid)
+
             mode = session.get("dda_mode", "bootstrap")
-            summary = session.get("summary", {})
+            summary = session.get("summary", {}) if isinstance(session.get("summary"), dict) else {}
+
+            quest_attempts = session.get("quest_attempts") or session.get("questAttempts") or []
+            if isinstance(quest_attempts, dict):
+                quest_attempts = list(quest_attempts.values())
+
+            quests_attempted = summary.get("total_quests_attempted", len(quest_attempts))
+            quests_completed = summary.get("total_quests_completed", summary.get("questsCompleted", len([q for q in quest_attempts if q.get("completed")])))
 
             record = {
-                "student_id": session.get("student_id", "unknown"),
-                "session_id": session.get("session_id", "unknown"),
-                "duration_minutes": session.get("duration_minutes", 0),
-                "quests_attempted": summary.get("total_quests_attempted", 0),
-                "quests_completed": summary.get("total_quests_completed", 0),
-                "total_errors": summary.get("total_errors", 0),
-                "total_resets": summary.get("total_resets", 0),
-                "total_code_runs": summary.get("total_code_runs", 0),
-                "code_success_rate": summary.get("code_run_success_rate", 0),
-                "total_hints": summary.get("total_hints_shown", 0),
-                "max_stage": summary.get("max_stage_reached", 1),
-                "avg_frustration": summary.get("avg_frustration", 0),
-                "avg_flow": summary.get("avg_flow", 0.5),
+                "student_id": session.get("student_id") or summary.get("participantId") or "unknown",
+                "session_id": sid or "unknown",
+                "duration_minutes": summary.get("duration_minutes", summary.get("durationMinutes", session.get("duration_minutes", 0))),
+                "quests_attempted": quests_attempted,
+                "quests_completed": quests_completed,
+                "total_errors": summary.get("total_errors", summary.get("totalErrors", 0)),
+                "total_resets": summary.get("total_resets", summary.get("totalResets", 0)),
+                "total_code_runs": summary.get("total_code_runs", summary.get("totalCodeRuns", 0)),
+                "code_success_rate": summary.get("code_run_success_rate", summary.get("codeRunSuccessRate", 0)),
+                "total_hints": summary.get("total_hints_shown", summary.get("totalHintsShown", 0)),
+                "max_stage": summary.get("max_stage_reached", summary.get("currentStage", 1)),
+                "avg_frustration": summary.get("avg_frustration", summary.get("avgFrustration", 0)),
+                "avg_flow": summary.get("avg_flow", summary.get("avgFlow", 0.5)),
                 "dda_mode": mode,
             }
 
@@ -128,7 +161,7 @@ def compare_groups(group_a, group_b):
                 pass
 
         p_str = f"{p_value:.4f}" if p_value is not None else "N/A"
-        print(f"{label:<25s} {a_mean:>6.3f} ± {a_std:<6.3f}  {b_mean:>6.3f} ± {b_std:<6.3f}  {p_str:<10s} {significant}")
+        print(f"{label:<25s} {a_mean:>6.3f} +/- {a_std:<6.3f}  {b_mean:>6.3f} +/- {b_std:<6.3f}  {p_str:<10s} {significant}")
 
         results.append({
             "metric": label,
@@ -152,7 +185,7 @@ def compare_groups(group_a, group_b):
 def create_comparison_plots(group_a, group_b, output_dir):
     """Generate comparison bar charts."""
     if not HAS_MATPLOTLIB:
-        print("matplotlib not available — skipping plots")
+        print("matplotlib not available - skipping plots")
         return
 
     metrics = [

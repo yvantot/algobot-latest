@@ -1,0 +1,6 @@
+student_id,session_id,quest_key,stage,duration_seconds,completed,errors,resets,code_runs,hints_shown,dda_action,dda_mode,proficiency_label,f0_error_rate,f1_exec_speed,f2_iteration_usage,f3_condition_reactivity,f4_greedy_efficiency,f5_yield_quality,f6_frustration,f7_code_success_rate,f8_hint_rate,f9_completion_time
+p_731ba31a,8bcb3a2d-1c3e-42e5-9ab0-af8723dfb8b9,tut_0,1,4.9,1,0,2,2,0,0,bootstrap,0.96,0.0000,0.0017,0.0000,0.0000,0.0000,0.0000,0.0000,1.0000,0.0000,1.0000
+p_731ba31a,8bcb3a2d-1c3e-42e5-9ab0-af8723dfb8b9,tut_1,1,170.1,1,0,3,3,0,0,bootstrap,0.88,0.0000,0.0143,0.0000,0.0000,0.0000,0.0000,0.3000,1.0000,0.0000,1.0000
+p_731ba31a,8bcb3a2d-1c3e-42e5-9ab0-af8723dfb8b9,tut_2,1,167.8,1,0,2,1,0,0,bootstrap,0.92,0.0000,0.0161,0.0000,0.0000,0.0000,0.0000,0.3000,1.0000,0.0000,1.0000
+p_731ba31a,0717f0d0-e05a-4c8d-a7d0-c099e6e04b45,tut_0,1,17.3,1,0,1,0,0,0,bootstrap,0.96,0.0000,0.0087,0.0000,0.0000,0.0000,0.0000,0.0000,1.0000,0.0000,0.2883
+p_731ba31a,995dca96-a807-4d99-9f25-0c17f371dd7f,tut_0,1,4.9,1,0,1,0,0,0,bootstrap,0.96,0.0000,0.0264,0.0000,0.0000,0.0000,0.0000,0.0000,1.0000,0.0000,0.0949

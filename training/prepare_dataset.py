@@ -44,40 +44,76 @@ FEATURE_NAMES = [
 
 
 def load_sessions(input_dir):
-    """Load all JSON session files from the input directory."""
+    """Load all JSON session files from the input directory (ignoring replay buffers)."""
     sessions = []
+    seen_session_ids = set()
     input_path = Path(input_dir)
 
-    for json_file in input_path.glob("*.json"):
+    # Process dataset files (skip replay buffer files)
+    json_files = [f for f in input_path.glob("*.json") if "replay" not in f.name.lower()]
+
+    for json_file in json_files:
         with open(json_file, "r") as f:
-            data = json.load(f)
+            try:
+                data = json.load(f)
+            except Exception as e:
+                print(f"Warning: Failed to load {json_file.name}: {e}")
+                continue
 
-        # Handle both single-session and multi-session exports
-        if "sessions" in data:
-            for session in data["sessions"]:
-                sessions.append(session)
-        else:
-            sessions.append(data)
+        # Skip non-dict structures (e.g. standalone replay arrays)
+        if not isinstance(data, dict):
+            continue
 
-    print(f"Loaded {len(sessions)} sessions from {input_dir}")
+        raw_sessions = data.get("sessions", [data])
+        if not isinstance(raw_sessions, list):
+            raw_sessions = [raw_sessions]
+
+        for s in raw_sessions:
+            if not isinstance(s, dict):
+                continue
+            
+            # Deduplicate by session_id
+            sid = (
+                s.get("session_id")
+                or s.get("sessionId")
+                or s.get("summary", {}).get("sessionId")
+                or s.get("summary", {}).get("session_id")
+            )
+            if sid:
+                if sid in seen_session_ids:
+                    continue
+                seen_session_ids.add(sid)
+
+            sessions.append(s)
+
+    print(f"Loaded {len(sessions)} unique sessions from {input_dir}")
     return sessions
 
 
-def clean_sessions(sessions, min_duration_minutes=1.0, min_events=5):
-    """Remove invalid sessions."""
+def clean_sessions(sessions, min_duration_minutes=0.5):
+    """Filter out completely empty or invalid sessions."""
     valid = []
     for s in sessions:
-        summary = s.get("summary", {})
-        duration = summary.get("duration_minutes", s.get("duration_minutes", 0))
-        quest_count = summary.get("total_quests_attempted", 0)
-
-        if duration < min_duration_minutes:
+        if not isinstance(s, dict):
             continue
-        if quest_count < 1:
-            continue
-        valid.append(s)
 
-    print(f"Cleaned: {len(sessions)} → {len(valid)} valid sessions")
+        summary = s.get("summary", {}) if isinstance(s.get("summary"), dict) else {}
+        duration = summary.get("duration_minutes", summary.get("durationMinutes", s.get("duration_minutes", s.get("durationMinutes", 0))))
+        
+        # Check quest attempts
+        quest_attempts = s.get("quest_attempts") or s.get("questAttempts") or []
+        if isinstance(quest_attempts, dict):
+            quest_attempts = list(quest_attempts.values())
+        
+        quest_count = summary.get("total_quests_attempted", summary.get("questsCompleted", len(quest_attempts)))
+        feature_ts = s.get("feature_timeseries") or s.get("featureSnapshots") or []
+        raw_events = s.get("raw_events") or []
+
+        # Keep if session has quest attempts, feature snapshots, raw events, or minimum duration
+        if len(quest_attempts) > 0 or len(feature_ts) > 0 or len(raw_events) > 0 or duration >= min_duration_minutes or quest_count > 0:
+            valid.append(s)
+
+    print(f"Cleaned: {len(sessions)} -> {len(valid)} valid sessions")
     return valid
 
 
@@ -93,8 +129,14 @@ def extract_training_samples(sessions):
     metadata = []   # session/quest metadata for traceability
 
     for session in sessions:
-        quest_attempts = session.get("quest_attempts", [])
-        feature_ts = session.get("feature_timeseries", [])
+        if not isinstance(session, dict):
+            continue
+
+        student_id = session.get("student_id") or session.get("summary", {}).get("participantId") or "unknown"
+        session_id = session.get("session_id") or session.get("summary", {}).get("sessionId") or "unknown"
+
+        quest_attempts = session.get("quest_attempts") or session.get("questAttempts") or []
+        feature_ts = session.get("feature_timeseries") or session.get("featureSnapshots") or []
 
         # If quest_attempts is a dict (from localStorage format), convert to list
         if isinstance(quest_attempts, dict):
@@ -106,21 +148,33 @@ def extract_training_samples(sessions):
         # Build the feature matrix from time series
         feature_vectors = []
         for snap in feature_ts:
-            vec = snap.get("vector", [])
+            if isinstance(snap, dict):
+                vec = snap.get("vector", [])
+            elif isinstance(snap, list):
+                vec = snap
+            else:
+                vec = []
             if len(vec) == FEATURE_COUNT:
                 feature_vectors.append(vec)
 
         # For each completed quest attempt with a label
         for i, qa in enumerate(quest_attempts):
-            label = qa.get("proficiency_label") or qa.get("proficiencyLabel")
+            if not isinstance(qa, dict):
+                continue
+            label = qa.get("proficiency_label") if qa.get("proficiency_label") is not None else qa.get("proficiencyLabel")
             if label is None:
                 continue
 
-            # Use the feature window up to this quest attempt
-            # Take the last SEQUENCE_LENGTH vectors available
-            window_end = min(len(feature_vectors), (i + 1) * 2)  # approximate
-            window_end = min(window_end, len(feature_vectors))
-            window = feature_vectors[:window_end]
+            # Build feature window for this quest attempt
+            window = []
+            if feature_vectors:
+                window_end = min(len(feature_vectors), (i + 1) * 2)
+                window_end = min(window_end, len(feature_vectors))
+                window = list(feature_vectors[:window_end])
+            elif qa.get("feature_vector_end") and len(qa.get("feature_vector_end")) == FEATURE_COUNT:
+                window = [qa.get("feature_vector_end")]
+            elif qa.get("featureVectorAtEnd") and len(qa.get("featureVectorAtEnd")) == FEATURE_COUNT:
+                window = [qa.get("featureVectorAtEnd")]
 
             # Zero-pad if fewer than SEQUENCE_LENGTH
             while len(window) < SEQUENCE_LENGTH:
@@ -132,26 +186,24 @@ def extract_training_samples(sessions):
             X_samples.append(window)
             y_samples.append(float(label))
             metadata.append({
-                "student_id": session.get("student_id", "unknown"),
-                "session_id": session.get("session_id", "unknown"),
+                "student_id": student_id,
+                "session_id": session_id,
                 "quest_key": qa.get("quest_key", "unknown"),
                 "stage": qa.get("stage", 1),
                 "completed": qa.get("completed", False),
             })
 
-        # If no quest attempts have labels, use the feature_vector_end from stored format
-        if not quest_attempts and feature_vectors:
-            # Create a sample from the overall session
-            window = feature_vectors[-SEQUENCE_LENGTH:]
+        # If no quest attempts have labels, try creating a sample from session summary if available
+        if not X_samples and feature_vectors:
+            window = list(feature_vectors[-SEQUENCE_LENGTH:])
             while len(window) < SEQUENCE_LENGTH:
                 window.insert(0, [0.0] * FEATURE_COUNT)
             window = window[-SEQUENCE_LENGTH:]
 
-            summary = session.get("summary", {})
-            # Compute a simple label from summary stats
-            errors = summary.get("total_errors", 0)
-            resets = summary.get("total_resets", 0)
-            quests_done = summary.get("total_quests_completed", 0)
+            summary = session.get("summary", {}) if isinstance(session.get("summary"), dict) else {}
+            errors = summary.get("total_errors", summary.get("totalErrors", 0))
+            resets = summary.get("total_resets", summary.get("totalResets", 0))
+            quests_done = summary.get("total_quests_completed", summary.get("questsCompleted", 0))
             quests_attempted = max(1, summary.get("total_quests_attempted", 1))
 
             completion = quests_done / quests_attempted
@@ -162,10 +214,10 @@ def extract_training_samples(sessions):
             X_samples.append(window)
             y_samples.append(float(label))
             metadata.append({
-                "student_id": session.get("student_id", "unknown"),
-                "session_id": session.get("session_id", "unknown"),
+                "student_id": student_id,
+                "session_id": session_id,
                 "quest_key": "session_summary",
-                "stage": summary.get("max_stage_reached", 1),
+                "stage": summary.get("max_stage_reached", summary.get("currentStage", 1)),
                 "completed": True,
             })
 
@@ -206,12 +258,23 @@ def split_data(X, y, train_ratio=0.70, val_ratio=0.15):
     n = len(X)
     indices = np.random.permutation(n)
 
-    train_end = int(n * train_ratio)
-    val_end = int(n * (train_ratio + val_ratio))
+    if n < 3:
+        # For very small datasets, ensure non-empty partitions
+        return X, y, X, y, X, y
+
+    train_end = max(1, int(n * train_ratio))
+    val_end = max(train_end + 1, int(n * (train_ratio + val_ratio)))
+    if val_end >= n:
+        val_end = n - 1
 
     train_idx = indices[:train_end]
     val_idx = indices[train_end:val_end]
     test_idx = indices[val_end:]
+
+    if len(val_idx) == 0:
+        val_idx = train_idx[:1]
+    if len(test_idx) == 0:
+        test_idx = train_idx[:1]
 
     return (
         X[train_idx], y[train_idx],
@@ -260,11 +323,11 @@ def save_dataset(output_dir, X_train, y_train, X_val, y_val, X_test, y_test,
         json.dump(stats, f, indent=2)
 
     print(f"\nDataset saved to {output_path}/")
-    print(f"  Train: {X_train.shape} → {len(y_train)} labels")
-    print(f"  Val:   {X_val.shape} → {len(y_val)} labels")
-    print(f"  Test:  {X_test.shape} → {len(y_test)} labels")
+    print(f"  Train: {X_train.shape} -> {len(y_train)} labels")
+    print(f"  Val:   {X_val.shape} -> {len(y_val)} labels")
+    print(f"  Test:  {X_test.shape} -> {len(y_test)} labels")
     print(f"  Label range: [{stats['label_range']['min']:.4f}, {stats['label_range']['max']:.4f}]")
-    print(f"  Label mean:  {stats['label_range']['mean']:.4f} ± {stats['label_range']['std']:.4f}")
+    print(f"  Label mean:  {stats['label_range']['mean']:.4f} +/- {stats['label_range']['std']:.4f}")
 
 
 def main():
