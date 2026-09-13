@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node --test tests/*.test.js",
+    "verify:artifacts": "node scripts/verify-research-artifacts.js",
     "build": "vite build",
     "preview": "vite preview"
   },
