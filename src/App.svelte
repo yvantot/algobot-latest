@@ -9,6 +9,7 @@
     play_music_farm,
   } from "./game/utils/sound.js";
   import { game } from "./game/game.js";
+  import { k } from "./lib/kaplay.js";
 
   let currentView = $state("MENU"); // 'MENU' | 'GAME'
   let hasStartedGame = false;
@@ -25,10 +26,12 @@
       hasStartedGame = true;
     }
     currentView = "GAME";
+    k.debug.timeScale = 1;
     play_music_farm();
   }
 
   function returnToMenu() {
+    k.debug.timeScale = 0;
     currentView = "MENU";
     play_music_menu();
   }

@@ -1,4 +1,5 @@
 <script>
+  import { preferences } from "../game/utils/preferences.js";
   import { k } from "../lib/kaplay.js";
   import { onMount } from "svelte";
   import { getAudioVolumes, setCategoryVolume } from "../game/utils/sound.js";
@@ -16,7 +17,7 @@
   });
 
   onMount(() => {
-    pixelDensity = Number(localStorage.getItem("algobot_pixel_density") || 1);
+    pixelDensity = Number(preferences.getItem("algobot_pixel_density") || 1);
     volumes = getAudioVolumes();
   });
 
@@ -30,7 +31,7 @@
 
   function updatePixelDensity(val) {
     pixelDensity = Number(val);
-    localStorage.setItem("algobot_pixel_density", pixelDensity);
+    preferences.setItem("algobot_pixel_density", pixelDensity);
     if (k) {
       k.pixelDensity = pixelDensity;
     }

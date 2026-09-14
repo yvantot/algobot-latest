@@ -1,4 +1,5 @@
 <script>
+  import { preferences } from "../game/utils/preferences.js";
   import { onMount } from "svelte";
 
   let { isOpen = $bindable(false), onClose } = $props();
@@ -50,7 +51,7 @@
   ];
 
   onMount(() => {
-    const hidden = localStorage.getItem("algobot_hide_onboarding") === "true";
+    const hidden = preferences.getItem("algobot_hide_onboarding") === "true";
     dontShowAgain = hidden;
   });
 
@@ -70,9 +71,9 @@
 
   function handleClose() {
     if (dontShowAgain) {
-      localStorage.setItem("algobot_hide_onboarding", "true");
+      preferences.setItem("algobot_hide_onboarding", "true");
     } else {
-      localStorage.removeItem("algobot_hide_onboarding");
+      preferences.removeItem("algobot_hide_onboarding");
     }
     isOpen = false;
     if (onClose) onClose();

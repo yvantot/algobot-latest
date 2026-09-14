@@ -5,10 +5,13 @@
   import { javascriptGenerator } from "blockly/javascript";
   import { CONFIG, DOCUMENT_DATA } from "../game/global/global";
   import { robots, robots_state, UNLOCK_VERSION, ONBOARDING } from "./global.svelte.js";
-  import { trackQuest } from "./global.svelte.js";
+  import { trackQuest, beginActiveQuest } from "./global.svelte.js";
   import { createResizable } from "./interface.svelte.js";
   import { createInit } from "../game/global/interpreter.js";
   import { telemetry } from "../game/ml/telemetry.js";
+
+  import { createCodeRunner } from "../game/global/code-runner.js";
+  import { k } from "../lib/kaplay.js";
 
   const resize = createResizable();
 
@@ -759,43 +762,7 @@
   });
 
   // JS-Interpreter execution loop logic
-  function isLine(stack) {
-    var state = stack[stack.length - 1];
-    var node = state.node;
-    var type = node.type;
 
-    if (type !== "VariableDeclaration" && type.substr(-9) !== "Statement") {
-      return false;
-    }
-
-    if (type === "BlockStatement") {
-      return false;
-    }
-
-    if (
-      type === "VariableDeclaration" &&
-      stack[stack.length - 2].node.type === "ForStatement"
-    ) {
-      return false;
-    }
-
-    if (isLine.oldStack_[isLine.oldStack_.length - 1] === state) {
-      return false;
-    }
-
-    if (
-      isLine.oldStack_.indexOf(state) !== -1 &&
-      type !== "ForStatement" &&
-      type !== "WhileStatement" &&
-      type !== "DoWhileStatement"
-    ) {
-      return false;
-    }
-
-    isLine.oldStack_ = stack.slice();
-    return true;
-  }
-  isLine.oldStack_ = [];
 
   function handleResetAll() {
     robots_state.forEach((_, index) => {
@@ -819,88 +786,28 @@
     });
   }
 
-  function handleStep(index) {
-    if (!robots_state[index].interpreter) {
-      if (index === selected_robot && workspace) {
-        robots_state[index].block_code =
-          javascriptGenerator.workspaceToCode(workspace);
-      }
-      robots_state[index].interpreter = new Interpreter(
-        robots_state[index].block_code,
-        createInit(
-          robots_state[index].robot,
-          index === selected_robot ? workspace : null,
-          trackQuest,
-        ),
-      );
-    }
+  const runner = createCodeRunner({
+    states: robots_state,
+    InterpreterClass: globalThis.Interpreter,
+    telemetry,
+    canStep: () => k.debug.timeScale > 0 && !ONBOARDING.isModalOpen && !document.hidden,
+    prepare(index) {
+      robots_state[index].onQuestEvent = trackQuest;
+      beginActiveQuest();
+      if (index === selected_robot && workspace) robots_state[index].block_code = javascriptGenerator.workspaceToCode(workspace); return robots_state[index].block_code;
+    },
+    init: (index) => createInit(robots_state[index].robot, index === selected_robot ? workspace : null, trackQuest),
+    highlight(index, node) {
+      if (!node && index === selected_robot && workspace) workspace.highlightBlock(null);
+    },
+  });
 
-    var stack = robots_state[index].interpreter.getStateStack();
-    var step_again = !isLine(stack);
-
-    if (stack.length > 0) {
-      const node = stack[stack.length - 1].node;
-      if (node && node.type === "ForStatement") { trackQuest("cs_loop_0", 1); telemetry.recordLoopExecution("for"); }
-      if (node && (node.type === "WhileStatement" || node.type === "DoWhileStatement")) { trackQuest("cs_loop_0", 1); telemetry.recordLoopExecution("while"); }
-      if (node && node.type === "IfStatement") { trackQuest("cs_if_0", 1); telemetry.recordIfCondition(true); }
-    }
-
-    try {
-      var ok = robots_state[index].interpreter.step();
-    } finally {
-      if (!ok) {
-        handleReset(index);
-        step_again = false;
-      }
-    }
-
-    if (step_again) {
-      try {
-        handleStep(index);
-      } catch (error) {
-        null;
-      }
-    }
-  }
-
+  function handleStep(index) { runner.step(index); }
   function handleStart(index) {
     ONBOARDING.startClicked = true;
-    if (index === selected_robot && workspace) {
-      robots_state[index].block_code =
-        javascriptGenerator.workspaceToCode(workspace);
-    }
-    robots_state[index].interpreter = new Interpreter(
-      robots_state[index].block_code,
-      createInit(
-        robots_state[index].robot,
-        index === selected_robot ? workspace : null,
-        trackQuest,
-      ),
-    );
-    robots_state[index].is_running = !robots_state[index].is_running;
-    telemetry.recordCodeRun(true); // Record code execution attempt
-
-    clearInterval(robots_state[index].interval);
-
-    if (robots_state[index].is_running) {
-      robots_state[index].interval = setInterval(() => {
-        if (robots_state[index].is_running) {
-          handleStep(index);
-        }
-      }, 0);
-    }
+    runner.start(index);
   }
-
-  function handleReset(index) {
-    robots_state[index].interpreter = null;
-    robots_state[index].is_running = false;
-    clearInterval(robots_state[index].interval);
-    telemetry.recordCodeReset();
-    if (index === selected_robot && workspace) {
-      workspace.highlightBlock(null);
-    }
-  }
-
+  function handleReset(index) { runner.reset(index); }
   function handleClear(index) {
     handleReset(index);
     if (index === selected_robot && workspace) {
@@ -1033,7 +940,7 @@
       const dom = Blockly.Xml.workspaceToDom(workspace);
       robots_state[selected_robot].blockly_xml = Blockly.Xml.domToText(dom);
     }
-    workspace?.dispose();
+    runner.dispose(); workspace?.dispose(); workspace = null;
   });
 </script>
 

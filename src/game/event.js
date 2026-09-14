@@ -1,6 +1,7 @@
 import { addBug } from "./components-kaplay/components.js";
 import { triggerEventBanner } from "../components/global.svelte.js";
 import { dda } from "./ml/dda.js";
+import { waterRainTiles } from "./global/farm-rules.js";
 
 /**
  * Calculates event difficulty parameters based on difficulty points (100 = Easy, 10000+ = Extreme).
@@ -97,27 +98,29 @@ export function spawnFireEvent(farmGridIndex, difficultyPoints = 100) {
   const params = getDifficultyParams(scaledPoints);
   triggerEventBanner({
     icon: "/sprites/icon_bug.png",
-    title: "Farm Fire (WIP)",
-    subtitle: "A fire outbreak has started!",
+    title: "Fire Event Unavailable",
+    subtitle: "Fire gameplay has not been implemented in this version.",
     difficultyPoints: params.pts,
     rank: params.rank,
     type: "fire",
   });
-  return { type: "fire", params };
+  return { type: "fire", params, applied: false };
 }
 
 /**
- * Placeholder for Rain Event (WIP)
+ * Water eligible farm tiles immediately as a supportive DDA event.
  */
 export function spawnRainEvent(farmGridIndex, difficultyPoints = 100) {
   const params = getDifficultyParams(difficultyPoints);
+  const wateredTiles = waterRainTiles(farmGridIndex);
+  if (wateredTiles === 0) return { type: "rain", params, wateredTiles, applied: false };
   triggerEventBanner({
     icon: "/sprites/icon_droplet.png",
-    title: "Nourishing Rain (WIP)",
-    subtitle: "Rain waters all farm tiles!",
+    title: "Nourishing Rain",
+    subtitle: `Rain watered ${wateredTiles} prepared farm tiles!`,
     difficultyPoints: params.pts,
     rank: params.rank,
     type: "rain",
   });
-  return { type: "rain", params };
+  return { type: "rain", params, wateredTiles, applied: true };
 }

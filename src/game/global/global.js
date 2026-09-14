@@ -186,15 +186,17 @@ export const INVENTORY = {
     [CropTypes.TOMATO]: null,
   },
   changeCoins(amount) {
-    if (this.elements.coin === null) this.setElements();
-    if (!this.elements.coin) return;
-
     const start_value = this.coins;
     const end_value = this.coins + amount;
+    this.coins = end_value;
+    this.setElements();
+    if (!this.elements.coin) return;
+    const animationVersion = this.coinAnimationVersion = (this.coinAnimationVersion || 0) + 1;
     const duration = 500;
     const start_time = performance.now();
 
     const animate = (current_time) => {
+      if (this.coinAnimationVersion !== animationVersion) return;
       const elapsed = current_time - start_time;
       const progress = Math.min(elapsed / duration, 1);
 
@@ -233,7 +235,7 @@ export const INVENTORY = {
     this.elements[CropTypes.TOMATO] = document.getElementById(CropTypes.TOMATO);
   },
   updateUI() {
-    if (this.elements.coin === null) this.setElements();
+    this.setElements();
 
     if (this.elements[CropTypes.WHEAT]) this.elements[CropTypes.WHEAT].innerText = this.crops[CropTypes.WHEAT];
     if (this.elements[CropTypes.CORN]) this.elements[CropTypes.CORN].innerText = this.crops[CropTypes.CORN];
@@ -607,7 +609,7 @@ export const DOCUMENT_DATA = {
     for: {
       type: "keyword",
       definition: "Repeats a block of code a set number of times using a counter variable.",
-      example: `for (let i = 0; i < 5; i++) {\n  console.log("Step " + i);\n}`,
+      example: `for (var i = 0; i < 5; i++) {\n  console.log("Step " + i);\n}`,
       note: "Off-by-one errors are common, double-check whether your condition uses '<' or '<='. Also, forgetting to increment 'i' creates an infinite loop.",
       is_unlocked: true,
       tier: 2,
@@ -615,7 +617,7 @@ export const DOCUMENT_DATA = {
     break: {
       type: "keyword",
       definition: "Immediately exits a loop or switch statement.",
-      example: `for (let i = 0; i < 10; i++) {\n  if (i === 5) break;\n  console.log(i);\n}`,
+      example: `for (var i = 0; i < 10; i++) {\n  if (i === 5) break;\n  console.log(i);\n}`,
       note: "'break' only exits the innermost loop or switch. If you have nested loops, it won't break out of the outer one.",
       is_unlocked: true,
       tier: 3,
@@ -623,7 +625,7 @@ export const DOCUMENT_DATA = {
     continue: {
       type: "keyword",
       definition: "Skips the rest of the current loop iteration and jumps to the next one.",
-      example: `for (let i = 0; i < 5; i++) {\n  if (i === 2) continue;\n  console.log(i); // prints 0, 1, 3, 4\n}`,
+      example: `for (var i = 0; i < 5; i++) {\n  if (i === 2) continue;\n  console.log(i); // prints 0, 1, 3, 4\n}`,
       note: "Like 'break', 'continue' only affects the innermost loop. Overusing it can make loops harder to read and reason about.",
       is_unlocked: true,
       tier: 3,
@@ -631,7 +633,7 @@ export const DOCUMENT_DATA = {
     while: {
       type: "keyword",
       definition: "Repeats a block of code as long as a condition stays true.",
-      example: `let water = 10;\nwhile (water > 0) {\n  water--;\n}`,
+      example: `var water = 10;\nwhile (water > 0) {\n  water--;\n}`,
       note: "If the condition never becomes false, the loop runs forever and crashes your program. Always make sure something inside the loop moves it toward ending.",
       is_unlocked: true,
       tier: 3,
@@ -647,7 +649,7 @@ export const DOCUMENT_DATA = {
     return: {
       type: "keyword",
       definition: "Exits a function and optionally sends a value back to whoever called it.",
-      example: `function add(a, b) {\n  return a + b;\n}\n\nlet sum = add(3, 4); // sum is 7`,
+      example: `function add(a, b) {\n  return a + b;\n}\n\nvar sum = add(3, 4); // sum is 7`,
       note: "Any code written after 'return' in the same block will never run. Also, a function without a 'return' statement gives back 'undefined' by default.",
       is_unlocked: true,
       tier: 4,
@@ -810,7 +812,7 @@ export const DOCUMENT_DATA = {
       type: "function",
       arguments: `bot.plant(crop_type: String)`,
       definition: "Plants a specified crop on the bot's current tile. The tile must already be tilled.",
-      example: `bot.plant("wheat");\nbot.plant("carrot");`,
+      example: `bot.plant("wheat");`,
       note: "You must pass the crop name as a string argument. Planting on an untilled tile will fail.",
       is_unlocked: true,
       tier: 0,

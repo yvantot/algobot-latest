@@ -2,6 +2,7 @@ import { INVENTORY, SHOP_DATA, CONFIG } from "./global.js"
 import { addSoilToGrid, addFarmbot } from "../components-kaplay/components.js"
 import { robots, trackQuest } from "../../components/global.svelte.js"
 import { farm_grid_index, createLandBackground } from "../game.js"
+import { isPurchaseAmount, expansionTiles } from "./farm-rules.js";
 
 function hasEnoughCoins(amount){
 	if(INVENTORY.coins >= amount) return true
@@ -20,6 +21,7 @@ export function buyBot(){
 }
 
 export function buyPlants(crop_type, amount = 1) {
+	if (!isPurchaseAmount(amount)) return false;
 	if (!SHOP_DATA.seeds[crop_type]?.unlocked) return false;
 	const total_amount = SHOP_DATA.seeds[crop_type].price * amount;
 	const can_buy = hasEnoughCoins(total_amount)
@@ -32,6 +34,7 @@ export function buyPlants(crop_type, amount = 1) {
 }
 
 export function buyUpgrade(upgrade_type, index) {
+	if (!Number.isInteger(index) || !robots[index]) return false;
 	if (!SHOP_DATA.bot_upgrades[upgrade_type]?.unlocked) return false;
 	const total_amount = SHOP_DATA.bot_upgrades[upgrade_type].price;
 	const can_buy = hasEnoughCoins(total_amount)
@@ -58,25 +61,21 @@ export function buyUpgrade(upgrade_type, index) {
 }
 
 export function buyLand(land_type, amount = 1) {
+	if (!isPurchaseAmount(amount)) return false;
 	if (!SHOP_DATA.land[land_type]?.unlocked) return false;
 	const total_amount = SHOP_DATA.land[land_type].price * amount;
 	const can_buy = hasEnoughCoins(total_amount)
 	if(can_buy) {
+		const newTiles = expansionTiles(CONFIG.FARM.rows, CONFIG.FARM.columns, land_type, amount);
 		if(land_type === "row"){
 			CONFIG.FARM.rows += amount
-			for(let x = 0; x < CONFIG.FARM.columns; x++){
-				const row = CONFIG.FARM.rows - 1
-				const soil = addSoilToGrid(x, row);
-				farm_grid_index.set(`${row}-${x}`, { soil });		
-			}
 		}
 		if(land_type === "column"){
 			CONFIG.FARM.columns += amount
-			for(let y = 0; y < CONFIG.FARM.rows; y++){
-				const column = CONFIG.FARM.columns - 1
-				const soil = addSoilToGrid(column, y);
-				farm_grid_index.set(`${y}-${column}`, { soil });		
-			}
+		}
+		for (const { x, y } of newTiles) {
+			const soil = addSoilToGrid(x, y);
+			farm_grid_index.set(`${y}-${x}`, { soil, bots: [] });
 		}
 		createLandBackground();
 		INVENTORY.changeCoins(-total_amount)

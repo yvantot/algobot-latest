@@ -1,4 +1,5 @@
 <script>
+  import { preferences } from "../game/utils/preferences.js";
   import { createResizable } from "./interface.svelte.js";
   import { onMount } from "svelte";
 
@@ -145,15 +146,15 @@
   ];
 
   onMount(() => {
-    dontShowAgain = localStorage.getItem("algobot_hide_onboarding") === "true";
+    dontShowAgain = preferences.getItem("algobot_hide_onboarding") === "true";
   });
 
   function toggleDontShow() {
     dontShowAgain = !dontShowAgain;
     if (dontShowAgain) {
-      localStorage.setItem("algobot_hide_onboarding", "true");
+      preferences.setItem("algobot_hide_onboarding", "true");
     } else {
-      localStorage.removeItem("algobot_hide_onboarding");
+      preferences.removeItem("algobot_hide_onboarding");
     }
   }
 </script>

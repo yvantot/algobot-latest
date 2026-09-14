@@ -3,6 +3,7 @@ import { robots, triggerDidYouKnow } from "../../components/global.svelte.js";
 import { FreshnessStates, CropStates, SoilStates, IconTypes, OrbTypes, CropTypes } from "../global/enum.js";
 import { CROP_DATA, CONFIG, SAY_DATA, PLAYER_DATA, INVENTORY, DOCUMENT_DATA } from "../global/global.js";
 import { play_sfx } from "../utils/sound.js";
+import { telemetry } from "../ml/telemetry.js";
 
 import { lerp, lerpvec2 } from "../utils/math.js";
 
@@ -152,7 +153,7 @@ export function soil(state = SoilStates.INITIAL) {
   };
 }
 
-export function crop(farm_grid_index, type, state = CropStatesEnum.YOUNG) {
+export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
   return {
     id: "crop",
     require: ["gridpos", "timer", "animate", "rotate", "freshness", "dropOrbs"],
@@ -169,6 +170,8 @@ export function crop(farm_grid_index, type, state = CropStatesEnum.YOUNG) {
     crop_resistance: CROP_DATA[type].resistance,
     crop_seed_drop_chance: CROP_DATA[type].seed_drop_chance,
     absorbing_water: false,
+    is_harvesting: false,
+    spoilage_remaining: Infinity,
 
     crop_soil_water: null,
     crop_soil_parent: null,
@@ -177,8 +180,17 @@ export function crop(farm_grid_index, type, state = CropStatesEnum.YOUNG) {
 
     cropDestroy() {
       const tile = farm_grid_index.get(`${this.grid_y}-${this.grid_x}`);
+      // Restore the real soil before destroying the temporary water mask.
+      if (this.absorbing_water && tile?.soil && this.crop_soil_water) {
+        tile.soil.parent = this.crop_soil_parent;
+        tile.soil.pos = this.crop_soil_water.pos;
+        tile.soil.setSoilState(SoilStates.READY);
+        this.crop_mask?.destroy();
+        this.crop_soil_water.destroy();
+        this.absorbing_water = false;
+      }
       this.destroy()
-      tile.crop = null;
+      if (tile?.crop === this) tile.crop = null;
     },
 
     damage(amount) {
@@ -206,6 +218,11 @@ export function crop(farm_grid_index, type, state = CropStatesEnum.YOUNG) {
     },
 
     harvest() {
+      if (this.is_harvesting || this.crop_state !== CropStates.HARVESTABLE) return;
+      this.is_harvesting = true;
+      this.crop_expiry_timer?.cancel();
+      this.freshness_timer?.cancel();
+      telemetry.recordCropHarvestOutcome(false);
       const tile = farm_grid_index.get(`${this.grid_y}-${this.grid_x}`);
       this.animation.seek(0);
       this.unanimateAll();
@@ -250,6 +267,8 @@ export function crop(farm_grid_index, type, state = CropStatesEnum.YOUNG) {
               easing: k.easings.easeInOutSine,
             });
             this.crop_state = CropStates.GROWING;
+            this.is_harvesting = false;
+            this.spoilage_remaining = Infinity;
             this.sprite = `${this.crop_type}${this.crop_state}`;
           } else {
             this.cropDestroy();
@@ -260,17 +279,17 @@ export function crop(farm_grid_index, type, state = CropStatesEnum.YOUNG) {
 
     add() {
       if (this.crop_type === CropTypes.CORN) {
-        k.loop(1, () => {
+        this.loop(1, () => {
           if (this.crop_state === CropStates.HARVESTABLE || this.crop_state === CropStates.DEAD) {
             this.effectsEnabled(false);
             return;
           };
           const count = this.countAdjacentCrop(this.grid_x, this.grid_y, this.crop_type);
+          this.crop_grow_duration = Math.max(1, this.crop_duration - count * 6);
           this.effectsEnabled(count !== 0);
           if (count === 0) return;
           triggerDidYouKnow("corn_synergy");
           this.showEffects("upgrade", "medium", null);
-          this.crop_grow_duration = this.crop_duration - count * 6;
         });
       }
 
@@ -284,6 +303,7 @@ export function crop(farm_grid_index, type, state = CropStatesEnum.YOUNG) {
     },
 
     update() {
+      if (this.crop_state === CropStates.HARVESTABLE && !this.is_harvesting) this.spoilage_remaining = Math.max(0, this.spoilage_remaining - k.dt());
       const { soil } = farm_grid_index.get(`${this.grid_y}-${this.grid_x}`);
       if (soil == null) return;
       if (this.absorbing_water) {
@@ -303,6 +323,7 @@ export function crop(farm_grid_index, type, state = CropStatesEnum.YOUNG) {
             this.crop_state = CropStates.GROWING;
           } else if (this.crop_state === CropStates.GROWING) {
             this.crop_state = CropStates.HARVESTABLE;
+            this.spoilage_remaining = this.crop_spoilage_time;
             // When it's harvestable, start timer
             this.initFreshness();
 
@@ -315,6 +336,7 @@ export function crop(farm_grid_index, type, state = CropStatesEnum.YOUNG) {
             this.crop_expiry_timer = this.wait(this.crop_spoilage_time, () => {
               if (this.crop_state === CropStates.HARVESTABLE) {
                 this.crop_state = CropStates.DEAD;
+                telemetry.recordCropHarvestOutcome(true);
                 this.sprite = `${type}${this.crop_state}`;
                 triggerDidYouKnow("spoilage");
               }
@@ -327,7 +349,7 @@ export function crop(farm_grid_index, type, state = CropStatesEnum.YOUNG) {
         }
       }
 
-      if (soil.soil_state === SoilStates.WATERED && this.absorbing_water === false) {
+      if (soil.soil_state === SoilStates.WATERED && this.absorbing_water === false && [CropStates.YOUNG, CropStates.GROWING].includes(this.crop_state)) {
         this.absorbing_water = true;
         this.crop_soil_parent = soil.parent;
 
@@ -715,6 +737,8 @@ export function botact(id, farm_grid_index) {
     },
 
     showError(str) {
+      this.executionErrorCount = (this.executionErrorCount || 0) + 1;
+      telemetry.recordError(str);
       this.sayText(str, "#ffb8bd", "#763c40");
       this.setDisplayColor(k.RED);
       this.wait(this.botact_duration, () => {
@@ -783,7 +807,7 @@ export function botact(id, farm_grid_index) {
     isHarvestable(callback = null, x = this.grid_x, y = this.grid_y) {
       let val = null;
       const { crop = null } = farm_grid_index.get(`${y}-${x}`);
-      if (crop && crop.crop_state === CropStates.HARVESTABLE) val = true;
+      if (crop && crop.crop_state === CropStates.HARVESTABLE && !crop.is_harvesting) val = true;
       else val = false;
       this.showIcon(IconTypes.MGLASS, this.botcheck_duration);
       play_sfx("bot_act")
@@ -792,6 +816,7 @@ export function botact(id, farm_grid_index) {
 
 
     isWithinBounds(x, y) {
+      if (!Number.isInteger(x) || !Number.isInteger(y)) return false;
       if (x < 0 || y < 0 || x >= CONFIG.FARM.columns || y >= CONFIG.FARM.rows) return false;
       return true;
     },
@@ -799,7 +824,7 @@ export function botact(id, farm_grid_index) {
     isBug(callback = null, x = this.grid_x, y = this.grid_y) {
       let val = null;
       const { bug = null } = farm_grid_index.get(`${y}-${x}`);
-      if (bug) val = true;
+      if (bug && !bug.is_dying) val = true;
       else val = false;
       this.showIcon(IconTypes.MGLASS, this.botcheck_duration);
       play_sfx("bot_act")
@@ -839,6 +864,11 @@ export function botact(id, farm_grid_index) {
     },
 
     botWait(duration, callback = null) {
+      if (!Number.isFinite(duration) || duration < 0 || duration > 3600) {
+        this.showError("Wait must be a number from 0 to 3600 seconds.");
+        this.performAct(false, this.botact_duration, callback);
+        return false;
+      }
       this.performAct(false, duration, callback);
       play_sfx("bot_act")
       this.showIcon(IconTypes.TIMER, duration, false);
@@ -852,7 +882,8 @@ export function botact(id, farm_grid_index) {
       const tile = farm_grid_index.get(key);
       const { bug = null } = farm_grid_index.get(key);
 
-      if (bug) {
+      if (bug && !bug.is_dying) {
+        if (bug.spawned_at) telemetry.recordEventResponse(Date.now() - bug.spawned_at);
         this.showIcon(IconTypes.SPARK, this.botcheck_duration);
         play_sfx("bot_kill")
         bug.bugDestroy();
@@ -944,7 +975,7 @@ export function botact(id, farm_grid_index) {
       const tile = farm_grid_index.get(key);
       const { soil, crop = null } = farm_grid_index.get(key);
 
-      if (crop && crop.crop_state === CropStates.HARVESTABLE) {
+      if (crop && crop.crop_state === CropStates.HARVESTABLE && !crop.is_harvesting) {
         const harvestedType = crop.crop_type;
         crop.harvest();
         play_sfx("plant")
@@ -1008,7 +1039,7 @@ export function gridmove() {
     gridJump(x, y, duration) {
       const start_pos = this.pos;
       const target_pos = this.gridAxisToWorld(x, y);
-      const control_point = k.vec2(start_pos.x + (target_pos.x - start_pos.x) / 2, start_pos.y - (start_pos.y / target_pos.y) * 150);
+      const control_point = k.vec2(start_pos.x + (target_pos.x - start_pos.x) / 2, Math.min(start_pos.y, target_pos.y) - 150);
 
       const points = [];
       const segments = 3;
@@ -1141,8 +1172,11 @@ export function bug(farm_grid_index, config = {}) {
     bug_move_interval: config.move_interval ?? 5.0,
     bug_attack_timer: null,
     bug_move_timer: null,
+    spawned_at: Date.now(),
 
     bugDestroy() {
+      if (this.is_dying) return;
+      this.is_dying = true;
       const tile = farm_grid_index.get(`${this.grid_y}-${this.grid_x}`);
       const duration = 0.3;
       if (this.bug_attack_timer) {

@@ -38,7 +38,23 @@ for (const [key, data] of Object.entries(QUEST_DATA)) {
 	};
 }
 
-export function trackQuest(key, amount = 1) {
+function questStage(key) {
+	if (key === "cs_if_0" || key === "cs_cleanup_0") return CS1_STAGES.CONDITIONAL;
+	if (key === "cs_loop_0" || key === "cs_grid_0") return CS1_STAGES.LOOPING;
+	return telemetry.currentStage;
+}
+
+export function beginActiveQuest() {
+	const entry = Object.entries(QUEST_DATA).find(([key, data]) =>
+		!QUEST_STATE[key].is_completed && (data.prereq || []).every(req => QUEST_STATE[req]?.is_claimed));
+	if (entry) {
+		telemetry.setStage(questStage(entry[0]));
+		telemetry.recordQuestStart(entry[0]);
+	}
+}
+
+export function trackQuest(key, amount = 1, action = null) {
+	if (!Number.isFinite(amount) || amount <= 0) return;
 	if (!QUEST_STATE[key] || QUEST_STATE[key].is_completed) return;
 
 	// Check if prereqs are met
@@ -49,22 +65,23 @@ export function trackQuest(key, amount = 1) {
 		}
 	}
 
-	// Track quest start for ML pipeline (episode boundary)
+	// Record stage before capturing the quest's starting feature vector.
+	telemetry.setStage(questStage(key));
 	telemetry.recordQuestStart(key);
+	// The farming tutorial requires all four distinct successful actions.
+	if (key === "tut_2") {
+		if (!["till", "plant", "water", "harvest"].includes(action)) return;
+		const actions = QUEST_STATE[key].actions || [];
+		if (actions.includes(action)) return;
+		QUEST_STATE[key].actions = [...actions, action];
+	}
 
 	QUEST_STATE[key].progress += amount;
 	if (QUEST_STATE[key].progress >= QUEST_DATA[key].goal) {
 		QUEST_STATE[key].progress = QUEST_DATA[key].goal;
 		QUEST_STATE[key].is_completed = true;
+		if (telemetry.recordQuestComplete(key)) mlAgent.addQuestCompletionReward();
 	}
-
-	// Telemetry: track CS1 milestone stage from quest type
-	if (key.startsWith("tut_")) telemetry.setStage(CS1_STAGES.SEQUENTIAL);
-	else if (key === "cs_if_0") telemetry.setStage(CS1_STAGES.CONDITIONAL);
-	else if (key === "cs_loop_0") telemetry.setStage(CS1_STAGES.LOOPING);
-
-	// Sample telemetry snapshot for LSTM buffer
-	telemetry.sampleHistory();
 
 	// Trigger async DDA update (non-blocking)
 	mlAgent.updateAndPredict(telemetry.currentStage).catch(() => { });
@@ -125,7 +142,7 @@ export function claimQuest(key, mouseEvent = null) {
 	QUEST_STATE[key].is_claimed = true;
 
 	// Track quest completion for ML pipeline (episode boundary + label generation)
-	telemetry.recordQuestComplete(key);
+	// Completion is recorded when the objective is reached, before claiming.
 
 	const rewards = QUEST_DATA[key].rewards;
 	if (rewards) {
@@ -160,6 +177,7 @@ export function claimQuest(key, mouseEvent = null) {
 			UNLOCK_VERSION.count++;
 		}
 	}
+	beginActiveQuest();
 }
 
 // "Did You Know?" Tips Data & Popup State

@@ -1,3 +1,4 @@
+import { preferences } from "./preferences.js";
 import { k } from "../../lib/kaplay.js";
 
 let clickAudio = null;
@@ -17,11 +18,11 @@ let audioVolumes = {
 };
 
 function loadSavedVolumes() {
-    if (typeof localStorage === "undefined") return;
-    const savedMaster = localStorage.getItem("algobot_volume_master");
-    const savedMusic = localStorage.getItem("algobot_volume_music");
-    const savedAmbiance = localStorage.getItem("algobot_volume_ambiance");
-    const savedSfx = localStorage.getItem("algobot_volume_sfx");
+    if (typeof preferences === "undefined") return;
+    const savedMaster = preferences.getItem("algobot_volume_master");
+    const savedMusic = preferences.getItem("algobot_volume_music");
+    const savedAmbiance = preferences.getItem("algobot_volume_ambiance");
+    const savedSfx = preferences.getItem("algobot_volume_sfx");
 
     if (savedMaster !== null) audioVolumes.master = parseFloat(savedMaster);
     if (savedMusic !== null) audioVolumes.music = parseFloat(savedMusic);
@@ -29,7 +30,7 @@ function loadSavedVolumes() {
     if (savedSfx !== null) audioVolumes.sfx = parseFloat(savedSfx);
 
     // Backward compatibility with old algobot_sound key ("on" / "off")
-    const legacySound = localStorage.getItem("algobot_sound");
+    const legacySound = preferences.getItem("algobot_sound");
     if (legacySound === "off" && savedMaster === null) {
         audioVolumes.master = 0;
     }
@@ -45,9 +46,9 @@ export function setCategoryVolume(category, value) {
     const val = Math.max(0, Math.min(1, parseFloat(value) || 0));
     audioVolumes[category] = val;
 
-    if (typeof localStorage !== "undefined") {
-        localStorage.setItem(`algobot_volume_${category}`, val);
-        localStorage.setItem(
+    if (typeof preferences !== "undefined") {
+        preferences.setItem(`algobot_volume_${category}`, val);
+        preferences.setItem(
             "algobot_sound",
             audioVolumes.master > 0 ? "on" : "off"
         );

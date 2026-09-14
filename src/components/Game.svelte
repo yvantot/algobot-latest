@@ -16,7 +16,7 @@
   import UnlockFlyOverlay from "./UnlockFlyOverlay.svelte";
   import EventBanner from "./EventBanner.svelte";
   import { createResizable, panelIn, panelOut } from "./interface.svelte.js";
-  import { Modals, triggerDidYouKnow, ONBOARDING } from "./global.svelte.js";
+  import { Modals, triggerDidYouKnow, ONBOARDING, beginActiveQuest, robots_state } from "./global.svelte.js";
   import GameDevTools from "./GameDevTools.svelte";
   import DDADashboard from "./DDADashboard.svelte";
   import { k } from "../lib/kaplay.js";
@@ -24,6 +24,9 @@
   import { telemetry } from "../game/ml/telemetry.js";
   import { eventScheduler } from "../game/ml/event-scheduler.js";
   import { mlAgent } from "../game/ml/agent.js";
+  import { dataLogger } from "../game/ml/data-logger.js";
+  import { dda } from "../game/ml/dda.js";
+  import { stopCodeRuns } from "../game/global/code-runner.js";
 
   let { onReturnMenu } = $props();
 
@@ -81,66 +84,71 @@
   let showOnboarding = $state(false);
   let showDDADashboard = $state(false);
   let showConfirmReturn = $state(false);
+  let activeHint = $state("");
+  let storageWarning = $state("");
 
   let game_speed = $state(k.debug.timeScale);
   let camera_scale = $state(1);
 
-  onMount(async () => {
-    const isHidden = localStorage.getItem("algobot_hide_onboarding") === "true";
-    if (!isHidden) {
-      showOnboarding = true;
-      ONBOARDING.isModalOpen = true;
-    } else {
-      ONBOARDING.isModalOpen = false;
-    }
-
-    // ML Pipeline: Initialize telemetry session
-    // Generate or retrieve anonymous collision-free participant ID
-    let participantId = localStorage.getItem("algobot_participant_id");
-    if (!participantId) {
-      participantId = `p_${crypto.randomUUID().slice(0, 8)}`;
+  onMount(() => {
+    let disposed = false;
+    let saved = false;
+    let predictionTimer;
+    let saveTimer;
+    showOnboarding = true;
+    let participantId = `p_${crypto.randomUUID()}`;
+    try {
+      showOnboarding = localStorage.getItem("algobot_hide_onboarding") !== "true";
+      participantId = localStorage.getItem("algobot_participant_id") || participantId;
       localStorage.setItem("algobot_participant_id", participantId);
+    } catch {
+      storageWarning = "Browser storage is unavailable. Export research data before closing this page.";
     }
+    ONBOARDING.isModalOpen = showOnboarding;
+    const resumedStage = telemetry.currentStage;
+    telemetry.resetSession();
+    telemetry.setStage(resumedStage);
+    mlAgent.resetSession();
     telemetry.setParticipantId(participantId);
-    console.log(
-      `Telemetry session started: ${telemetry.getSessionId()} (${participantId})`,
-    );
+    beginActiveQuest();
 
-    // ML Pipeline: Load pretrained LSTM + DQN models (determines bootstrap vs ML mode)
-    await mlAgent.init();
-
-    // Start automated event scheduler (Bootstrap or ML mode)
-    eventScheduler.start();
-
-    // Save session data on page unload
-    const handleBeforeUnload = () => {
-      try {
-        const sessionData = {
-          summary: telemetry.getSessionSummary(),
-          questAttempts: telemetry.getQuestAttempts(),
-          featureSnapshots: telemetry.getFeatureSnapshots(),
-          ddaLog: telemetry.getDDALog(),
-          rawEventCount: telemetry.getRawEvents().length,
-        };
-        // Append to stored sessions list
-        const stored = JSON.parse(
-          localStorage.getItem("algobot_sessions") || "[]",
-        );
-        stored.push(sessionData);
-        localStorage.setItem("algobot_sessions", JSON.stringify(stored));
-        console.log("💾 Session data saved to localStorage");
-      } catch (e) {
-        console.warn("Failed to save session data:", e);
-      }
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
+    function saveSession() {
+      if (saved) return;
+      stopCodeRuns(robots_state, telemetry);
+      mlAgent.endSession();
+      saved = dataLogger.saveSessionLight();
+    }
+    window.addEventListener("beforeunload", saveSession);
+    // Save independently of model loading so a slow fetch cannot block checkpoints.
+    saveTimer = setInterval(() => {
+      if (!dataLogger.saveSessionLight()) storageWarning = "Research data could not be saved. Export it before closing this page.";
+    }, 30000);
+    // Returning the cleanup synchronously is required by Svelte onMount.
+    mlAgent.init().then(() => {
+      if (disposed) return;
+      eventScheduler.start({ shouldRun: () => k.debug.timeScale > 0 && !ONBOARDING.isModalOpen && !document.hidden });
+      predictionTimer = setInterval(() => {
+        if (k.debug.timeScale > 0 && !ONBOARDING.isModalOpen && !document.hidden) {
+          mlAgent.updateAndPredict(telemetry.currentStage).then(() => {
+            if (disposed) return;
+            const nextHint = dda.activeHint || "";
+            if (nextHint && nextHint !== activeHint) telemetry.recordHintShown(nextHint);
+            activeHint = nextHint;
+          }).catch(console.warn);
+        }
+      }, 5000);
+    }).catch(console.warn);
 
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      disposed = true;
+      clearInterval(predictionTimer);
+      clearInterval(saveTimer);
+      window.removeEventListener("beforeunload", saveSession);
       eventScheduler.stop();
+      saveSession();
+      ONBOARDING.isModalOpen = false;
     };
   });
-
   $effect(() => {
     k.debug.timeScale = game_speed;
     k.setCamScale(camera_scale);
@@ -168,6 +176,14 @@
 </script>
 
 <div class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
+  {#if storageWarning}
+    <div role="alert" class="fixed top-4 left-1/2 -translate-x-1/2 max-w-sm rounded-lg border-2 border-red-400 bg-white p-3 text-sm text-red-900 shadow-lg">{storageWarning}</div>
+  {/if}
+  {#if activeHint}
+    <div role="status" class="fixed bottom-4 left-1/2 -translate-x-1/2 max-w-sm rounded-lg border-2 border-amber-400 bg-amber-100 p-3 text-sm text-amber-950 shadow-lg">
+      {activeHint}
+    </div>
+  {/if}
   <GameDevTools bind:showDDADashboard />
   <DDADashboard bind:visible={showDDADashboard} />
   <LevelReward />
@@ -428,6 +444,7 @@
       <div in:panelIn out:panelOut class="relative">
         <button
           class="absolute top-2 left-2 z-10 bg-gray-300 border-2 border-gray-400"
+          aria-label={current_editor === Editors.BLOCK ? "Switch to text editor" : "Switch to block editor"}
           onclick={toggleEditor}
         >
           {#if current_editor === Editors.BLOCK}
@@ -515,8 +532,7 @@
       <p
         class="text-sm text-slate-600 leading-relaxed bg-white p-3 rounded-lg border border-slate-300"
       >
-        Are you sure you want to return to the Start Menu? Any unsaved progress
-        will be lost.
+        Return to the Start Menu? Your farm will pause and can be resumed here. Reloading the page starts a new farm. Research data is stored separately when browser storage is available.
       </p>
 
       <div class="flex justify-end gap-2 pt-1">

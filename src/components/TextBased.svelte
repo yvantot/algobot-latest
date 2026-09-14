@@ -4,7 +4,7 @@
   import { DOCUMENT_DATA, INVENTORY } from "../game/global/global.js";
   import { buyLand, buyUpgrade, buyPlants } from "../game/global/shop.js";
   import { createInit } from "../game/global/interpreter.js";
-  import { trackQuest } from "./global.svelte.js";
+  import { trackQuest, beginActiveQuest } from "./global.svelte.js";
   import { telemetry } from "../game/ml/telemetry.js";
 
   import { onMount } from "svelte";
@@ -15,6 +15,9 @@
   import { hoverTooltip } from "@codemirror/view";
 
   import { createResizable } from "./interface.svelte.js";
+
+  import { createCodeRunner } from "../game/global/code-runner.js";
+  import { k } from "../lib/kaplay.js";
 
   const resize = createResizable();
 
@@ -252,7 +255,7 @@
           ],
         }),
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
+          if (update.docChanged && robots_state[selected_robot]) { telemetry.recordCodeEdit();
             robots_state[selected_robot].text_code =
               update.state.doc.toString();
           }
@@ -262,12 +265,12 @@
     });
 
     return () => {
-      view.destroy(); // Cleanup on component destroy
+      runner.dispose(); view.destroy(); view = null;
     };
   });
 
   function selectCode(start, end) {
-    if (!view) return;
+    if (!view) return; start = Math.min(start, view.state.doc.length); end = Math.min(end, view.state.doc.length);
 
     view.dispatch({
       selection: { anchor: start, head: end },
@@ -282,51 +285,7 @@
   }
 
   // Modified code from https://neil.fraser.name/software/JS-Interpreter/demos/line.html
-  function isLine(stack) {
-    var state = stack[stack.length - 1];
-    var node = state.node;
-    var type = node.type;
 
-    if (type !== "VariableDeclaration" && type.substr(-9) !== "Statement") {
-      // Current node is not a statement.
-      return false;
-    }
-
-    if (type === "BlockStatement") {
-      // Not a 'line' by most definitions.
-      return false;
-    }
-
-    if (
-      type === "VariableDeclaration" &&
-      stack[stack.length - 2].node.type === "ForStatement"
-    ) {
-      // This 'var' is not a line: for (var i = 0; ...)
-      return false;
-    }
-
-    if (isLine.oldStack_[isLine.oldStack_.length - 1] === state) {
-      // Never repeat the same statement multiple times.
-      // Typically a statement is stepped into and out of.
-      return false;
-    }
-
-    if (
-      isLine.oldStack_.indexOf(state) !== -1 &&
-      type !== "ForStatement" &&
-      type !== "WhileStatement" &&
-      type !== "DoWhileStatement"
-    ) {
-      // Don't revisit a statement on the stack (e.g. 'if') when exiting.
-      // The exception is loops.
-      return false;
-    }
-
-    isLine.oldStack_ = stack.slice();
-    return true;
-  }
-
-  isLine.oldStack_ = [];
 
   let is_running_all = $state(false);
 
@@ -353,88 +312,28 @@
   }
 
   // Modified code from https://neil.fraser.name/software/JS-Interpreter/demos/line.html
-  function handleStep(index) {
-    if (!robots_state[index].interpreter)
-      robots_state[index].interpreter = new Interpreter(
-        robots_state[index].text_code,
-        createInit(robots_state[index].robot, null, trackQuest),
-      );
+  const runner = createCodeRunner({
+    states: robots_state,
+    InterpreterClass: globalThis.Interpreter,
+    telemetry,
+    canStep: () => k.debug.timeScale > 0 && !ONBOARDING.isModalOpen && !document.hidden,
+    prepare(index) {
+      robots_state[index].onQuestEvent = trackQuest;
+      beginActiveQuest();
+      return robots_state[index].text_code;
+    },
+    init: (index) => createInit(robots_state[index].robot, null, trackQuest),
+    highlight(index, node) {
+      if (index === selected_robot && view) { if (node) createSelection(node.start, node.end); else selectCode(0, 0); }
+    },
+  });
 
-    var stack = robots_state[index].interpreter.getStateStack();
-    var step_again = !isLine(stack);
-
-    if (stack.length > 0) {
-      const node = stack[stack.length - 1].node;
-      if (node && node.type === "ForStatement") {
-        trackQuest("cs_loop_0", 1);
-        telemetry.recordLoopExecution("for");
-      }
-      if (
-        node &&
-        (node.type === "WhileStatement" || node.type === "DoWhileStatement")
-      ) {
-        trackQuest("cs_loop_0", 1);
-        telemetry.recordLoopExecution("while");
-      }
-      if (node && node.type === "IfStatement") {
-        trackQuest("cs_if_0", 1);
-        telemetry.recordIfCondition(true);
-      }
-    }
-
-    try {
-      var ok = robots_state[index].interpreter.step();
-    } finally {
-      if (!ok) {
-        handleReset(index);
-        step_again = false;
-      }
-    }
-
-    if (step_again) {
-      try {
-        handleStep(index);
-      } catch (error) {
-        null;
-      }
-    } else {
-      if (index === selected_robot) {
-        // Only call createSelection when we've landed on a line
-        var stack = robots_state[index].interpreter.getStateStack();
-        if (stack.length) {
-          var node = stack[stack.length - 1].node;
-          createSelection(node.start, node.end);
-        }
-      }
-    }
-  }
-
+  function handleStep(index) { runner.step(index); }
   function handleStart(index) {
     ONBOARDING.startClicked = true;
-    robots_state[index].interpreter = new Interpreter(
-      robots_state[index].text_code,
-      createInit(robots_state[index].robot, null, trackQuest),
-    );
-    robots_state[index].is_running = !robots_state[index].is_running;
-    telemetry.recordCodeRun(true); // Record code execution attempt
-
-    clearInterval(robots_state[index].interval);
-
-    if (robots_state[index].is_running) {
-      robots_state[index].interval = setInterval(() => {
-        if (robots_state[index].is_running) {
-          handleStep(index);
-        }
-      }, 0);
-    }
+    runner.start(index);
   }
-  function handleReset(index) {
-    robots_state[index].interpreter = null;
-    robots_state[index].is_running = false;
-    telemetry.recordCodeReset();
-    if (index === selected_robot) selectCode(0, 0);
-  }
-
+  function handleReset(index) { runner.reset(index); }
   function handleClear(index) {
     handleReset(index);
     robots_state[index].text_code = ``;
