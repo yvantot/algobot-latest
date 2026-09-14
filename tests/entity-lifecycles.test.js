@@ -29,7 +29,9 @@ function harness() {
     const hooks = { add: [], update: [], destroy: [] };
     const object = {
       children: [], parent, removed: false, pos: vec2(), angle: 0, scale: vec2(1),
-      animation: { seek() {} }, animate() {}, unanimate() {}, unanimateAll() {}, tag() {},
+      animations: {}, animation: { seek() {} },
+      animate(name, keys, options) { this.animations[name] = { keys, options }; },
+      unanimate(name) { delete this.animations[name]; }, unanimateAll() { this.animations = {}; }, tag() {},
       add(list) { return make(list, this); },
       wait(delay, fn) {
         const timer = { owner: this, at: now + delay, fn, canceled: false, cancel() { this.canceled = true; } };
@@ -62,7 +64,9 @@ function harness() {
     return object;
   }
   const k = {
-    dt: () => dt, height: () => 600, vec2, add: list => make(list), readd() {},
+    dt: () => dt, height: () => 600, vec2, add: list => make(list),
+    rand: (a, b) => (a + b) / 2,
+    readd(object) { roots.delete(object); roots.add(object); },
     easings: {}, WHITE: "white", RED: "red", GREEN: "green", YELLOW: "yellow",
     pos: (x, y) => ({ pos: vec2(x, y) }), sprite: (sprite, options = {}) => ({ sprite, frame: options.frame ?? 0 }),
     circle: radius => ({ radius }), mask: mask => ({ mask }), opacity: (opacity = 1) => ({ opacity }),
@@ -383,4 +387,56 @@ test("watering a living crop during empty-soil drain cancels only the old visual
   assert.ok(Math.abs(soil.water_remaining - 0.97) < 1e-9);
   assert.equal(crop.crop_grow_time, 0.3);
   assert.ok(soil.soil_water_mask);
+});
+
+
+test("large robot stacks retain tile order after movement and removal", () => {
+  const h = harness(); h.addSoil(); h.addSoil(1, 0);
+  const bots = Array.from({ length: 12 }, () => h.bot());
+  h.advance(0.7);
+  const first = bots[0];
+  first.botJump(1, 0); h.advance(0.7);
+  first.botJump(0, 0); h.advance(0.7); h.advance(0);
+  const stack = h.farm.get("0-0").bots;
+  assert.equal(stack.at(-1), first, "returning bottom bot becomes the top occupant");
+  assert.deepEqual([...h.roots].filter(bot => stack.includes(bot)), Array.from(stack), "draw order follows stack order, not creation order");
+  for (const [index, bot] of stack.entries()) {
+    assert.equal(bot.anchor.y, index + 1);
+    assert.equal(bot.display_obj.opacity, index === stack.length - 1 ? 1 : 0);
+  }
+  first.destroy(); bots[5].destroy(); h.advance(0);
+  const remaining = h.farm.get("0-0").bots;
+  assert.deepEqual([...h.roots].filter(bot => remaining.includes(bot)), Array.from(remaining));
+  assert.equal(remaining.at(-1).display_obj.opacity, 1);
+});
+
+test("freshness restores distinct sparkle, flying-insect and rising green gas animations", () => {
+  const h = harness(); h.addSoil();
+  const crop = h.plant(CropTypes.WHEAT, CropStates.HARVESTABLE);
+  const effects = [...crop.freshness_effects];
+  assert.ok(effects.every(effect => effect.sprite === "icon_sparkle" && effect.animations.angle && effect.animations.opacity));
+  h.advance(4.1); h.advance(0.01);
+  assert.ok(effects.every(effect => effect.sprite === "icon_fly" && effect.animations.pos.keys.length === 10));
+  assert.ok(effects.every(effect => !effect.animations.opacity && effect.opacity === 1));
+  h.advance(4);
+  assert.deepEqual(effects.map(effect => effect.sprite), ["icon_poison1", "icon_poison2", "icon_poison1"]);
+  assert.ok(effects.every(effect => effect.animations.pos.keys[1].y < effect.animations.pos.keys[0].y));
+  assert.ok(effects.every(effect => effect.animations.opacity.keys.join() === "0,1,0"));
+  const gasAnimation = effects[0].animations.pos;
+  h.advance(2);
+  assert.equal(effects[0].animations.pos, gasAnimation, "dead-state update does not restart gas every frame");
+  assert.equal(crop.freshness_effects.length, 3, "rot retains its gas until removed");
+  crop.cropDestroy();
+  assert.ok(effects.every(effect => effect.removed));
+  assert.equal(crop.freshness_effects.length, 0);
+});
+
+test("directly rotted young crops get gas, while lethal fire leaves no gas or crop", () => {
+  const h = harness(); h.addSoil(); const crop = h.plant();
+  crop.markDead();
+  assert.equal(crop.freshness_effects.length, 3);
+  const effects = [...crop.freshness_effects];
+  crop.damage(100, { source: "fire", noTrace: true });
+  assert.ok(effects.every(effect => effect.removed));
+  assert.equal(h.farm.get("0-0").crop, null);
 });

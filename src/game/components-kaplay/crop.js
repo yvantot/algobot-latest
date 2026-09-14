@@ -89,8 +89,7 @@ export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
       this.crop_state = CropStates.DEAD;
       this.absorbing_water = false;
       this.spoilage_remaining = 0;
-      this.freshness_state = FreshnessStates.DEAD;
-      this.clearFreshness();
+      this.showFreshness(FreshnessStates.DEAD);
       this.effectsEnabled(false);
       this.sprite = `${type}${this.crop_state}`;
       if (reason === "spoilage") {

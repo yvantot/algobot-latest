@@ -31,7 +31,10 @@ export function botact(id, farm_grid_index) {
     update() {
       const bots = farm_grid_index.get(`${this.grid_y}-${this.grid_x}`)?.bots ?? [];
       const index = Math.max(0, bots.indexOf(this));
-      this.display_obj.opacity = 1;
+      // Preserve the original stack draw order for equal-y sprites. Only the
+      // bottom bot needs to reorder the tile's stack, rather than every bot.
+      if (index === 0 && bots.length > 1) for (const bot of bots) k.readd(bot);
+      this.display_obj.opacity = bots.length < 2 || index === bots.length - 1 ? 1 : 0;
       this.anchor = k.vec2(0, index + 1);
       this.display_obj.anchor = bots.length < 2 ? k.vec2(-1, -1) : k.vec2(-1, index * 3.55 - 0.5);
     },
