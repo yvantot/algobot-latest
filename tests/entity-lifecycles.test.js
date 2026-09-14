@@ -1,0 +1,300 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import vm from "node:vm";
+import { CropStates, CropTypes, FreshnessStates, SoilStates, IconTypes, OrbTypes } from "../src/game/global/enum.js";
+
+// Exercise the actual component methods with a small engine boundary. Destruction
+// mirrors KAPLAY: component hooks run before child teardown and timer updates stop.
+function harness() {
+  let dt = 0;
+  let now = 0;
+  const roots = new Set();
+  const timers = [];
+  const rewards = { coins: 0, exp: 0, seeds: 0, spoiled: 0 };
+  const vec2 = (x = 0, y = x) => typeof x === "object" ? { x: x.x, y: x.y } : { x, y };
+  function make(components, parent = null) {
+    const hooks = { add: [], update: [], destroy: [] };
+    const object = {
+      children: [], parent, removed: false, pos: vec2(), angle: 0, scale: vec2(1),
+      animation: { seek() {} }, animate() {}, unanimate() {}, unanimateAll() {}, tag() {},
+      add(list) { return make(list, this); },
+      wait(delay, fn) {
+        const timer = { owner: this, at: now + delay, fn, canceled: false, cancel() { this.canceled = true; } };
+        timers.push(timer);
+        return timer;
+      },
+      loop(delay, fn) { return this.wait(delay, fn); },
+      exists() { return !this.removed; },
+      update() { for (const fn of hooks.update) if (!this.removed) fn.call(this); },
+      destroy() {
+        if (this.removed) return;
+        for (const fn of hooks.destroy) fn.call(this);
+        this.removed = true;
+        for (const timer of timers) if (timer.owner === this) timer.cancel();
+        for (const child of [...this.children]) child.destroy();
+        if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this);
+        roots.delete(this);
+      },
+    };
+    for (const component of components) {
+      if (typeof component !== "object") continue;
+      for (const [key, value] of Object.entries(component)) {
+        if (key in hooks) { hooks[key].push(value); continue; }
+        if (["id", "require"].includes(key)) continue;
+        object[key] = typeof value === "function" ? value.bind(object) : value;
+      }
+    }
+    if (parent) parent.children.push(object); else roots.add(object);
+    for (const fn of hooks.add) fn.call(object);
+    return object;
+  }
+  const k = {
+    dt: () => dt, height: () => 600, vec2, add: list => make(list), readd() {},
+    easings: {}, WHITE: "white", RED: "red", GREEN: "green", YELLOW: "yellow",
+    pos: (x, y) => ({ pos: vec2(x, y) }), sprite: (sprite, options = {}) => ({ sprite, frame: options.frame ?? 0 }),
+    circle: radius => ({ radius }), mask: mask => ({ mask }), opacity: (opacity = 1) => ({ opacity }),
+    scale: (x = 1, y = x) => ({ scale: vec2(x, y) }), z: (z = 0) => ({ z }),
+    anchor: anchor => ({ anchor }), rotate: () => ({ angle: 0 }), animate: () => ({}), timer: () => ({}), layer: () => ({}),
+  };
+  const CROP_DATA = Object.fromEntries(Object.values(CropTypes).map(type => [type, {
+    duration: 10, health: 20, reward: 6, exp: 4, spoilage_time: 8, resistance: { fire: 1, bug: 0.5 }, seed_drop_chance: 0,
+  }]));
+  const CONFIG = { FARM: { tile_size: 64, cell_size: 70, grid_origin: vec2(), columns: 2, rows: 2 }, BOT: { move_duration: 0.7, action_duration: 0.8, check_duration: 0.5 } };
+  const context = vm.createContext({
+    k, CONFIG, CROP_DATA, CropStates, CropTypes, SoilStates, FreshnessStates, IconTypes, OrbTypes, console,
+    robots: [], triggerDidYouKnow() {}, play_sfx() {},
+    telemetry: { recordCropHarvestOutcome(spoiled) { if (spoiled) rewards.spoiled++; }, recordError() {}, recordEventResponse() {} },
+    INVENTORY: { crops: { wheat: 100 }, changeCoins(value) { rewards.coins += value; }, changeCrops(type, value) { rewards.seeds += value; } },
+    PLAYER_DATA: { changeExp(value) { rewards.exp += value; } },
+    DOCUMENT_DATA: { crops: {} }, SAY_DATA: { farm: { error: { no_plant: "No crop", no_bug: "No bug", water_initial: "Till first", water_watered: "Already watered", out_of_bounds: "Out of bounds" } } },
+    lerpvec2: (a, b, progress) => vec2(a.x + (b.x - a.x) * progress, a.y + (b.y - a.y) * progress),
+    ysort: () => ({}), popupicon: () => ({ showIcon() {} }), dropOrbs: () => ({ dropOrbs() {} }),
+    effects: () => ({ effectsEnabled() {}, showEffects() {} }),
+  });
+  for (const name of ["grid", "soil", "freshness", "crop", "robot", "pest"]) {
+    const source = fs.readFileSync(new URL(`../src/game/components-kaplay/${name}.js`, import.meta.url), "utf8").replace(/^import .*;\r?\n/gm, "").replaceAll("export function", "function");
+    vm.runInContext(source, context);
+  }
+  const farm = new Map();
+  function addSoil(x = 0, y = 0, state = SoilStates.READY) {
+    const soil = context.addSoilToGrid(x, y, state);
+    farm.set(`${y}-${x}`, { soil, crop: null });
+    return soil;
+  }
+  function plant(type = CropTypes.WHEAT, state = CropStates.YOUNG, x = 0, y = 0) {
+    const crop = context.addCrop(farm, type, x, y, state);
+    farm.get(`${y}-${x}`).crop = crop;
+    return crop;
+  }
+  function bot() {
+    return make([{ grid_x: 0, grid_y: 0, display_obj: {}, setDisplayColor() {}, sayText() {}, showIcon() {} }, context.gridpos(0, 0), context.gridmove(), context.botact(1, farm)]);
+  }
+  function advance(seconds) {
+    dt = seconds;
+    now += seconds;
+    for (const object of [...roots]) object.update();
+    // Newly scheduled timers start on this simulated frame, like engine waits.
+    for (const timer of [...timers]) {
+      if (timer.canceled || timer.owner.removed || timer.at > now) continue;
+      timer.canceled = true;
+      timer.fn();
+    }
+  }
+  return { context, make, k, farm, timers, roots, rewards, addSoil, plant, bot, advance };
+}
+
+test("empty watered soil retains its reservoir and owns the absorption mask", () => {
+  const h = harness();
+  const soil = h.addSoil();
+  soil.water();
+  const mask = soil.soil_water_mask;
+  assert.equal(mask.parent, soil);
+  h.advance(1000);
+  assert.equal(soil.water_remaining, 1);
+  const crop = h.plant();
+  h.advance(4);
+  assert.equal(crop.crop_grow_time, 4);
+  assert.equal(crop.absorbing_water, true);
+  assert.equal(soil.water_remaining, 0.6);
+  assert.equal(soil.parent, null);
+  assert.equal(soil.soil_water_mask, mask);
+  assert.ok(mask.radius > 0 && mask.radius < 64 * 0.71);
+});
+
+test("bot removal during absorption leaves reusable water for a replacement crop", () => {
+  const h = harness();
+  const soil = h.addSoil(); soil.water();
+  const first = h.plant(); h.advance(4);
+  const bot = h.bot(); h.advance(0.7);
+  const remaining = soil.water_remaining;
+  let result;
+  assert.equal(bot.botDestroy(value => { result = value; }), true);
+  assert.equal(first.removed, true);
+  assert.equal(h.farm.get("0-0").crop, null);
+  assert.equal(soil.water_remaining, remaining);
+  const replacement = h.plant(); h.advance(remaining * 10);
+  assert.equal(soil.isWatered(), false);
+  assert.ok(Math.abs(replacement.crop_grow_time - remaining * 10) < 1e-9);
+  assert.equal(result, true);
+  soil.water(); h.advance(10 - replacement.crop_grow_time);
+  assert.equal(replacement.crop_state, CropStates.GROWING);
+  assert.ok(soil.water_remaining > 0, "remaining dose continues into the next stage");
+});
+
+test("raw crop destruction and repeated cleanup preserve the soil and replacement reference", () => {
+  const h = harness(); const soil = h.addSoil(); soil.water();
+  const first = h.plant(); h.advance(3);
+  const replacement = h.plant();
+  first.destroy(); first.cropDestroy(); first.destroy();
+  assert.equal(h.farm.get("0-0").crop, replacement);
+  assert.equal(soil.removed, false);
+  assert.equal(soil.water_remaining, 0.7);
+  assert.equal(soil.soil_water_mask.removed, false);
+});
+
+test("orphaned crop update removes itself without harming the replacement", () => {
+  const h = harness(); h.addSoil(); const first = h.plant(); const second = h.plant();
+  h.advance(1);
+  assert.equal(first.removed, true);
+  assert.equal(h.farm.get("0-0").crop, second);
+});
+
+test("two watering doses mature a crop, spoil once, and do not consume extra soil water", () => {
+  const h = harness(); const soil = h.addSoil(); const crop = h.plant();
+  soil.water(); h.advance(10);
+  assert.equal(crop.crop_state, CropStates.GROWING);
+  assert.equal(soil.isWatered(), false);
+  soil.water(); h.advance(10);
+  assert.equal(crop.crop_state, CropStates.HARVESTABLE);
+  assert.equal(crop.spoilage_remaining, 8);
+  soil.water(); h.advance(4.1); h.advance(0.1);
+  assert.equal(crop.freshness_state, FreshnessStates.EXPIRING);
+  assert.equal(soil.water_remaining, 1);
+  h.advance(4); h.advance(100);
+  assert.equal(crop.crop_state, CropStates.DEAD);
+  assert.equal(h.rewards.spoiled, 1);
+  assert.equal(soil.water_remaining, 1);
+});
+
+test("rain stores water in untilled soil and tilling preserves it", () => {
+  const h = harness(); const soil = h.addSoil(0, 0, SoilStates.INITIAL);
+  assert.equal(soil.water(), false);
+  assert.equal(soil.water({ rain: true }), true);
+  assert.equal(soil.soil_state, SoilStates.INITIAL);
+  h.advance(100);
+  assert.equal(soil.water_remaining, 1);
+  assert.equal(soil.till(), true);
+  assert.equal(soil.soil_state, SoilStates.WATERED);
+  assert.equal(soil.isWatered(), true);
+});
+
+test("lethal fire destroys a crop immediately during absorption and respects resistance once", () => {
+  const h = harness(); const soil = h.addSoil(); soil.water(); const crop = h.plant(); h.advance(2);
+  crop.damage(10, { source: "bug" }); assert.equal(crop.crop_health, 15);
+  crop.damage(100, { source: "fire", noTrace: true });
+  assert.equal(crop.removed, true);
+  assert.equal(h.farm.get("0-0").crop, null);
+  assert.equal(soil.water_remaining, 0.8);
+  assert.equal(crop.damage(100), false);
+});
+
+test("destroying a harvesting crop cancels rewards, even if a stale callback is invoked", () => {
+  const h = harness(); h.addSoil(); const crop = h.plant(CropTypes.WHEAT, CropStates.HARVESTABLE);
+  assert.equal(crop.harvest(), true);
+  const pending = [...h.timers];
+  crop.damage(100, { source: "fire", noTrace: true });
+  h.plant();
+  for (const timer of pending) timer.fn();
+  h.advance(10);
+  assert.equal(h.rewards.exp, 0);
+  assert.equal(h.rewards.coins, 0);
+  assert.equal(h.rewards.seeds, 0);
+});
+
+test("sugarcane harvest regrows once and no expiry callback kills the new stage", () => {
+  const h = harness(); h.addSoil(); const crop = h.plant(CropTypes.SUGARCANE, CropStates.HARVESTABLE);
+  assert.equal(crop.harvest(), true);
+  assert.equal(crop.harvest(), false);
+  h.advance(0.5); h.advance(0.5); h.advance(100);
+  assert.equal(crop.crop_state, CropStates.GROWING);
+  assert.equal(crop.removed, false);
+  assert.equal(crop.is_harvesting, false);
+  assert.equal(h.rewards.exp, 4);
+  assert.equal(h.rewards.coins, 6);
+  assert.equal(h.rewards.spoiled, 0);
+});
+
+test("bot harvest waits for crop rewards and reports false when fire cancels the harvest", () => {
+  for (const killed of [false, true]) {
+    const h = harness(); h.addSoil(); const bot = h.bot(); h.advance(0.7);
+    const crop = h.plant(CropTypes.WHEAT, CropStates.HARVESTABLE);
+    bot.botact_duration = 0.1;
+    const results = [];
+    assert.equal(bot.botHarvest(value => results.push(value)), CropTypes.WHEAT);
+    h.advance(0.1);
+    assert.deepEqual(results, []);
+    assert.equal(bot.is_available, false);
+    if (killed) crop.damage(100, { source: "fire", noTrace: true });
+    h.advance(0.5); h.advance(0.5);
+    assert.deepEqual(results, [killed ? false : CropTypes.WHEAT]);
+    assert.equal(h.rewards.coins, killed ? 0 : 6);
+    assert.equal(bot.is_available, true);
+  }
+});
+
+test("bot water extinguishes a fire on already wet soil and reports completion once", () => {
+  const h = harness(); const soil = h.addSoil(); soil.water(); const bot = h.bot(); h.advance(0.7);
+  const tile = h.farm.get("0-0"); let burning = true;
+  tile.fire = { isBurning: () => burning, extinguish(source) { assert.equal(source, "bot"); const wasBurning = burning; burning = false; return wasBurning; } };
+  const result = [];
+  assert.equal(bot.botWater(value => result.push(value)), true);
+  assert.equal(burning, false);
+  h.advance(1); h.advance(1);
+  assert.deepEqual(result, [true]);
+  bot.botExtinguish(value => result.push(value)); h.advance(1);
+  assert.deepEqual(result, [true, false]);
+});
+
+test("bot movement commits position before its completion callback; raw destruction removes all registrations", () => {
+  const h = harness(); h.addSoil(); h.addSoil(1, 0); const bot = h.bot(); h.advance(0.7);
+  let position;
+  bot.botJump(1, 0, success => { position = [success, bot.grid_x, bot.grid_y]; });
+  h.advance(0.7);
+  assert.deepEqual(position, [true, 1, 0]);
+  assert.equal(h.farm.get("0-1").bots[0], bot);
+  let interrupted;
+  bot.botWait(2, value => { interrupted = value; });
+  bot.destroy(); h.advance(3);
+  assert.equal(interrupted, false);
+  assert.ok([...h.farm.values()].every(tile => !tile.bots?.includes(bot)));
+});
+
+test("direct soil destruction clears only its decorative child and safely stops growth", () => {
+  const h = harness(); const soil = h.addSoil(); soil.water(); const crop = h.plant();
+  const mask = soil.soil_water_mask; soil.destroy(); h.advance(2);
+  assert.equal(mask.removed, true);
+  assert.equal(soil.consumeWater(1, 10), 0);
+  assert.equal(crop.crop_grow_time, 0);
+});
+
+test("raw bug destruction clears its reserved destination even before a jump updates coordinates", () => {
+  const h = harness(); h.addSoil(); h.addSoil(1, 0);
+  const bug = h.make([h.context.gridpos(null, null), h.context.gridmove(), h.context.bug(h.farm)]);
+  bug.updateGridIndex(1, 0);
+  assert.equal(h.farm.get("0-1").bug, bug);
+  bug.destroy();
+  assert.equal(h.farm.get("0-1").bug, null);
+  assert.equal(h.farm.size, 2, "temporary off-grid spawn reservations are removed");
+  assert.ok(h.timers.filter(timer => timer.owner === bug).every(timer => timer.canceled));
+});
+
+test("planting into an explicit target uses that tile and does not replace its shared record", () => {
+  const h = harness(); h.addSoil(); h.addSoil(1, 0); const bot = h.bot(); h.advance(0.7);
+  const target = h.farm.get("0-1");
+  assert.equal(bot.botPlant(CropTypes.WHEAT, null, 1, 0), true);
+  assert.equal(h.farm.get("0-1"), target);
+  assert.equal(target.crop.grid_x, 1);
+  assert.equal(target.crop.grid_y, 0);
+  assert.equal(h.farm.get("0-0").crop, null);
+});
