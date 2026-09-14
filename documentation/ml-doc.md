@@ -1,5 +1,7 @@
 # Algobot Machine Learning Pipeline Documentation
 
+> **Historical design document.** Read [PROJECT_AUDIT.md](PROJECT_AUDIT.md) and [RESEARCH_EVALUATION.md](RESEARCH_EVALUATION.md) for the verified implementation and research limits as of 2026-09-14. The deployed mode is LSTM plus explicit rules; the DQN lacks action coverage and is gated. Q-values/scenarios below are illustrations, not observed results. Flow/frustration are proxies, and student learning improvement remains unevaluated. Do not run the legacy commands below against the preserved output directories.
+
 This document provides complete architectural, mathematical, technical, and operational documentation for the Algobot ML Pipeline.
 
 ---

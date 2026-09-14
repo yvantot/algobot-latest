@@ -1,5 +1,7 @@
 # Algobot — Project Setup Guide
 
+> For the current research status and checked commands, start with [README.md](README.md) and [documentation/RESEARCH_EVALUATION.md](documentation/RESEARCH_EVALUATION.md). Version numbers below describe the original setup. The audit runs on Node 24.19.0; the old local `.venv` points to a removed Python installation and must be replaced with a new environment if Python training is needed. The game requires no Python. Keep the supplied samples, models and lockfile intact.
+
 > Complete guide to set up the Algobot project from scratch on a new Windows machine.
 
 ---
@@ -95,7 +97,7 @@ git checkout improve_quest
 ## 5️⃣ Install Node.js Dependencies
 
 ```powershell
-npm install
+npm ci
 ```
 
 This installs everything defined in `package.json`:
@@ -196,7 +198,8 @@ All training scripts are in the `training/` directory:
 | `prepare_dataset.py` | Prepare and preprocess training data |
 | `train_lstm.py` | Train the LSTM proficiency model |
 | `train_dqn.py` | Train the DQN policy model |
-| `evaluate.py` | Evaluate trained models |
+| `evaluate.py` | Summarize recorded gameplay conditions (not a learning-gain test) |
+| `evaluate_model.py` | Evaluate regression predictions and proficiency categories |
 | `export_tfjs.py` | Export trained Keras models to TF.js format |
 | `export_tfjs.sh` | Bash script wrapper for TF.js export |
 
@@ -208,7 +211,7 @@ To export the trained Keras models to TensorFlow.js format for the game:
 python export_tfjs.py
 ```
 
-The exported models go to `public/models/lstm/` and `public/models/dqn/`, and the game auto-detects them on launch.
+The guarded exporter writes to a new `training/exports_v2/` directory by default. It requires the scaler used for the selected LSTM. Inspect and test an export before promoting it into `public/models/`; do not overwrite the preserved deployment as part of a diagnostic evaluation. The DQN remains gated pending policy evaluation. See [the current evaluation commands](documentation/RESEARCH_EVALUATION.md).
 
 ---
 
@@ -307,11 +310,9 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
 ### `node_modules` issues / dependency errors
-Delete and reinstall:
+Reinstall from the committed lockfile:
 ```powershell
-Remove-Item -Recurse -Force node_modules
-Remove-Item package-lock.json
-npm install
+npm ci
 ```
 
 ### Vite dev server port conflict
