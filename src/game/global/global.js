@@ -391,7 +391,7 @@ export const DOCUMENT_DATA = {
       definition: "When at least two thirds of the farm is planted, fire can ignite random crops. Larger events start more fires.",
       icon: getWeatherArtwork("icon_fire_2"),
       example: `bot.extinguish(); // Put out the fire`,
-      note: "Fire damages crops and removes them completely when they burn down. Only fully grown flames spread to adjacent crops. Wet soil reduces spread; bot.extinguish(), bot.water(), and raindrops put fires out.",
+      note: "Fire damages crops and removes them completely when they burn down. Medium and fully grown flames spread to adjacent crops. Wet soil reduces spread; bot.extinguish(), bot.water(), and raindrops put fires out.",
       type: "event",
       is_unlocked: true,
       tier: 3,

@@ -79,18 +79,16 @@ test("severity chooses distinct random initial fires and does not replace burnin
   assert.equal(sim.startFire(10000).applied, false);
 });
 
-test("fire advances through three sizes and spreads only at maturity to orthogonal crops", () => {
+test("fire begins spreading at the medium stage, only to orthogonal living crops", () => {
   const grid = makeFarm();
   const sim = new FarmEventSimulation(grid, { random: () => 0 });
   const fire = sim.ignite("1-1", settings());
   assert.equal(fire.stage, 0);
-  sim.update(1);
-  assert.equal(fire.stage, 1);
-  assert.equal(sim.fires.size, 1);
   sim.update(0.95);
+  assert.equal(fire.stage, 0);
   assert.equal(sim.fires.size, 1);
   sim.update(0.05);
-  assert.equal(fire.stage, 2);
+  assert.equal(fire.stage, 1);
   assert.deepEqual([...sim.fires.keys()].sort(), ["0-1", "1-0", "1-1", "1-2", "2-1"]);
   assert.equal(grid.get("0-0").fire, undefined);
   assert.equal(grid.get("0-1").fire.stage, 0);

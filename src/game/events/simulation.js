@@ -193,8 +193,8 @@ export class FarmEventSimulation {
     const previousStage = fire.stage;
     fire.stage = Math.min(2, Math.floor((fire.age + EPSILON) / fire.settings.stageDuration));
     if (fire.stage === 2 && previousStage < 2) {
-      // Start the lethal burn clock at maximum growth. The first spread
-      // opportunity occurs now, before the first mature damage tick.
+      // Start the lethal burn clock at maximum growth. Spreading has already
+      // been possible throughout the medium stage.
       fire.damageClock = 0;
       fire.matureDamage = tile.crop.damageToKill?.("fire") ?? tile.crop.crop_health;
     } else if (fire.stage === 2) {
@@ -219,9 +219,9 @@ export class FarmEventSimulation {
     // Damage resolves before spread. A lethal tick cannot create an orphan
     // flame or spread again after consuming its plant.
     if (!isLivingCrop(tile.crop) || tile.crop !== fire.crop) return this.extinguish(fire, "no_fuel");
-    if (fire.stage === 2) {
+    if (fire.stage >= 1) {
       fire.spreadClock += dt;
-      if (previousStage < 2 || fire.spreadClock + EPSILON >= fire.settings.spreadInterval) {
+      if (previousStage < 1 || fire.spreadClock + EPSILON >= fire.settings.spreadInterval) {
         fire.spreadClock = 0;
         this.spread(fire);
       }
