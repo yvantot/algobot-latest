@@ -1,0 +1,180 @@
+{
+  "task": "categorized_regression_against_gameplay_proxy_labels",
+  "test_samples": 4,
+  "cutoffs": [
+    0.3,
+    0.6
+  ],
+  "cutoff_status": "provisional",
+  "category_intervals": [
+    "0 <= p < 0.3",
+    "0.3 <= p < 0.6",
+    "0.6 <= p <= 1"
+  ],
+  "regression": {
+    "mse": 0.0015997176424225046,
+    "rmse": 0.03999647037455311,
+    "mae": 0.03415548801422119,
+    "r2": -0.454289569620693
+  },
+  "classification": {
+    "accuracy": 1.0,
+    "category_order": [
+      "Beginner",
+      "Intermediate",
+      "Advanced"
+    ],
+    "confusion_matrix": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        4
+      ]
+    ],
+    "confusion_matrix_axes": "rows=true, columns=predicted",
+    "per_class": [
+      {
+        "category": "Beginner",
+        "support": 0,
+        "predicted_count": 0,
+        "precision": null,
+        "recall": null,
+        "f1": null
+      },
+      {
+        "category": "Intermediate",
+        "support": 0,
+        "predicted_count": 0,
+        "precision": null,
+        "recall": null,
+        "f1": null
+      },
+      {
+        "category": "Advanced",
+        "support": 4,
+        "predicted_count": 4,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      }
+    ],
+    "observed_categories": 1,
+    "aggregation": "Macro averages include all three prespecified categories; undefined terms contribute zero. Per-class undefined metrics are null.",
+    "macro_precision": 0.3333333333333333,
+    "weighted_precision": 1.0,
+    "macro_recall": 0.3333333333333333,
+    "weighted_recall": 1.0,
+    "macro_f1": 0.3333333333333333,
+    "weighted_f1": 1.0
+  },
+  "baselines": {
+    "train_mean": {
+      "predicted_score": 0.9428571377481733,
+      "rmse": 0.03557113411683924,
+      "improvement_percent": -12.440807321965414
+    },
+    "train_majority_category": {
+      "category": "Advanced",
+      "accuracy": 1.0,
+      "category_order": [
+        "Beginner",
+        "Intermediate",
+        "Advanced"
+      ],
+      "confusion_matrix": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          4
+        ]
+      ],
+      "confusion_matrix_axes": "rows=true, columns=predicted",
+      "per_class": [
+        {
+          "category": "Beginner",
+          "support": 0,
+          "predicted_count": 0,
+          "precision": null,
+          "recall": null,
+          "f1": null
+        },
+        {
+          "category": "Intermediate",
+          "support": 0,
+          "predicted_count": 0,
+          "precision": null,
+          "recall": null,
+          "f1": null
+        },
+        {
+          "category": "Advanced",
+          "support": 4,
+          "predicted_count": 4,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        }
+      ],
+      "observed_categories": 1,
+      "aggregation": "Macro averages include all three prespecified categories; undefined terms contribute zero. Per-class undefined metrics are null.",
+      "macro_precision": 0.3333333333333333,
+      "weighted_precision": 1.0,
+      "macro_recall": 0.3333333333333333,
+      "weighted_recall": 1.0,
+      "macro_f1": 0.3333333333333333,
+      "weighted_f1": 1.0
+    }
+  },
+  "learning_improvement": "unevaluated_pending_paired_pretest_posttest",
+  "warnings": [
+    "Cutoffs are provisional and require research approval; do not tune them on these test predictions.",
+    "Labels are a gameplay formula. Category agreement does not establish independently assessed skill or learning improvement.",
+    "Some test categories have zero support; performance on those categories cannot be established.",
+    "Only one category occurs in the test set. High accuracy/weighted F1 cannot demonstrate category discrimination."
+  ],
+  "evaluated_at": "2026-09-13T23:57:45.951752+00:00",
+  "split_validation": {
+    "status": "historical_split_unverified",
+    "warning": "No split manifest exists. The original preparation shuffled quest samples, allowing the same student across partitions. These results are descriptive legacy-model diagnostics, not a student-independent validation."
+  },
+  "provenance": {
+    "predictions_sha256": "a7542533eee9563082e616fd36d8019671ffcc3adcd3bbd3f904c5cb32865894",
+    "prediction_metadata": {
+      "backend": "tensorflowjs-cpu",
+      "model": "preserved deployed LSTM",
+      "input_scaling": "already normalized; no second scaling applied",
+      "input_sha256": "24f3dcf641a508570eff45fe585660e320a7c9a271f8054ae6fb3d0e06d40c90",
+      "model_sha256": {
+        "model.json": "c97d87b9029edac724683d2c9055d904e9f5965437df7005242a554e47c89f96",
+        "group1-shard1of1.bin": "22b7d7162a2d012316ecb8874b80c4bda29a07fba4452b461751356397dddcab",
+        "scaler_params.json": "1e3812632da34b04c75f746ef0fed878d34ea115b67990db5b35ea7ed2118dc8"
+      }
+    }
+  },
+  "input_sha256": {
+    "X_test.npy": "0733b883c1aa1969781faad6edfdbff241715bf02d6c86504175a54ec00b5ecc",
+    "y_test.npy": "d667578dee28cc0ba2b4a083f3d34cec34151146d458b96038ef7fe06f979aea",
+    "y_train.npy": "26c0726ad384447209296eb279b7aed31ce504914a9d1fb4a4eed0366124e335",
+    "scaler_params.json": "1e3812632da34b04c75f746ef0fed878d34ea115b67990db5b35ea7ed2118dc8"
+  }
+}

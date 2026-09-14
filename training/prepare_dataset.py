@@ -1,373 +1,260 @@
+"""Create traceable student-disjoint data in a NEW directory; preserve old model inputs.
+
+Untimed legacy snapshots cannot be aligned to quests. Recorded quest-end vectors
+provide conservative chronological sequences instead of invented snapshot indices.
 """
-Algobot Dataset Preparation Pipeline
-=====================================
-Converts raw gameplay JSON exports into LSTM training data.
-
-Pipeline:
-1. Load all exported JSON session files from data/raw/
-2. Merge multi-session students by student_id
-3. Clean invalid entries (sessions < 1 minute, 0 events, etc.)
-4. Extract feature sequences from feature_timeseries
-5. Compute labels from quest_attempts proficiency_label
-6. Create sliding windows of length 20
-7. Normalize features (min-max per feature, save scaler params)
-8. Split: 70% train, 15% validation, 15% test
-9. Save as NumPy arrays (.npz) and metadata JSON
-
-Usage:
-    python prepare_dataset.py --input data/raw/ --output data/processed/
-"""
-
-import os
-import json
 import argparse
-import numpy as np
+import hashlib
+import json
+from datetime import datetime, timezone
 from pathlib import Path
-from datetime import datetime
+import numpy as np
 
-# Constants (must match browser-side telemetry.js)
 FEATURE_COUNT = 10
 SEQUENCE_LENGTH = 20
-
 FEATURE_NAMES = [
-    "error_rate",
-    "execution_speed",
-    "iteration_usage",
-    "condition_reactivity",
-    "greedy_efficiency",
-    "yield_quality",
-    "frustration",
-    "code_success_rate",
-    "hint_consumption_rate",
-    "normalized_completion_time",
+    'error_rate', 'execution_speed', 'iteration_usage', 'condition_reactivity',
+    'greedy_efficiency', 'yield_quality', 'frustration', 'code_success_rate',
+    'hint_consumption_rate', 'normalized_completion_time',
 ]
 
 
+def summary_of(session):
+    return session.get('summary') if isinstance(session.get('summary'), dict) else {}
+
+
+def session_id_of(session):
+    summary = summary_of(session)
+    return (session.get('session_id') or session.get('sessionId')
+            or summary.get('sessionId') or summary.get('session_id'))
+
+
+def student_id_of(session):
+    summary = summary_of(session)
+    return (session.get('student_id') or session.get('participantId')
+            or summary.get('participantId') or summary.get('student_id') or 'unknown')
+
+
+def quest_attempts_of(session):
+    attempts = session.get('quest_attempts') or session.get('questAttempts') or []
+    if isinstance(attempts, dict):
+        return [{**v, 'quest_key': k} for k, v in attempts.items() if isinstance(v, dict)]
+    return [v for v in attempts if isinstance(v, dict)] if isinstance(attempts, list) else []
+
+
+def label_of(attempt):
+    value = attempt.get('proficiency_label')
+    return attempt.get('proficiencyLabel') if value is None else value
+
+
+def snapshots_of(session):
+    values = session.get('feature_timeseries') or session.get('featureSnapshots') or []
+    return values if isinstance(values, list) else []
+
+
 def load_sessions(input_dir):
-    """Load all JSON session files from the input directory (ignoring replay buffers)."""
-    sessions = []
-    seen_session_ids = set()
-    input_path = Path(input_dir)
-
-    # Process dataset files (skip replay buffer files)
-    json_files = [f for f in input_path.glob("*.json") if "replay" not in f.name.lower()]
-
-    for json_file in json_files:
-        with open(json_file, "r") as f:
-            try:
-                data = json.load(f)
-            except Exception as e:
-                print(f"Warning: Failed to load {json_file.name}: {e}")
-                continue
-
-        # Skip non-dict structures (e.g. standalone replay arrays)
+    """Deduplicate repeated exports, keeping the most complete session version."""
+    sessions = {}
+    for source in sorted(Path(input_dir).glob('*.json')):
+        if 'replay' in source.name.lower():
+            continue
+        try:
+            data = json.loads(source.read_text(encoding='utf-8-sig'))
+        except (ValueError, OSError) as exc:
+            print(f'Warning: cannot read {source.name}: {exc}')
+            continue
         if not isinstance(data, dict):
             continue
-
-        raw_sessions = data.get("sessions", [data])
-        if not isinstance(raw_sessions, list):
-            raw_sessions = [raw_sessions]
-
-        for s in raw_sessions:
-            if not isinstance(s, dict):
+        records = data.get('sessions', [data])
+        for session in records if isinstance(records, list) else [records]:
+            if not isinstance(session, dict):
                 continue
-            
-            # Deduplicate by session_id
-            sid = (
-                s.get("session_id")
-                or s.get("sessionId")
-                or s.get("summary", {}).get("sessionId")
-                or s.get("summary", {}).get("session_id")
-            )
-            if sid:
-                if sid in seen_session_ids:
-                    continue
-                seen_session_ids.add(sid)
-
-            sessions.append(s)
-
-    print(f"Loaded {len(sessions)} unique sessions from {input_dir}")
-    return sessions
+            sid = session_id_of(session)
+            key = str(sid) if sid else 'missing:' + hashlib.sha256(
+                json.dumps(session, sort_keys=True).encode('utf-8')).hexdigest()
+            attempts = quest_attempts_of(session)
+            quality = (sum(label_of(q) is not None for q in attempts), len(attempts),
+                       len(snapshots_of(session)), len(session.get('raw_events') or []))
+            if key not in sessions or quality >= sessions[key][0]:
+                sessions[key] = (quality, session)
+    result = [sessions[key][1] for key in sorted(sessions)]
+    print(f'Loaded {len(result)} unique sessions from {input_dir}')
+    return result
 
 
 def clean_sessions(sessions, min_duration_minutes=0.5):
-    """Filter out completely empty or invalid sessions."""
-    valid = []
-    for s in sessions:
-        if not isinstance(s, dict):
-            continue
+    return [s for s in sessions if isinstance(s, dict)
+            and (quest_attempts_of(s) or snapshots_of(s))]
 
-        summary = s.get("summary", {}) if isinstance(s.get("summary"), dict) else {}
-        duration = summary.get("duration_minutes", summary.get("durationMinutes", s.get("duration_minutes", s.get("durationMinutes", 0))))
-        
-        # Check quest attempts
-        quest_attempts = s.get("quest_attempts") or s.get("questAttempts") or []
-        if isinstance(quest_attempts, dict):
-            quest_attempts = list(quest_attempts.values())
-        
-        quest_count = summary.get("total_quests_attempted", summary.get("questsCompleted", len(quest_attempts)))
-        feature_ts = s.get("feature_timeseries") or s.get("featureSnapshots") or []
-        raw_events = s.get("raw_events") or []
 
-        # Keep if session has quest attempts, feature snapshots, raw events, or minimum duration
-        if len(quest_attempts) > 0 or len(feature_ts) > 0 or len(raw_events) > 0 or duration >= min_duration_minutes or quest_count > 0:
-            valid.append(s)
+def _vector(value):
+    if not isinstance(value, (list, tuple)) or len(value) != FEATURE_COUNT:
+        return None
+    try:
+        vector = np.asarray(value, dtype=np.float32)
+    except (ValueError, TypeError, OverflowError):
+        return None
+    return vector.tolist() if np.isfinite(vector).all() else None
 
-    print(f"Cleaned: {len(sessions)} -> {len(valid)} valid sessions")
-    return valid
+
+def _epoch_ms(value):
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value) if np.isfinite(value) else None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+        return parsed.timestamp() * 1000 if parsed.tzinfo is not None else None
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _snapshot_time(snapshot, session_start):
+    if 'timestamp_ms' in snapshot:
+        return _epoch_ms(snapshot['timestamp_ms'])
+    relative = snapshot.get('t', snapshot.get('timestamp'))
+    if isinstance(relative, (int, float)) and session_start is not None:
+        return session_start + relative if np.isfinite(relative) else None
+    return _epoch_ms(snapshot.get('time'))
 
 
 def extract_training_samples(sessions):
-    """
-    Extract (sequence, label) pairs from sessions.
+    """Pair existing proxy labels with contemporaneous/past recorded features.
 
-    For each quest attempt with a proficiency label, we pair it with
-    the feature time series window that preceded it.
+    Do not synthesize labels from unlabelled session summaries. These labels
+    estimate gameplay performance at quest completion, not future independent skill.
     """
-    X_samples = []  # [N, SEQUENCE_LENGTH, FEATURE_COUNT]
-    y_samples = []  # [N]
-    metadata = []   # session/quest metadata for traceability
-
+    samples, labels, metadata = [], [], []
     for session in sessions:
-        if not isinstance(session, dict):
-            continue
-
-        student_id = session.get("student_id") or session.get("summary", {}).get("participantId") or "unknown"
-        session_id = session.get("session_id") or session.get("summary", {}).get("sessionId") or "unknown"
-
-        quest_attempts = session.get("quest_attempts") or session.get("questAttempts") or []
-        feature_ts = session.get("feature_timeseries") or session.get("featureSnapshots") or []
-
-        # If quest_attempts is a dict (from localStorage format), convert to list
-        if isinstance(quest_attempts, dict):
-            quest_attempts = [
-                {**v, "quest_key": k}
-                for k, v in quest_attempts.items()
-            ]
-
-        # Build the feature matrix from time series
-        feature_vectors = []
-        for snap in feature_ts:
+        summary = summary_of(session)
+        session_start = _epoch_ms(session.get('start_time', summary.get('startTime')))
+        timed_snapshots = []
+        for snap in snapshots_of(session):
             if isinstance(snap, dict):
-                vec = snap.get("vector", [])
-            elif isinstance(snap, list):
-                vec = snap
-            else:
-                vec = []
-            if len(vec) == FEATURE_COUNT:
-                feature_vectors.append(vec)
-
-        # For each completed quest attempt with a label
-        for i, qa in enumerate(quest_attempts):
-            if not isinstance(qa, dict):
+                time = _snapshot_time(snap, session_start)
+                vector = _vector(snap.get('vector'))
+                if time is not None and vector is not None:
+                    timed_snapshots.append((time, vector))
+        timed_snapshots.sort(key=lambda item: item[0])
+        attempts = quest_attempts_of(session)
+        endpoints = []
+        for attempt in attempts:
+            time = _epoch_ms(attempt.get('end_time', attempt.get('endTime')))
+            vector = _vector(attempt.get('feature_vector_end', attempt.get('featureVectorAtEnd')))
+            if time is not None and vector is not None:
+                endpoints.append((time, vector))
+        endpoints.sort(key=lambda item: item[0])
+        for attempt in attempts:
+            try:
+                label = float(label_of(attempt))
+            except (ValueError, TypeError):
                 continue
-            label = qa.get("proficiency_label") if qa.get("proficiency_label") is not None else qa.get("proficiencyLabel")
-            if label is None:
+            if not np.isfinite(label) or not 0 <= label <= 1:
                 continue
-
-            # Build feature window for this quest attempt
-            window = []
-            if feature_vectors:
-                window_end = min(len(feature_vectors), (i + 1) * 2)
-                window_end = min(window_end, len(feature_vectors))
-                window = list(feature_vectors[:window_end])
-            elif qa.get("feature_vector_end") and len(qa.get("feature_vector_end")) == FEATURE_COUNT:
-                window = [qa.get("feature_vector_end")]
-            elif qa.get("featureVectorAtEnd") and len(qa.get("featureVectorAtEnd")) == FEATURE_COUNT:
-                window = [qa.get("featureVectorAtEnd")]
-
-            # Zero-pad if fewer than SEQUENCE_LENGTH
-            while len(window) < SEQUENCE_LENGTH:
-                window.insert(0, [0.0] * FEATURE_COUNT)
-
-            # Take the last SEQUENCE_LENGTH
-            window = window[-SEQUENCE_LENGTH:]
-
-            X_samples.append(window)
-            y_samples.append(float(label))
+            end = _epoch_ms(attempt.get('end_time', attempt.get('endTime')))
+            end_vector = _vector(attempt.get('feature_vector_end', attempt.get('featureVectorAtEnd')))
+            window = [v for t, v in timed_snapshots if end is not None and t <= end]
+            source = 'timestamped_snapshots'
+            if not window:
+                window = [v for t, v in endpoints if end is not None and t <= end]
+                source = 'legacy_quest_end_vectors'
+            if not window and end_vector is not None:
+                window = [end_vector]
+                source = 'single_quest_end_vector'
+            if not window:
+                continue
+            real_steps = min(len(window), SEQUENCE_LENGTH)
+            window = [[0.0] * FEATURE_COUNT] * (SEQUENCE_LENGTH - real_steps) + window[-SEQUENCE_LENGTH:]
+            samples.append(window)
+            labels.append(label)
             metadata.append({
-                "student_id": student_id,
-                "session_id": session_id,
-                "quest_key": qa.get("quest_key", "unknown"),
-                "stage": qa.get("stage", 1),
-                "completed": qa.get("completed", False),
+                'student_id': student_id_of(session), 'session_id': session_id_of(session) or 'unknown',
+                'quest_key': attempt.get('quest_key', 'unknown'), 'stage': attempt.get('stage', 1),
+                'completed': bool(attempt.get('completed', False)), 'sequence_source': source,
+                'real_timesteps': real_steps, 'quest_end_ms': end, 'label_source': 'recorded_gameplay_formula',
             })
+    print(f'Extracted {len(samples)} labelled quest samples')
+    return (np.asarray(samples, dtype=np.float32).reshape(-1, SEQUENCE_LENGTH, FEATURE_COUNT),
+            np.asarray(labels, dtype=np.float32), metadata)
 
-        # If no quest attempts have labels, try creating a sample from session summary if available
-        if not X_samples and feature_vectors:
-            window = list(feature_vectors[-SEQUENCE_LENGTH:])
-            while len(window) < SEQUENCE_LENGTH:
-                window.insert(0, [0.0] * FEATURE_COUNT)
-            window = window[-SEQUENCE_LENGTH:]
 
-            summary = session.get("summary", {}) if isinstance(session.get("summary"), dict) else {}
-            errors = summary.get("total_errors", summary.get("totalErrors", 0))
-            resets = summary.get("total_resets", summary.get("totalResets", 0))
-            quests_done = summary.get("total_quests_completed", summary.get("questsCompleted", 0))
-            quests_attempted = max(1, summary.get("total_quests_attempted", 1))
-
-            completion = quests_done / quests_attempted
-            error_penalty = min(1.0, errors / 10)
-            reset_penalty = min(1.0, resets / 5)
-
-            label = 0.40 * completion + 0.25 * (1 - error_penalty) + 0.20 * (1 - reset_penalty) + 0.15
-            X_samples.append(window)
-            y_samples.append(float(label))
-            metadata.append({
-                "student_id": student_id,
-                "session_id": session_id,
-                "quest_key": "session_summary",
-                "stage": summary.get("max_stage_reached", summary.get("currentStage", 1)),
-                "completed": True,
-            })
-
-    print(f"Extracted {len(X_samples)} training samples")
-    return np.array(X_samples, dtype=np.float32), np.array(y_samples, dtype=np.float32), metadata
+def split_indices(metadata, train_ratio=0.70, val_ratio=0.15, seed=42):
+    """Student-disjoint split, failing rather than copying rows across partitions."""
+    if not (0 < train_ratio < 1 and 0 < val_ratio < 1 and train_ratio + val_ratio < 1):
+        raise ValueError('Ratios must leave nonempty train, validation, and test partitions')
+    groups = sorted({str(m['student_id']) for m in metadata})
+    if any(g.strip().lower() in {'', 'unknown', 'anonymous', 'none'} for g in groups):
+        raise ValueError('Student IDs are required for a student-disjoint split')
+    if len(groups) < 3:
+        raise ValueError('At least three distinct students are needed for three disjoint partitions')
+    shuffled = np.random.default_rng(seed).permutation(groups)
+    train_count = min(max(1, int(len(groups) * train_ratio)), len(groups) - 2)
+    val_count = min(max(1, int(len(groups) * val_ratio)), len(groups) - train_count - 1)
+    groups_by_split = {'train': shuffled[:train_count].tolist(),
+                      'val': shuffled[train_count:train_count + val_count].tolist(),
+                      'test': shuffled[train_count + val_count:].tolist()}
+    return {name: np.asarray([i for i, m in enumerate(metadata)
+                             if str(m['student_id']) in members], dtype=np.int64)
+            for name, members in groups_by_split.items()}
 
 
 def normalize_features(X_train, X_val, X_test):
-    """Min-max normalize each feature across the training set."""
-    # Reshape to [N * SEQUENCE_LENGTH, FEATURE_COUNT] for per-feature stats
+    """Fit training-only scaling, matching the browser's unclipped transform."""
+    if not len(X_train):
+        raise ValueError('Training partition must not be empty')
     flat = X_train.reshape(-1, FEATURE_COUNT)
-
-    feature_min = flat.min(axis=0)
-    feature_max = flat.max(axis=0)
-
-    # Avoid division by zero
+    feature_min, feature_max = flat.min(axis=0), flat.max(axis=0)
     feature_range = feature_max - feature_min
     feature_range[feature_range == 0] = 1.0
-
-    def normalize(X):
-        shape = X.shape
-        flat = X.reshape(-1, FEATURE_COUNT)
-        normalized = (flat - feature_min) / feature_range
-        return normalized.reshape(shape)
-
-    scaler_params = {
-        "feature_min": feature_min.tolist(),
-        "feature_max": feature_max.tolist(),
-        "feature_range": feature_range.tolist(),
-        "feature_names": FEATURE_NAMES,
-    }
-
-    return normalize(X_train), normalize(X_val), normalize(X_test), scaler_params
-
-
-def split_data(X, y, train_ratio=0.70, val_ratio=0.15):
-    """Split data into train/val/test sets."""
-    n = len(X)
-    indices = np.random.permutation(n)
-
-    if n < 3:
-        # For very small datasets, ensure non-empty partitions
-        return X, y, X, y, X, y
-
-    train_end = max(1, int(n * train_ratio))
-    val_end = max(train_end + 1, int(n * (train_ratio + val_ratio)))
-    if val_end >= n:
-        val_end = n - 1
-
-    train_idx = indices[:train_end]
-    val_idx = indices[train_end:val_end]
-    test_idx = indices[val_end:]
-
-    if len(val_idx) == 0:
-        val_idx = train_idx[:1]
-    if len(test_idx) == 0:
-        test_idx = train_idx[:1]
-
-    return (
-        X[train_idx], y[train_idx],
-        X[val_idx], y[val_idx],
-        X[test_idx], y[test_idx],
-    )
-
-
-def save_dataset(output_dir, X_train, y_train, X_val, y_val, X_test, y_test,
-                 scaler_params, metadata, dataset_version="v1"):
-    """Save processed dataset as NumPy arrays and metadata JSON."""
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    np.save(output_path / "X_train.npy", X_train)
-    np.save(output_path / "y_train.npy", y_train)
-    np.save(output_path / "X_val.npy", X_val)
-    np.save(output_path / "y_val.npy", y_val)
-    np.save(output_path / "X_test.npy", X_test)
-    np.save(output_path / "y_test.npy", y_test)
-
-    with open(output_path / "scaler_params.json", "w") as f:
-        json.dump(scaler_params, f, indent=2)
-
-    stats = {
-        "dataset_version": dataset_version,
-        "created_at": datetime.now().isoformat(),
-        "total_samples": len(X_train) + len(X_val) + len(X_test),
-        "train_samples": len(X_train),
-        "val_samples": len(X_val),
-        "test_samples": len(X_test),
-        "sequence_length": SEQUENCE_LENGTH,
-        "feature_count": FEATURE_COUNT,
-        "feature_names": FEATURE_NAMES,
-        "label_formula": "0.40*completion + 0.25*(1-errors) + 0.20*(1-resets) + 0.15*(1-hints)",
-        "label_range": {
-            "min": float(np.concatenate([y_train, y_val, y_test]).min()),
-            "max": float(np.concatenate([y_train, y_val, y_test]).max()),
-            "mean": float(np.concatenate([y_train, y_val, y_test]).mean()),
-            "std": float(np.concatenate([y_train, y_val, y_test]).std()),
-        },
-        "unique_students": len(set(m["student_id"] for m in metadata)),
-    }
-
-    with open(output_path / "dataset_stats.json", "w") as f:
-        json.dump(stats, f, indent=2)
-
-    print(f"\nDataset saved to {output_path}/")
-    print(f"  Train: {X_train.shape} -> {len(y_train)} labels")
-    print(f"  Val:   {X_val.shape} -> {len(y_val)} labels")
-    print(f"  Test:  {X_test.shape} -> {len(y_test)} labels")
-    print(f"  Label range: [{stats['label_range']['min']:.4f}, {stats['label_range']['max']:.4f}]")
-    print(f"  Label mean:  {stats['label_range']['mean']:.4f} +/- {stats['label_range']['std']:.4f}")
+    scaler = {'feature_min': feature_min.tolist(), 'feature_max': feature_max.tolist(),
+              'feature_range': feature_range.tolist(), 'feature_names': FEATURE_NAMES}
+    return (*[(X - feature_min) / feature_range for X in (X_train, X_val, X_test)], scaler)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Prepare Algobot gameplay data for LSTM training")
-    parser.add_argument("--input", default="data/raw/", help="Input directory with JSON exports")
-    parser.add_argument("--output", default="data/processed/", help="Output directory for processed data")
-    parser.add_argument("--version", default="v1", help="Dataset version identifier")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
+    root = Path(__file__).resolve().parent
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--input', type=Path, default=root / 'data/raw')
+    parser.add_argument('--output', type=Path, default=root / 'data/processed_v2')
+    parser.add_argument('--version', default='v2')
+    parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
+    if args.output.exists() and (not args.output.is_dir() or any(args.output.iterdir())):
+        parser.error('Output directory is not empty. Choose a new directory to preserve existing evidence.')
+    X, y, metadata = extract_training_samples(clean_sessions(load_sessions(args.input)))
+    if not len(X):
+        parser.error('No usable labelled quest samples found')
+    try:
+        indices = split_indices(metadata, seed=args.seed)
+    except ValueError as exc:
+        parser.error(str(exc))
+    normalized = normalize_features(*(X[indices[k]] for k in ('train', 'val', 'test')))
+    args.output.mkdir(parents=True, exist_ok=True)
+    manifest = {'split_unit': 'student_id', 'seed': args.seed, 'partitions': {}}
+    for split, features in zip(('train', 'val', 'test'), normalized[:3]):
+        idx = indices[split]
+        np.save(args.output / f'X_{split}.npy', features)
+        np.save(args.output / f'y_{split}.npy', y[idx])
+        manifest['partitions'][split] = [metadata[i] for i in idx]
+    sources = {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+               for path in sorted(args.input.glob('*.json')) if 'replay' not in path.name.lower()}
+    stats = {
+        'dataset_version': args.version, 'created_at': datetime.now(timezone.utc).isoformat(),
+        'total_samples': len(y), **{f'{k}_samples': len(v) for k, v in indices.items()},
+        'sequence_length': SEQUENCE_LENGTH, 'feature_count': FEATURE_COUNT,
+        'feature_names': FEATURE_NAMES, 'unique_students': len({m['student_id'] for m in metadata}),
+        'label_source': 'recorded_gameplay_formula', 'learning_improvement': 'unevaluated',
+        'label_range': {'min': float(y.min()), 'max': float(y.max()), 'mean': float(y.mean())},
+        'source_sha256': sources,
+        'limitations': ['Legacy untimed snapshots are replaced by recorded quest-end vectors.',
+                        'Gameplay labels are proxy outcomes, not independent proficiency assessments.',
+                        'Student IDs define groups; participant identity/provenance requires researcher verification.'],
+    }
+    for name, content in (('scaler_params.json', normalized[3]), ('split_manifest.json', manifest),
+                          ('dataset_stats.json', stats)):
+        (args.output / name).write_text(json.dumps(content, indent=2, allow_nan=False), encoding='utf-8')
+    print(f'Saved {len(y)} samples with student-disjoint partitions to {args.output}')
 
-    np.random.seed(args.seed)
 
-    # 1. Load
-    sessions = load_sessions(args.input)
-    if not sessions:
-        print("No session files found. Export gameplay data from the game first.")
-        return
-
-    # 2. Clean
-    sessions = clean_sessions(sessions)
-    if not sessions:
-        print("No valid sessions after cleaning.")
-        return
-
-    # 3. Extract
-    X, y, metadata = extract_training_samples(sessions)
-    if len(X) == 0:
-        print("No training samples extracted.")
-        return
-
-    # 4. Split
-    X_train, y_train, X_val, y_val, X_test, y_test = split_data(X, y)
-
-    # 5. Normalize
-    X_train, X_val, X_test, scaler_params = normalize_features(X_train, X_val, X_test)
-
-    # 6. Save
-    save_dataset(args.output, X_train, y_train, X_val, y_val, X_test, y_test,
-                 scaler_params, metadata, args.version)
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

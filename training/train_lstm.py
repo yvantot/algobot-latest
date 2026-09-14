@@ -13,14 +13,15 @@ Output:
     - Test set evaluation metrics
 
 Usage:
-    python train_lstm.py --data data/processed/ --output models/
+    python train_lstm.py --data data/processed_v2/ --output models_v2/
 """
 
 import os
 import json
 import argparse
 import numpy as np
-import tensorflow as tf
+from model_metrics import evaluate_predictions
+from evaluate_model import split_status
 from pathlib import Path
 from datetime import datetime
 
@@ -32,6 +33,8 @@ FEATURE_COUNT = 10
 def load_data(data_dir):
     """Load preprocessed training data."""
     data_path = Path(data_dir)
+    if split_status(data_path)["status"] != "student_disjoint_manifest_verified":
+        raise ValueError("New training requires corrected data with a student-disjoint split manifest")
 
     X_train = np.load(data_path / "X_train.npy")
     y_train = np.load(data_path / "y_train.npy")
@@ -52,6 +55,7 @@ def build_model():
     Build LSTM model. Architecture must match the browser-side TF.js model
     in agent.js for weight compatibility.
     """
+    import tensorflow as tf
     model = tf.keras.Sequential([
         tf.keras.layers.LSTM(
             16,
@@ -80,6 +84,7 @@ def build_model():
 def augment_data(X, y, noise_std=0.05):
     """Add Gaussian noise augmentation for small datasets."""
     noise = np.random.normal(0, noise_std, X.shape).astype(np.float32)
+    noise[np.all(X == 0, axis=-1)] = 0  # Keep zero padding unchanged.
     X_aug = np.clip(X + noise, 0, 1)
     return np.concatenate([X, X_aug]), np.concatenate([y, y])
 
@@ -93,6 +98,7 @@ def train(model, X_train, y_train, X_val, y_val, epochs=100, batch_size=32,
         X_train, y_train = augment_data(X_train, y_train)
         print(f"Augmented train size: {X_train.shape}")
 
+    import tensorflow as tf
     callbacks = [
         tf.keras.callbacks.EarlyStopping(
             monitor="val_loss",
@@ -121,39 +127,12 @@ def train(model, X_train, y_train, X_val, y_val, epochs=100, batch_size=32,
     return history
 
 
-def evaluate(model, X_test, y_test):
-    """Evaluate model on test set and compare with naive baseline."""
-    results = model.evaluate(X_test, y_test, verbose=0)
-    loss, rmse, mae = results
-
-    # Naive baseline: always predict the mean of training labels
-    y_mean = y_test.mean()
-    baseline_mse = np.mean((y_test - y_mean) ** 2)
-    baseline_rmse = np.sqrt(baseline_mse)
-
-    # R2 score
-    ss_res = np.sum((y_test - model.predict(X_test, verbose=0).flatten()) ** 2)
-    ss_tot = np.sum((y_test - y_mean) ** 2)
-    r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
-
-    print("\n" + "=" * 50)
-    print("TEST SET EVALUATION")
-    print("=" * 50)
-    print(f"  LSTM RMSE:     {rmse:.4f}")
-    print(f"  LSTM MAE:      {mae:.4f}")
-    print(f"  LSTM R^2:      {r2:.4f}")
-    print(f"  Baseline RMSE: {baseline_rmse:.4f} (always predict mean)")
-    print(f"  Improvement:   {((baseline_rmse - rmse) / baseline_rmse * 100):.1f}% over baseline")
-    print("=" * 50)
-
-    return {
-        "test_loss": float(loss),
-        "test_rmse": float(rmse),
-        "test_mae": float(mae),
-        "test_r2": float(r2),
-        "baseline_rmse": float(baseline_rmse),
-        "improvement_pct": float((baseline_rmse - rmse) / baseline_rmse * 100) if baseline_rmse > 0 else 0,
-    }
+def evaluate(model, X_test, y_test, y_train):
+    """Report proxy-label regression/category metrics with training-only baselines."""
+    predictions = model.predict(X_test, verbose=0).reshape(-1)
+    report = evaluate_predictions(y_test, predictions, y_train)
+    print(json.dumps(report, indent=2, allow_nan=False))
+    return report
 
 
 def save_training_plot(history, output_dir):
@@ -191,16 +170,22 @@ def save_training_plot(history, output_dir):
 
 
 def main():
+    import tensorflow as tf
+    root = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description="Train LSTM proficiency model")
-    parser.add_argument("--data", default="data/processed/", help="Processed data directory")
-    parser.add_argument("--output", default="models/", help="Model output directory")
+    parser.add_argument("--data", default=str(root / "data/processed_v2"), help="Processed data directory")
+    parser.add_argument("--output", default=str(root / "models_v2"), help="Model output directory")
     parser.add_argument("--epochs", type=int, default=100, help="Max training epochs")
     parser.add_argument("--batch-size", type=int, default=32, help="Training batch size")
     parser.add_argument("--augment", action="store_true", help="Enable noise augmentation")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     args = parser.parse_args()
 
-    tf.random.set_seed(args.seed)
+    output_path = Path(args.output)
+    if output_path.exists() and (not output_path.is_dir() or any(output_path.iterdir())):
+        parser.error("Output must be a new or empty directory; existing models are preserved")
+    tf.keras.utils.set_random_seed(args.seed)
+    tf.config.experimental.enable_op_determinism()
     np.random.seed(args.seed)
 
     # Load data
@@ -215,7 +200,7 @@ def main():
                     augment=args.augment)
 
     # Evaluate
-    eval_results = evaluate(model, X_test, y_test)
+    eval_results = evaluate(model, X_test, y_test, y_train)
 
     # Save model
     output_path = Path(args.output)
@@ -229,6 +214,11 @@ def main():
     eval_results["trained_at"] = datetime.now().isoformat()
     eval_results["epochs_trained"] = len(history.history["loss"])
     eval_results["train_samples"] = len(X_train)
+    eval_results["seed"] = args.seed
+    eval_results["split_validation"] = split_status(Path(args.data))
+    import shutil
+    shutil.copy2(Path(args.data) / "scaler_params.json", output_path / "scaler_params.json")
+    shutil.copy2(Path(args.data) / "split_manifest.json", output_path / "split_manifest.json")
 
     with open(output_path / "lstm_evaluation.json", "w") as f:
         json.dump(eval_results, f, indent=2)
@@ -236,17 +226,9 @@ def main():
     # Save training plot
     save_training_plot(history, args.output)
 
-    # Instructions for TF.js export
-    print("\n" + "=" * 50)
-    print("TO EXPORT FOR BROWSER (TensorFlow.js):")
-    print("=" * 50)
-    print(f"  pip install tensorflowjs")
-    print(f"  tensorflowjs_converter \\")
-    print(f"    --input_format=keras \\")
-    print(f"    --output_format=tfjs_layers_model \\")
-    print(f"    {keras_path} \\")
-    print(f"    ../public/models/lstm/")
-    print("=" * 50)
+    print("Export to a new folder and verify inference before promotion:")
+    print(f'  python "{root / "export_tfjs.py"}" --lstm "{keras_path}" --public-dir "{output_path / "tfjs_export"}"')
+
 
 
 if __name__ == "__main__":
