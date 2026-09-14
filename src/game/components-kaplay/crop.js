@@ -100,10 +100,18 @@ export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
       return true;
     },
 
+    // Weather can tune a burn duration across crop types without duplicating
+    // crop resistance calculations or taking ownership of health/destruction.
+    damageToKill(source) {
+      const multiplier = this.crop_resistance?.[source] ?? 1;
+      return multiplier > 0 ? this.crop_health / multiplier : Infinity;
+    },
+
     damage(amount, { source, noTrace = false } = {}) {
       if (!this.isCurrentCrop() || !Number.isFinite(amount) || amount <= 0) return false;
       const multiplier = source ? (this.crop_resistance?.[source] ?? 1) : 1;
       this.crop_health = Math.max(0, this.crop_health - amount * multiplier);
+      if (this.crop_health < 1e-9) this.crop_health = 0;
       if (this.crop_health === 0) return this.cropDestroy(source ?? "damage");
       if (!noTrace || this.crop_health > 0) {
         this.animation.seek(0);

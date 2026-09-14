@@ -319,7 +319,7 @@ test("planting into an explicit target uses that tile and does not replace its s
   assert.equal(h.farm.get("0-0").crop, null);
 });
 
-test("points-scaled fire lets every healthy deployed crop survive to spread, then burns it down", () => {
+test("every deployed crop survives fire growth, then burns down within about two mature seconds", () => {
   for (const points of [100, 500, 2000, 10000]) for (const [type, data] of Object.entries(deployedCropData)) {
     const h = harness();
     h.context.CROP_DATA[type] = data;
@@ -331,15 +331,23 @@ test("points-scaled fire lets every healthy deployed crop survive to spread, the
     const sim = new FarmEventSimulation(h.farm, { random: () => 0 });
     const fire = sim.ignite("0-0", fireSettings(getDifficultyParams(points)));
     let spreadObserved = false;
+    let matureStartingHealth;
+    let heavyDamageObserved = false;
     // Leave the young crop unharvested; fire must kill it by damage even if it
     // never matures/spoils. Wet soil must not provide damage immunity.
     for (let tick = 0; tick < 2400 && !crop.removed; tick++) {
       h.advance(0.05);
       sim.update(0.05);
+      if (fire.stage === 2 && matureStartingHealth === undefined) matureStartingHealth = crop.crop_health;
+      if (!crop.removed && fire.matureAge >= fire.settings.matureBurnDuration * 0.6) {
+        heavyDamageObserved ||= crop.crop_health < matureStartingHealth * 0.6;
+      }
       if (sim.fires.has("0-1")) spreadObserved = true;
       if (fire.stage < 2) assert.ok(crop.crop_health > 0, `${type} survives juvenile fire at ${points} points`);
     }
     assert.equal(spreadObserved, true, `${type} survives an actual spread attempt at ${points} points`);
+    assert.equal(heavyDamageObserved, true, `${type} takes substantial damage during mature fire`);
+    assert.ok(Math.abs(fire.matureAge - fire.settings.matureBurnDuration) < 0.051, `${type} burns down on the configured mature deadline at ${points} points`);
     assert.equal(crop.removed, true, `${type} must eventually burn down at ${points} points`);
     assert.equal(crop.crop_health, 0, `${type} dies from damage, not spoilage`);
     assert.equal(crop.crop_removal_reason, "fire");

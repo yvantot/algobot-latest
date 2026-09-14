@@ -48,7 +48,9 @@ export function fireSettings(params) {
     // Small flames hurt gradually. Even the least resistant healthy crop can
     // survive to maturity and a spread attempt at the maximum point setting.
     stageDamageMultipliers: [0.1, 0.2, 1],
-    spreadInterval: 4 - severity * 1.5,
+    matureBurnDuration: 2.2 - severity * 0.4,
+    matureDamageInterval: 0.25 - severity * 0.05,
+    spreadInterval: 0.8 - severity * 0.3,
     spreadChance: 0.35 + severity * 0.2,
     wetSpreadMultiplier: 0.2,
   };
@@ -99,7 +101,7 @@ export class FarmEventSimulation {
     const fire = {
       id: ++this.sequence, key, ...coordinates(key), settings: { ...settings },
       crop: tile.crop,
-      stage: 0, age: 0, damageClock: 0, spreadClock: 0,
+      stage: 0, age: 0, damageClock: 0, spreadClock: 0, matureAge: 0, matureDamage: 0,
       spawned_at: this.now(), active: true,
       isBurning: () => fire.active,
       extinguish: (source = "bot") => this.extinguish(fire, source),
@@ -190,11 +192,29 @@ export class FarmEventSimulation {
     fire.age += dt;
     const previousStage = fire.stage;
     fire.stage = Math.min(2, Math.floor((fire.age + EPSILON) / fire.settings.stageDuration));
-    fire.damageClock += dt;
-    if (fire.damageClock + EPSILON >= fire.settings.damageInterval) {
-      fire.damageClock -= fire.settings.damageInterval;
-      const multiplier = fire.settings.stageDamageMultipliers?.[fire.stage] ?? 1;
-      tile.crop.damage(fire.settings.damage * multiplier, { source: "fire", noTrace: true });
+    if (fire.stage === 2 && previousStage < 2) {
+      // Start the lethal burn clock at maximum growth. The first spread
+      // opportunity occurs now, before the first mature damage tick.
+      fire.damageClock = 0;
+      fire.matureDamage = tile.crop.damageToKill?.("fire") ?? tile.crop.crop_health;
+    } else if (fire.stage === 2) {
+      fire.matureAge += dt;
+      fire.damageClock += dt;
+      const finished = fire.matureAge + EPSILON >= fire.settings.matureBurnDuration;
+      if (finished || fire.damageClock + EPSILON >= fire.settings.matureDamageInterval) {
+        const amount = finished
+          ? (tile.crop.damageToKill?.("fire") ?? tile.crop.crop_health)
+          : fire.matureDamage * fire.damageClock / fire.settings.matureBurnDuration;
+        if (Number.isFinite(amount)) tile.crop.damage(amount, { source: "fire", noTrace: true });
+        fire.damageClock = 0;
+      }
+    } else {
+      fire.damageClock += dt;
+      if (fire.damageClock + EPSILON >= fire.settings.damageInterval) {
+        fire.damageClock -= fire.settings.damageInterval;
+        const multiplier = fire.settings.stageDamageMultipliers?.[fire.stage] ?? 1;
+        tile.crop.damage(fire.settings.damage * multiplier, { source: "fire", noTrace: true });
+      }
     }
     // Damage resolves before spread. A lethal tick cannot create an orphan
     // flame or spread again after consuming its plant.

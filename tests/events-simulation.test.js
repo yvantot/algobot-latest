@@ -40,6 +40,7 @@ function settings(overrides = {}) {
   return {
     ...fireSettings(getDifficultyParams(100)),
     stageDuration: 1, damageInterval: 100, spreadInterval: 1,
+    matureBurnDuration: 1000,
     spreadChance: 1,
     ...overrides,
   };
@@ -392,11 +393,13 @@ test("spawner points scale fire pressure and rain intensity while travel remains
       assert.ok(fire.damage / fire.damageInterval > previousFire.damage / previousFire.damageInterval);
       assert.ok(fire.spreadInterval < previousFire.spreadInterval);
       assert.ok(fire.spreadChance > previousFire.spreadChance);
+      assert.ok(fire.matureBurnDuration < previousFire.matureBurnDuration);
       assert.ok(rain.rainDuration > previousRain.rainDuration);
       assert.ok(rain.dropInterval < previousRain.dropInterval);
     }
     assert.ok(fire.stageDuration >= 6);
     assert.ok(fire.damage / fire.damageInterval <= 2.5);
+    assert.ok(fire.matureBurnDuration >= 1.8 && fire.matureBurnDuration <= 2.2);
     assert.ok(rain.travelDuration >= 4 && rain.exitDuration >= 3);
     const sim = new FarmEventSimulation(makeFarm());
     assert.deepEqual(sim.startFire(points).fires[0].settings, fire);
@@ -409,13 +412,31 @@ test("spawner points scale fire pressure and rain intensity while travel remains
 
 test("lethal adult damage extinguishes before a simultaneous spread attempt", () => {
   const grid = makeFarm(1, 2);
-  const sim = new FarmEventSimulation(grid, { random: () => 0 });
-  const fire = sim.ignite("0-0", settings({ damageInterval: 2, damage: 100 }));
+  let roll = 0.9;
+  const sim = new FarmEventSimulation(grid, { random: () => roll });
+  const fire = sim.ignite("0-0", settings({ matureBurnDuration: 1, spreadChance: 0.5 }));
   sim.update(2);
+  assert.equal(fire.stage, 2);
+  assert.equal(grid.get("0-0").crop.crop_health, 100, "maturity starts the burn clock");
+  roll = 0;
+  sim.update(1);
   assert.equal(grid.get("0-0").crop, null);
   assert.equal(grid.get("0-0").fire, null);
   assert.equal(fire.active, false);
   assert.equal(grid.get("0-1").fire, undefined);
+});
+
+test("extinguishing a mature flame cancels the remaining lethal burn", () => {
+  const grid = makeFarm(1, 1);
+  const sim = new FarmEventSimulation(grid);
+  const fire = sim.startFire(100).fires[0];
+  sim.update(fire.settings.stageDuration * 2 + 1);
+  const health = grid.get("0-0").crop.crop_health;
+  assert.ok(health > 0 && health < 75, "mature fire damages heavily before its deadline");
+  fire.extinguish("bot");
+  sim.update(10);
+  assert.equal(grid.get("0-0").crop.crop_health, health);
+  assert.equal(sim.fires.size, 0);
 });
 
 test("replacement crops cannot inherit a removed crop's fire", () => {

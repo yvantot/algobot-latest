@@ -59,8 +59,10 @@ These are explicit gameplay tuning values, not learned DQN parameters or evidenc
 | --- | --- | --- |
 | Requested initial fires / clouds | 1 | 8 (limited to eligible tiles) |
 | Fire stage interval / time to largest stage | 8 seconds / 16 seconds | 6 seconds / 12 seconds |
-| Fire damage interval / adult spread interval | 1.5 seconds / 4 seconds | 1 second / 2.5 seconds |
-| Fire damage before crop resistance, by stage | 0.15 / 0.3 / 1.5 per tick | 0.25 / 0.5 / 2.5 per tick |
+| Juvenile damage interval / adult spread interval | 1.5 seconds / 0.8 seconds | 1 second / 0.5 seconds |
+| Small / medium fire damage before crop resistance | 0.15 / 0.3 per tick | 0.25 / 0.5 per tick |
+| Time to burn down a crop after maximum fire growth | 2.2 seconds | 1.8 seconds |
+| Mature damage interval | 0.25 seconds | 0.2 seconds |
 | Rain duration / drop interval | 8 seconds / 0.8 seconds | 12 seconds / 0.5 seconds |
 | Spread probability per dry neighbor | 35% | 55% |
 | Spread probability per wet neighbor | 7% | 11% |
@@ -69,7 +71,7 @@ The scheduler uses `min(10000, 100 + plantedCount * 50 + playerLevel * 100)` poi
 
 Fire growth, damage, damage interval, spread interval/probability, rain duration/intensity, and initial entity count all derive from the supplied event points. Presentation travel times remain readable at every severity. Each spawned event keeps its settings snapshot, including propagated flames; the scheduler and DDA remain responsible for choosing the points. Existing pest tuning is unchanged.
 
-Fire growth and damage use independent clocks. Small/medium flames deal 10%/20% of adult damage. Regression tests use every deployed crop's actual health and resistance at 100, 500, 2,000 and 10,000 points: healthy young crops survive to the largest flame and an actual spread attempt, and eventually burn down through damage. Already weakened or naturally expiring crops can still die earlier; fire does not grant immunity or suspend spoilage. Crop health and resistance values are unchanged.
+Fire growth and damage use independent clocks. Small/medium flames deal 10%/20% of the points-based juvenile damage setting. At maximum growth, fire snapshots the damage needed to consume its current crop, using the crop-owned resistance calculation, and delivers it over approximately two game seconds. Health drops on short damage ticks; the final tick consumes the remainder. This makes mature burn duration comparable across crop types while juvenile damage still reflects resistance. Extinguishing cancels the remaining burn immediately. The first spread attempt happens at maturity, before mature damage begins, with further attempts during the brief adult phase. Regression tests use every deployed crop's actual health and resistance at 100, 500, 2,000 and 10,000 points: healthy young crops survive to the largest flame and an actual spread attempt, and burn down through damage within one simulation tick of the configured mature duration. Already weakened or naturally expiring crops can still die earlier; fire does not grant immunity or suspend spoilage. Crop health and resistance values are unchanged.
 
 Weather uses the game clock and pauses with game speed zero, onboarding, hidden tabs and return to menu. All weather objects belong to one KAPLAY scene owner; destruction clears simulation state, tile fire references, clouds, drops and smoke.
 
@@ -81,7 +83,7 @@ Required names: `icon_cloud.png`, `icon_raindrop.png`, `icon_fire_0.png`, `icon_
 
 ## Verification
 
-Verified on 2026-09-14: all 112 JavaScript tests pass, the production build passes, and all 40 preserved research artifacts match their baseline. Browser checks confirmed foreground freshness effects, dry soil after crop death, rain landing on empty tiles, cloud departure with reduced opacity/size, and mature fire spreading while its original crop is still present. No browser error logs were reported. Existing accessibility and bundle-size build warnings remain.
+Verified on 2026-09-14: all 113 JavaScript tests pass, the production build passes, and all 40 preserved research artifacts match their baseline. Browser checks confirmed foreground freshness effects, dry soil after crop death, rain landing on empty tiles, cloud departure with reduced opacity/size, and mature fire spreading while its original crop is still present. The subsequent mature-damage adjustment was verified with real crop integration tests covering substantial health loss, the 1.8–2.2 second deadline, spreading before death, and extinguishing during that interval. No browser error logs were reported during the preceding visual checks. Existing accessibility and bundle-size build warnings remain.
 
 Run `npm test`, `npm run build`, and `npm run verify:artifacts`. Focused regression suites cover empty-soil draining, replacement crops, watering during drain, freshness depth, lifecycle cancellation, robot/interpreter completion, fire eligibility/spread/extinguishing, points-based weather settings, rain impact/priority, cloud fade/scale continuity, event cleanup, and scheduler selection/cooldown.
 
