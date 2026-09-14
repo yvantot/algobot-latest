@@ -90,7 +90,7 @@ See [RESEARCH_EVALUATION.md](RESEARCH_EVALUATION.md) for the minimal defensible 
 
 The repository started clean on `codex/research-reliability`, at the same commit as `main` and `origin/main`. `git fsck --full` found no corrupt/missing objects; dangling objects are recoverable unreachable history, not corruption. Commit identity is configured. `origin` points to the expected GitHub repository, and a read-only remote query succeeded with matching `main` plus `improve_quest`.
 
-Each major change is committed separately on the research branch. Local commits and remote reads are verified. No branch was pushed or merged by this audit, so actual remote write authorization has not been proven by publishing a change. Network and Git metadata access required sandbox escalation in this environment; that was an execution restriction rather than repository corruption. Use `git log --oneline`, `git status --short --branch`, `git diff --check` and the automated checks before further commits.
+Each major change is committed separately on the research branch. Local commits, remote reads, and `git push --dry-run origin HEAD:refs/heads/codex/research-reliability` succeeded. The dry run reached GitHub's receive endpoint and proposed the new branch without publishing it. No branch was actually pushed or merged, so final server-side write policies have not been tested by publishing a change. Network and Git metadata access required sandbox escalation in this environment; that was an execution restriction rather than repository corruption. Use `git log --oneline`, `git status --short --branch`, `git diff --check` and the automated checks before further commits.
 
 ## Remaining limits before student use
 
