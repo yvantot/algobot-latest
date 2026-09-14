@@ -961,13 +961,13 @@
               push(`  → Planted ${n} ${batchCrop}`, "text-gray-300");
             }),
           )}
-          {@render btn("Till+Water+Plant", "text-gray-200", () =>
+          {@render btn("Till+Plant+Water", "text-gray-200", () =>
             run(`Batch: full setup ${batchCrop}`, () => {
               const t = batchTillAll();
-              const w = batchWaterAll();
               const p = batchPlantAll(batchCrop);
+              const w = batchWaterAll();
               push(
-                `  → ${t} tilled, ${w} watered, ${p} planted`,
+                `  → ${t} tilled, ${p} planted, ${w} watered`,
                 "text-gray-300",
               );
             }),
@@ -1007,16 +1007,16 @@
         {@render sec("Full Pipeline")}
         <div class="grid grid-cols-1 gap-1">
           {@render btn(
-            "Till + Water + Plant + Instant Grow",
+            "Till + Plant + Water + Instant Grow",
             "text-gray-200",
             () =>
               run(`Batch: full pipeline ${batchCrop}`, () => {
                 const t = batchTillAll();
-                const w = batchWaterAll();
                 const p = batchPlantAll(batchCrop);
+                const w = batchWaterAll();
                 const g = batchInstantGrow();
                 push(
-                  `  → ${t} tilled, ${w} watered, ${p} planted, ${g} grown`,
+                  `  → ${t} tilled, ${p} planted, ${w} watered, ${g} grown`,
                   "text-gray-300",
                 );
               }),
@@ -1024,12 +1024,12 @@
           {@render btn("Full Pipeline + Harvest", "text-gray-200", () =>
             run(`Batch: plant+harvest ${batchCrop}`, () => {
               const t = batchTillAll();
-              const w = batchWaterAll();
               const p = batchPlantAll(batchCrop);
+              const w = batchWaterAll();
               const g = batchInstantGrow();
               const h = batchHarvestAll();
               push(
-                `  → ${t} tilled, ${w} watered, ${p} planted, ${g} grown, ${h} harvested`,
+                `  → ${t} tilled, ${p} planted, ${w} watered, ${g} grown, ${h} harvested`,
                 "text-gray-300",
               );
             }),

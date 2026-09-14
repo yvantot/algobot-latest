@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import { registerHooks } from "node:module";
-import { FarmEventSimulation } from "../src/game/events/simulation.js";
+import { FarmEventSimulation, fireSettings } from "../src/game/events/simulation.js";
+import { getDifficultyParams } from "../src/game/events/difficulty.js";
 import { CropStates, CropTypes, FreshnessStates, SoilStates, IconTypes, OrbTypes } from "../src/game/global/enum.js";
 
 const dataHook = registerHooks({
@@ -89,7 +90,7 @@ function harness() {
   }
   const farm = new Map();
   function addSoil(x = 0, y = 0, state = SoilStates.READY) {
-    const soil = context.addSoilToGrid(x, y, state);
+    const soil = context.addSoilToGrid(x, y, state, farm);
     farm.set(`${y}-${x}`, { soil, crop: null });
     return soil;
   }
@@ -115,53 +116,54 @@ function harness() {
   return { context, make, k, farm, timers, roots, rewards, addSoil, plant, bot, advance };
 }
 
-test("empty watered soil retains its reservoir and owns the absorption mask", () => {
-  const h = harness();
-  const soil = h.addSoil();
+test("empty watered soil drains visually in 0.25 seconds without storing a growth dose", () => {
+  const h = harness(); const soil = h.addSoil();
   soil.water();
   const mask = soil.soil_water_mask;
   assert.equal(mask.parent, soil);
-  h.advance(1000);
-  assert.equal(soil.water_remaining, 1);
+  assert.equal(soil.water_remaining, 0);
+  assert.equal(soil.soil_state, SoilStates.READY);
+  h.advance(0.125);
+  assert.ok(mask.radius > 0 && mask.radius < 64 * 0.71);
   const crop = h.plant();
-  h.advance(4);
+  h.advance(0.125);
+  assert.equal(soil.soil_water_mask, null);
+  assert.equal(mask.removed, true);
+  assert.equal(crop.crop_grow_time, 0, "the draining visual cannot feed a new crop");
+  soil.water(); h.advance(4);
   assert.equal(crop.crop_grow_time, 4);
-  assert.equal(crop.absorbing_water, true);
   assert.equal(soil.water_remaining, 0.6);
   assert.equal(soil.parent, null);
-  assert.equal(soil.soil_water_mask, mask);
-  assert.ok(mask.radius > 0 && mask.radius < 64 * 0.71);
 });
 
-test("bot removal during absorption leaves reusable water for a replacement crop", () => {
-  const h = harness();
-  const soil = h.addSoil(); soil.water();
-  const first = h.plant(); h.advance(4);
+test("bot removal during absorption releases water and a replacement needs a fresh dose", () => {
+  const h = harness(); const soil = h.addSoil();
+  const first = h.plant(); soil.water(); h.advance(4);
   const bot = h.bot(); h.advance(0.7);
-  const remaining = soil.water_remaining;
   let result;
   assert.equal(bot.botDestroy(value => { result = value; }), true);
   assert.equal(first.removed, true);
   assert.equal(h.farm.get("0-0").crop, null);
-  assert.equal(soil.water_remaining, remaining);
-  const replacement = h.plant(); h.advance(remaining * 10);
+  // Replant before soil.update: an old dose must not leak into the new crop.
+  const replacement = h.plant(); h.advance(1);
   assert.equal(soil.isWatered(), false);
-  assert.ok(Math.abs(replacement.crop_grow_time - remaining * 10) < 1e-9);
+  assert.equal(replacement.crop_grow_time, 0);
   assert.equal(result, true);
-  soil.water(); h.advance(10 - replacement.crop_grow_time);
+  soil.water(); h.advance(10);
   assert.equal(replacement.crop_state, CropStates.GROWING);
-  assert.ok(soil.water_remaining > 0, "remaining dose continues into the next stage");
 });
 
-test("raw crop destruction and repeated cleanup preserve the soil and replacement reference", () => {
-  const h = harness(); const soil = h.addSoil(); soil.water();
-  const first = h.plant(); h.advance(3);
-  const replacement = h.plant();
+test("raw destruction preserves the soil and a replacement's newly watered dose", () => {
+  const h = harness(); const soil = h.addSoil();
+  const first = h.plant(); soil.water(); h.advance(3);
+  const replacement = h.plant(); soil.water();
   first.destroy(); first.cropDestroy(); first.destroy();
   assert.equal(h.farm.get("0-0").crop, replacement);
   assert.equal(soil.removed, false);
-  assert.equal(soil.water_remaining, 0.7);
+  assert.equal(soil.water_remaining, 1);
   assert.equal(soil.soil_water_mask.removed, false);
+  h.advance(1);
+  assert.equal(replacement.crop_grow_time, 1);
 });
 
 test("orphaned crop update removes itself without harming the replacement", () => {
@@ -171,7 +173,7 @@ test("orphaned crop update removes itself without harming the replacement", () =
   assert.equal(h.farm.get("0-0").crop, second);
 });
 
-test("two watering doses mature a crop, spoil once, and do not consume extra soil water", () => {
+test("two watering doses mature a crop and leftover water clears after spoilage", () => {
   const h = harness(); const soil = h.addSoil(); const crop = h.plant();
   soil.water(); h.advance(10);
   assert.equal(crop.crop_state, CropStates.GROWING);
@@ -185,28 +187,35 @@ test("two watering doses mature a crop, spoil once, and do not consume extra soi
   h.advance(4); h.advance(100);
   assert.equal(crop.crop_state, CropStates.DEAD);
   assert.equal(h.rewards.spoiled, 1);
-  assert.equal(soil.water_remaining, 1);
+  assert.equal(soil.water_remaining, 0);
+  assert.equal(soil.soil_water_mask, null);
 });
 
-test("rain stores water in untilled soil and tilling preserves it", () => {
+test("rain on empty untilled soil drains quickly without preparing it", () => {
   const h = harness(); const soil = h.addSoil(0, 0, SoilStates.INITIAL);
   assert.equal(soil.water(), false);
   assert.equal(soil.water({ rain: true }), true);
   assert.equal(soil.soil_state, SoilStates.INITIAL);
-  h.advance(100);
-  assert.equal(soil.water_remaining, 1);
+  assert.ok(soil.soil_water_mask);
+  h.advance(0.25);
+  assert.equal(soil.soil_water_mask, null);
+  assert.equal(soil.water_remaining, 0);
   assert.equal(soil.till(), true);
-  assert.equal(soil.soil_state, SoilStates.WATERED);
-  assert.equal(soil.isWatered(), true);
+  assert.equal(soil.soil_state, SoilStates.READY);
+  assert.equal(soil.isWatered(), false);
 });
 
 test("lethal fire destroys a crop immediately during absorption and respects resistance once", () => {
-  const h = harness(); const soil = h.addSoil(); soil.water(); const crop = h.plant(); h.advance(2);
+  const h = harness(); const soil = h.addSoil(); const crop = h.plant(); soil.water(); h.advance(2);
   crop.damage(10, { source: "bug" }); assert.equal(crop.crop_health, 15);
   crop.damage(100, { source: "fire", noTrace: true });
   assert.equal(crop.removed, true);
   assert.equal(h.farm.get("0-0").crop, null);
-  assert.equal(soil.water_remaining, 0.8);
+  assert.equal(soil.isWatered(), false);
+  assert.equal(soil.water_remaining, 0);
+  assert.ok(soil.soil_water_mask);
+  h.advance(0.25);
+  assert.equal(soil.soil_water_mask, null);
   assert.equal(crop.damage(100), false);
 });
 
@@ -255,7 +264,7 @@ test("bot harvest waits for crop rewards and reports false when fire cancels the
 });
 
 test("bot water extinguishes a fire on already wet soil and reports completion once", () => {
-  const h = harness(); const soil = h.addSoil(); soil.water(); const bot = h.bot(); h.advance(0.7);
+  const h = harness(); const soil = h.addSoil(); h.plant(CropTypes.WHEAT, CropStates.HARVESTABLE); soil.water(); const bot = h.bot(); h.advance(0.7);
   const tile = h.farm.get("0-0"); let burning = true;
   tile.fire = { isBurning: () => burning, extinguish(source) { assert.equal(source, "bot"); const wasBurning = burning; burning = false; return wasBurning; } };
   const result = [];
@@ -282,7 +291,7 @@ test("bot movement commits position before its completion callback; raw destruct
 });
 
 test("direct soil destruction clears only its decorative child and safely stops growth", () => {
-  const h = harness(); const soil = h.addSoil(); soil.water(); const crop = h.plant();
+  const h = harness(); const soil = h.addSoil(); const crop = h.plant(); soil.water();
   const mask = soil.soil_water_mask; soil.destroy(); h.advance(2);
   assert.equal(mask.removed, true);
   assert.equal(soil.consumeWater(1, 10), 0);
@@ -310,23 +319,28 @@ test("planting into an explicit target uses that tile and does not replace its s
   assert.equal(h.farm.get("0-0").crop, null);
 });
 
-test("default fire kills every deployed crop with its real health and resistance, then extinguishes", () => {
-  for (const points of [100, 10000]) for (const [type, data] of Object.entries(deployedCropData)) {
+test("points-scaled fire lets every healthy deployed crop survive to spread, then burns it down", () => {
+  for (const points of [100, 500, 2000, 10000]) for (const [type, data] of Object.entries(deployedCropData)) {
     const h = harness();
     h.context.CROP_DATA[type] = data;
     const soil = h.addSoil();
-    soil.water();
     const crop = h.plant(type);
-    const sim = new FarmEventSimulation(h.farm);
-    const fire = sim.startFire(points).fires[0];
+    soil.water();
+    h.addSoil(1, 0);
+    h.plant(type, CropStates.YOUNG, 1, 0);
+    const sim = new FarmEventSimulation(h.farm, { random: () => 0 });
+    const fire = sim.ignite("0-0", fireSettings(getDifficultyParams(points)));
+    let spreadObserved = false;
     // Leave the young crop unharvested; fire must kill it by damage even if it
     // never matures/spoils. Wet soil must not provide damage immunity.
-    for (let tick = 0; tick < 500 && !crop.removed; tick++) {
+    for (let tick = 0; tick < 2400 && !crop.removed; tick++) {
       h.advance(0.05);
       sim.update(0.05);
-      if (tick === 20) assert.ok(crop.crop_health < data.health, `${type} takes early damage`);
+      if (sim.fires.has("0-1")) spreadObserved = true;
+      if (fire.stage < 2) assert.ok(crop.crop_health > 0, `${type} survives juvenile fire at ${points} points`);
     }
-    assert.equal(crop.removed, true, `${type} must burn down within 25 game seconds at ${points} points`);
+    assert.equal(spreadObserved, true, `${type} survives an actual spread attempt at ${points} points`);
+    assert.equal(crop.removed, true, `${type} must eventually burn down at ${points} points`);
     assert.equal(crop.crop_health, 0, `${type} dies from damage, not spoilage`);
     assert.equal(crop.crop_removal_reason, "fire");
     assert.equal(fire.isBurning(), false);
@@ -335,4 +349,30 @@ test("default fire kills every deployed crop with its real health and resistance
     assert.equal(soil.exists(), true);
     assert.deepEqual(h.rewards, { coins: 0, exp: 0, seeds: 0, spoiled: 0 });
   }
+});
+
+
+test("freshness sparkles and flies stay in front when crop depth changes", () => {
+  const h = harness(); h.addSoil();
+  const crop = h.plant(CropTypes.WHEAT, CropStates.HARVESTABLE);
+  crop.z = 300; crop.initFreshness();
+  assert.equal(crop.freshness_effects.length, 3);
+  assert.ok(crop.freshness_effects.every(effect => effect.z === 301));
+  crop.ysort_enabled = true; crop.pos.y = 400; crop.ysort_add = 10;
+  h.advance(0.1);
+  assert.ok(crop.freshness_effects.every(effect => effect.z === 411));
+  h.advance(4); h.advance(0.1);
+  assert.ok(crop.freshness_effects.every(effect => effect.sprite === "icon_fly" && effect.z === 411));
+  crop.destroy();
+  assert.equal(crop.freshness_effects.length, 0);
+});
+
+test("watering a living crop during empty-soil drain cancels only the old visual", () => {
+  const h = harness(); const soil = h.addSoil();
+  soil.water(); h.advance(0.1);
+  const crop = h.plant(); soil.water(); h.advance(0.3);
+  assert.equal(soil.isWatered(), true);
+  assert.ok(Math.abs(soil.water_remaining - 0.97) < 1e-9);
+  assert.equal(crop.crop_grow_time, 0.3);
+  assert.ok(soil.soil_water_mask);
 });

@@ -74,7 +74,7 @@ export function buyLand(land_type, amount = 1) {
 			CONFIG.FARM.columns += amount
 		}
 		for (const { x, y } of newTiles) {
-			const soil = addSoilToGrid(x, y);
+			const soil = addSoilToGrid(x, y, undefined, farm_grid_index);
 			farm_grid_index.set(`${y}-${x}`, { soil, bots: [] });
 		}
 		createLandBackground();

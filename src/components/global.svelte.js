@@ -193,7 +193,7 @@ export const DID_YOU_KNOW_TIPS = {
 		id: "soil",
 		title: "Soil States",
 		category: "Game Mechanics",
-		description: "Land starts in an UNTILLED state (0). Use bot.till() to change it to READY (1), then bot.water() for WATERED (2). Crops only absorb water and grow when planted in watered soil!",
+		description: "Land starts UNTILLED (0). Use bot.till() to prepare it (1), plant a seed, then use bot.water() for WATERED soil (2). Crops absorb water to grow. Without a living crop, water drains away quickly.",
 		image: "/sprites/art_soil_states.png"
 	},
 	bugs: {

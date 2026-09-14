@@ -61,7 +61,7 @@
       image: "/sprites/art_soil_states.png",
       fallbackText: "Soil States Illustration",
       description:
-        "Land starts in an UNTILLED state (0). Use bot.till() to change it to READY (1). Use bot.water() to change READY soil into WATERED (2). Crops only absorb water and grow when planted in watered soil!",
+        "Land starts UNTILLED (0). Use bot.till() to prepare it (1), plant a seed, then use bot.water() for WATERED soil (2). Crops absorb water to grow. Without a living crop, water drains away quickly.",
     },
     {
       title: "Crop Growth & Spoilage",

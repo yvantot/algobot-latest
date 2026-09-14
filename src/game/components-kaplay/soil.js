@@ -1,11 +1,11 @@
 import { k } from "../../lib/kaplay.js";
-import { SoilStates } from "../global/enum.js";
+import { CropStates, SoilStates } from "../global/enum.js";
 import { CONFIG } from "../global/global.js";
 import { gridpos } from "./grid.js";
 
-// A full reservoir supplies one growth stage. Only consumeWater removes water;
-// an empty tile does not evaporate, and replacing a crop preserves the remainder.
-export function soil(state = SoilStates.INITIAL) {
+// Soil owns water and its visual, using an injected occupancy query. A dose is
+// valid only for the living crop that was present when the tile was watered.
+export function soil(state = SoilStates.INITIAL, getCrop = () => null) {
   return {
     id: "soil",
     require: ["gridpos", "sprite", "animate"],
@@ -13,6 +13,26 @@ export function soil(state = SoilStates.INITIAL) {
     water_remaining: state === SoilStates.WATERED ? 1 : 0,
     soil_water_mask: null,
     soil_removed: false,
+    water_crop: null,
+    drain_amount: 0,
+    drain_elapsed: 0,
+
+    livingCrop() {
+      const crop = getCrop();
+      return crop && !crop.crop_removed && crop.crop_state !== CropStates.DEAD
+        && (crop.crop_health === undefined || crop.crop_health > 0) ? crop : null;
+    },
+
+    releaseUnusedWater() {
+      if (this.water_remaining <= 0) return;
+      if (this.water_crop && this.water_crop === this.livingCrop()) return;
+      this.drain_amount = this.water_remaining;
+      this.drain_elapsed = 0;
+      this.water_remaining = 0;
+      this.water_crop = null;
+      if (this.soil_state !== SoilStates.INITIAL) this.soil_state = SoilStates.READY;
+      this.refreshSoilVisual();
+    },
 
     add() {
       this.refreshSoilVisual();
@@ -20,14 +40,20 @@ export function soil(state = SoilStates.INITIAL) {
     },
 
     isWatered() {
+      this.releaseUnusedWater();
       return !this.soil_removed && this.water_remaining > 0;
     },
 
     water({ prepare = false, rain = false } = {}) {
       if (this.soil_removed || (this.soil_state === SoilStates.INITIAL && !prepare && !rain)) return false;
+      this.releaseUnusedWater();
       const changed = this.water_remaining < 1;
       this.water_remaining = 1;
+      this.water_crop = this.livingCrop();
+      this.drain_amount = 0;
+      this.drain_elapsed = 0;
       if (prepare || this.soil_state !== SoilStates.INITIAL) this.soil_state = SoilStates.WATERED;
+      this.releaseUnusedWater();
       this.refreshSoilVisual();
       return changed;
     },
@@ -51,6 +77,8 @@ export function soil(state = SoilStates.INITIAL) {
       }
       this.soil_state = next;
       this.water_remaining = 0;
+      this.water_crop = null;
+      this.drain_amount = 0;
       this.refreshSoilVisual();
     },
 
@@ -68,14 +96,13 @@ export function soil(state = SoilStates.INITIAL) {
       if (this.soil_removed) return;
       // The actual soil stays in place. Its child masks only a decorative wet
       // sprite; neither crop removal nor mask cleanup can remove the real soil.
-      this.frame = this.soil_state === SoilStates.INITIAL ? SoilStates.INITIAL : this.isWatered() ? SoilStates.READY : this.soil_state;
-      if (!this.isWatered()) {
+      const visibleWater = Math.max(this.water_remaining, this.drain_amount * Math.max(0, 1 - this.drain_elapsed / 0.25));
+      this.frame = this.soil_state === SoilStates.INITIAL ? SoilStates.INITIAL : SoilStates.READY;
+      if (visibleWater <= 0) {
         this.soil_water_mask?.destroy();
         this.soil_water_mask = null;
         return;
       }
-      // Untilled ground stores rain invisibly; tilling exposes its wet reservoir.
-      if (this.soil_state === SoilStates.INITIAL) return;
       const size = CONFIG.FARM.tile_size;
       if (!this.soil_water_mask) {
         this.soil_water_mask = this.add([
@@ -86,7 +113,16 @@ export function soil(state = SoilStates.INITIAL) {
           k.pos(-size / 2, -size / 2 + 5), k.sprite("soil", { frame: SoilStates.WATERED }),
         ]);
       }
-      this.soil_water_mask.radius = size * 0.71 * Math.sqrt(this.water_remaining);
+      this.soil_water_mask.radius = size * 0.71 * Math.sqrt(visibleWater);
+    },
+
+    update() {
+      if (this.soil_removed) return;
+      this.releaseUnusedWater();
+      if (this.drain_amount <= 0) return;
+      this.drain_elapsed += k.dt();
+      if (this.drain_elapsed >= 0.25) this.drain_amount = 0;
+      this.refreshSoilVisual();
     },
 
     destroy() {
@@ -98,6 +134,6 @@ export function soil(state = SoilStates.INITIAL) {
   };
 }
 
-export function addSoilToGrid(x, y, state = SoilStates.INITIAL) {
-  return k.add([k.pos(), k.sprite("soil"), k.z(0), k.animate(), k.opacity(0), k.scale(1), k.layer("soil"), gridpos(x, y), soil(state)]);
+export function addSoilToGrid(x, y, state = SoilStates.INITIAL, farmGridIndex) {
+  return k.add([k.pos(), k.sprite("soil"), k.z(0), k.animate(), k.opacity(0), k.scale(1), k.layer("soil"), gridpos(x, y), soil(state, () => farmGridIndex?.get(`${y}-${x}`)?.crop)]);
 }

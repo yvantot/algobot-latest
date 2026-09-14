@@ -40,14 +40,26 @@ function shuffled(values, random) {
 }
 
 export function fireSettings(params) {
+  const severity = Math.max(0, Math.min(1, (params.pts - 100) / 9900));
   return {
-    stageDuration: 6,
-    damageInterval: 1,
-    damage: 2,
-    stageDamageMultipliers: [0.5, 1, 2.5],
-    spreadInterval: 3,
-    spreadChance: 0.35 + Math.min(1, (params.pts - 100) / 9900) * 0.2,
+    stageDuration: 8 - severity * 2,
+    damageInterval: 1.5 - severity * 0.5,
+    damage: 1.5 + severity,
+    // Small flames hurt gradually. Even the least resistant healthy crop can
+    // survive to maturity and a spread attempt at the maximum point setting.
+    stageDamageMultipliers: [0.1, 0.2, 1],
+    spreadInterval: 4 - severity * 1.5,
+    spreadChance: 0.35 + severity * 0.2,
     wetSpreadMultiplier: 0.2,
+  };
+}
+
+export function rainSettings(params) {
+  const severity = Math.max(0, Math.min(1, (params.pts - 100) / 9900));
+  return {
+    ...RAIN_TIMING,
+    rainDuration: RAIN_TIMING.rainDuration + severity * 4,
+    dropInterval: RAIN_TIMING.dropInterval - severity * 0.3,
   };
 }
 
@@ -124,7 +136,7 @@ export class FarmEventSimulation {
       const cloud = {
         id: ++this.sequence, key, ...coordinates(key), side: this.random() < 0.5 ? -1 : 1,
         phase: "entering", phaseAge: 0, dropClock: 0, progress: 0,
-        ...RAIN_TIMING,
+        ...rainSettings(params),
         recordImpact: ({ wateredSoil, extinguished }) => {
           if (extinguished) result.extinguishedFires++;
           if (wateredSoil) watered.add(key);

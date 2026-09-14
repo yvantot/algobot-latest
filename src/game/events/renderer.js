@@ -1,7 +1,7 @@
 import { k } from "../../lib/kaplay.js";
 import { CONFIG } from "../global/global.js";
 import { FarmEventSimulation, farmTiles } from "./simulation.js";
-import { cloudPosition, dropPosition } from "./motion.js";
+import { cloudPosition, cloudAppearance, dropPosition } from "./motion.js";
 
 const runtimes = new WeakMap();
 const configuration = new WeakMap();
@@ -109,7 +109,10 @@ export class FarmEventRenderer {
         this.cloudViews.set(id, entry);
       }
       const position = cloudPosition(cloud, entry.outside, entry.center, simulation.accumulator);
+      const appearance = cloudAppearance(cloud, simulation.accumulator);
       entry.view.pos = k.vec2(position.x, position.y);
+      entry.view.opacity = appearance.opacity;
+      entry.view.scale = k.vec2(appearance.scale);
       entry.view.z = center.y + 200;
     }
 

@@ -12,6 +12,12 @@ export function freshness() {
     freshness_effects: [],
     freshness_timer: null,
 
+    syncFreshnessDepth() {
+      // KAPLAY sorts descendants by absolute z, not relative to their parent.
+      const cropDepth = this.ysort_enabled ? this.pos.y + (this.ysort_add ?? 0) : (this.z ?? 0);
+      for (const effect of this.freshness_effects) effect.z = cropDepth + 1;
+    },
+
     clearFreshness() {
       this.freshness_timer?.cancel();
       this.freshness_timer = null;
@@ -29,6 +35,7 @@ export function freshness() {
         effect.animate("opacity", [0.5, 1], { duration: 1, direction: "ping-pong", easing: k.easings.easeInOutSine });
         this.freshness_effects.push(effect);
       }
+      this.syncFreshnessDepth();
     },
 
     update() {
@@ -37,6 +44,7 @@ export function freshness() {
         if (this.crop_state === CropStates.DEAD) this.freshness_state = FreshnessStates.DEAD;
         return;
       }
+      this.syncFreshnessDepth();
       const next = this.spoilage_remaining <= this.crop_spoilage_time / 2 ? FreshnessStates.EXPIRING : FreshnessStates.FRESH;
       if (next === this.freshness_state) return;
       this.freshness_state = next;

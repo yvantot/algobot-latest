@@ -26,6 +26,16 @@ export function cloudPosition(cloud, outside, center, remainder = 0) {
   return { x, y: center.y - 100 };
 }
 
+export function cloudAppearance(cloud, remainder = 0) {
+  const elapsed = cloud.phaseAge + remainder;
+  const opacity = cloud.phase === "entering"
+    ? timedLerp(0, 1, elapsed, cloud.travelDuration)
+    : cloud.phase === "leaving"
+      ? timedLerp(1, 0, elapsed, cloud.exitDuration)
+      : 1;
+  return { opacity, scale: 0.65 + 0.35 * opacity };
+}
+
 export function dropPosition(drop, center, remainder = 0) {
   return {
     x: center.x + ((drop.id % 3) - 1) * 12,

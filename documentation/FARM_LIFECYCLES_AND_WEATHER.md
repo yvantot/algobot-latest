@@ -28,9 +28,10 @@ Factories preserve existing imports. Rendering components still use application 
 ## Soil and crop contract
 
 - `soil.water_remaining` is a reservoir from 0 to 1. A full reservoir supplies one growth stage.
-- `soil.water()` fills prepared soil; `soil.water({rain:true})` also wets unprepared ground without tilling it. `soil.till()` preserves that moisture.
+- `soil.water()` fills prepared soil; `soil.water({rain:true})` also wets unprepared ground without tilling it. Rain does not prepare ground. Till, plant, then water to supply growth.
 - `soil.consumeWater(seconds, stageDuration)` returns the actual growth time supplied and subtracts only that amount of water.
-- Empty soil does not evaporate. Removing a crop during absorption preserves both the real soil object and its remaining water. A newly planted crop consumes the remainder.
+- When no living crop remains, soil resets to its dry state and discards its growth dose. A separate wet-soil visual shrinks away over 0.25 game seconds. Untilled soil returns to INITIAL; prepared soil returns to READY. Removing or replacing a crop during absorption leaves the real soil intact, but a replacement requires fresh watering, even if planted during that visual animation. Soil queries its occupant through an injected callback; crops do not manage soil cleanup.
+- Freshness sparkles and flies use the crop's global draw depth plus one and follow depth changes, keeping them in front of their crop.
 - The water mask belongs to soil and masks a decorative wet sprite. The real soil is never reparented into a crop-owned object.
 - `crop.cropDestroy(reason)` and raw KAPLAY destruction clean up the crop's timers/indicators and clear only its own tile reference. Late callbacks cannot clear a replacement crop or issue pending rewards.
 - `crop.matureNow()` and `crop.markDead()` allow developer controls to change lifecycle state safely. Callers should not assign crop state or manipulate absorption masks directly.
@@ -46,9 +47,9 @@ Every flame extinguishes as soon as its own crop is killed or removed, even when
 
 ## Rain rules
 
-Each cloud enters horizontally from one side over 5 game seconds, stops above its selected tile, rains for 8 seconds, then leaves over 4 seconds. Cloud travel uses elapsed-time lerp with sine easing to accelerate and decelerate smoothly. Drops appear every 0.8 seconds and accelerate downward with quadratic easing over 0.9 seconds. Rendering includes the remainder between fixed simulation ticks, so movement updates every frame. Arrival/departure phases reset their timing; departure starts at the resting position with no teleport. Soil changes on impact, not when the event banner appears.
+Each cloud enters horizontally from one side over 5 game seconds, stops above its selected tile, rains for 8–12 seconds according to event points, then leaves over 4 seconds. It fades and scales from 65% to full size during entry, reversing that animation during exit. Cloud travel uses elapsed-time lerp with sine easing to accelerate and decelerate smoothly. Drops appear every 0.8–0.5 seconds according to event points and accelerate downward with quadratic easing over 0.9 seconds. Rendering includes the remainder between fixed simulation ticks, so movement updates every frame. Arrival/departure phases reset their timing; departure starts at the resting position with no teleport. Soil changes on impact, not when the event banner appears.
 
-Targets are distinct and prefer living crops before bare soil. Tiles already assigned an active cloud are excluded. Rain remains useful on an empty farm: moisture stays until crops are planted. Plant removal while a cloud is raining does not remove the soil or cloud.
+Targets are distinct and prefer living crops before bare soil. Tiles already assigned an active cloud are excluded. Rain can target empty tiles, but their water drains away quickly; it is not stored for future crops. Plant removal while a cloud is raining does not remove the soil or cloud.
 
 ## Tuning and scheduling
 
@@ -57,15 +58,18 @@ These are explicit gameplay tuning values, not learned DQN parameters or evidenc
 | Setting | Low severity (100 points) | Maximum severity (10,000 points) |
 | --- | --- | --- |
 | Requested initial fires / clouds | 1 | 8 (limited to eligible tiles) |
-| Fire stage interval (largest stage at 12 seconds) | 6 seconds | 6 seconds |
-| Fire damage interval / adult spread interval | 1 second / 3 seconds | 1 second / 3 seconds |
-| Fire damage before crop resistance, by stage | 1 / 2 / 5 per damage tick | 1 / 2 / 5 per damage tick |
+| Fire stage interval / time to largest stage | 8 seconds / 16 seconds | 6 seconds / 12 seconds |
+| Fire damage interval / adult spread interval | 1.5 seconds / 4 seconds | 1 second / 2.5 seconds |
+| Fire damage before crop resistance, by stage | 0.15 / 0.3 / 1.5 per tick | 0.25 / 0.5 / 2.5 per tick |
+| Rain duration / drop interval | 8 seconds / 0.8 seconds | 12 seconds / 0.5 seconds |
 | Spread probability per dry neighbor | 35% | 55% |
 | Spread probability per wet neighbor | 7% | 11% |
 
 The scheduler uses `min(10000, 100 + plantedCount * 50 + playerLevel * 100)` points. Scaffolding chooses rain. Challenge/state-optimization chooses randomly among eligible pest and fire events; existing pest eligibility remains more than one third ripe crops. Existing rule bootstrap probability and five-minute event cooldown remain. Failed spawns do not start cooldown or increment scheduled-event telemetry.
 
-Fire growth and damage now use independent clocks. The earlier easy setting delivered only 0.5 effective damage every 3 seconds to wheat, taking roughly two minutes to burn it down. The corrected settings kill all current crop types through their real resistance-aware damage method within 25 game seconds, without relying on spoilage. Crop health and resistance values are unchanged.
+Fire growth, damage, damage interval, spread interval/probability, rain duration/intensity, and initial entity count all derive from the supplied event points. Presentation travel times remain readable at every severity. Each spawned event keeps its settings snapshot, including propagated flames; the scheduler and DDA remain responsible for choosing the points. Existing pest tuning is unchanged.
+
+Fire growth and damage use independent clocks. Small/medium flames deal 10%/20% of adult damage. Regression tests use every deployed crop's actual health and resistance at 100, 500, 2,000 and 10,000 points: healthy young crops survive to the largest flame and an actual spread attempt, and eventually burn down through damage. Already weakened or naturally expiring crops can still die earlier; fire does not grant immunity or suspend spoilage. Crop health and resistance values are unchanged.
 
 Weather uses the game clock and pauses with game speed zero, onboarding, hidden tabs and return to menu. All weather objects belong to one KAPLAY scene owner; destruction clears simulation state, tile fire references, clouds, drops and smoke.
 
@@ -77,10 +81,10 @@ Required names: `icon_cloud.png`, `icon_raindrop.png`, `icon_fire_0.png`, `icon_
 
 ## Verification
 
-The weather timing correction passes 108 automated tests, including integration of real crop health/resistance with fire damage and actual renderer checks across rain phase transitions. The production build passes. Browser testing confirmed falling crop health, crop and flame removal on burned tiles, and the revised cloud/rain cycle. Existing accessibility and bundle-size build warnings remain.
+Verified on 2026-09-14: all 112 JavaScript tests pass, the production build passes, and all 40 preserved research artifacts match their baseline. Browser checks confirmed foreground freshness effects, dry soil after crop death, rain landing on empty tiles, cloud departure with reduced opacity/size, and mature fire spreading while its original crop is still present. No browser error logs were reported. Existing accessibility and bundle-size build warnings remain.
 
-Run `npm test`, `npm run build`, and `npm run verify:artifacts`. Focused regression suites cover soil persistence and replacement, lifecycle cancellation, robot/interpreter completion, fire eligibility/spread/extinguishing, rain impact and priority, event cleanup, and scheduler selection/cooldown.
+Run `npm test`, `npm run build`, and `npm run verify:artifacts`. Focused regression suites cover empty-soil draining, replacement crops, watering during drain, freshness depth, lifecycle cancellation, robot/interpreter completion, fire eligibility/spread/extinguishing, points-based weather settings, rain impact/priority, cloud fade/scale continuity, event cleanup, and scheduler selection/cooldown.
 
-Verification on 2026-09-14: 100 automated JavaScript tests passed, the production build passed, and all 40 preserved research artifacts matched their baseline. The build still reports existing accessibility warnings and a large JavaScript bundle warning. Browser checks observed absorbing-crop destruction retaining 72% soil water on empty tiles, three-stage fire with smoke and spread, sideways cloud arrival, falling drops extinguishing fire and leaving wet soil, complete removal of a burned crop, and sequential interpreter movement to the expected tile. No browser error logs were reported during those checks. A subsequent production build with all seven supplied PNGs also passed; the artwork resolver tests passed, and browser checks confirmed the supplied fire, smoke, cloud, and raindrop graphics with no browser errors.
+The September 14 water-policy revision supersedes earlier tests of persistent empty-soil water. Saved research models and samples are preserved; these gameplay checks do not establish learning improvement.
 
-For a manual check, open the game developer tools with `\`. Use Batch to till, plant and water, then destroy crops during absorption and inspect remaining soil water. Replant and observe consumption continuing. In World, select fire/rain severity; fire needs at least two thirds planted. Confirm three flame stages, smoke, sideways cloud motion, falling drops, bot extinguishing, and pause/resume behavior. These developer actions are for local testing and should not be included as participant evaluation sessions.
+For a manual check, open the game developer tools with `\`. Use Batch to till, plant and water, then destroy crops during absorption: water should shrink away quickly, leaving dry soil. Replant and confirm growth waits for fresh watering. Instant Grow All should show sparkles in front, followed by flies as freshness declines. In World, select fire/rain severity; fire needs at least two thirds planted. Confirm three flame stages with time to spread before damage kills healthy crops, smoke and flame removal after death, sideways clouds fading/scaling in and out, falling drops, bot extinguishing, and pause/resume. These developer actions are for local testing and should not be included as participant evaluation sessions.

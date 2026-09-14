@@ -145,7 +145,7 @@ export function game() {
     // Add tiles first, also add bots property
     for (let i = 0; i < farm.rows; i++) {
       for (let j = 0; j < farm.columns; j++) {
-        const soil = addSoilToGrid(j, i);
+        const soil = addSoilToGrid(j, i, undefined, farm_grid_index);
         farm_grid_index.set(`${i}-${j}`, { soil, bots: [] });
       }
     }

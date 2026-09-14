@@ -54,6 +54,30 @@ test("renderer eases cloud travel every frame and does not teleport when departu
   assert.equal(h.renderer.cloudViews.size, 0);
 });
 
+test("cloud entrance and exit fade and scale smoothly without a full-opacity spawn flash", () => {
+  const h = harness();
+  assert.equal(h.view.opacity, 0);
+  assert.equal(h.view.scale.x, 0.65);
+  h.step(h.cloud.travelDuration / 2);
+  assert.ok(Math.abs(h.view.opacity - 0.5) < 1e-9);
+  assert.ok(Math.abs(h.view.scale.x - 0.825) < 1e-9);
+  h.step(h.cloud.travelDuration / 2);
+  assert.equal(h.view.opacity, 1);
+  assert.equal(h.view.scale.x, 1);
+  h.step(h.cloud.rainDuration);
+  assert.equal(h.view.opacity, 1, "departure starts without a flash or size jump");
+  h.step(h.cloud.exitDuration / 2);
+  assert.ok(Math.abs(h.view.opacity - 0.5) < 1e-9);
+  assert.ok(Math.abs(h.view.scale.x - 0.825) < 1e-9);
+  const pausedOpacity = h.view.opacity;
+  h.step(0);
+  assert.equal(h.view.opacity, pausedOpacity);
+  h.step(h.cloud.exitDuration / 2 - 0.01);
+  assert.ok(h.view.opacity < 0.001, "cloud is invisible before its object is removed");
+  h.step(0.01);
+  assert.equal(h.renderer.cloudViews.size, 0);
+});
+
 test("rain renderer interpolates drops between ticks and preserves cloud endpoints during expansion", () => {
   const h = harness();
   h.step(2);

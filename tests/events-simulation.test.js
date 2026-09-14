@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { CropStates, SoilStates } from "../src/game/global/enum.js";
 import { getDifficultyParams } from "../src/game/events/difficulty.js";
-import { FarmEventSimulation, canStartFireEvent, fireSettings } from "../src/game/events/simulation.js";
+import { FarmEventSimulation, canStartFireEvent, fireSettings, rainSettings } from "../src/game/events/simulation.js";
 import { RAIN_TIMING, cloudPosition, dropPosition } from "../src/game/events/motion.js";
 
 function makeFarm(rows = 3, columns = 3, planted = rows * columns) {
@@ -134,7 +134,7 @@ test("lethal fire calls crop's no-trace damage API and leaves soil intact", () =
   crop.crop_health = 1;
   soil.water_remaining = 0.7;
   const sim = new FarmEventSimulation(grid);
-  const fire = sim.ignite("0-0", settings({ damage: 10, damageInterval: 0.5 }));
+  const fire = sim.ignite("0-0", settings({ damage: 100, damageInterval: 0.5 }));
   sim.update(0.5);
   assert.deepEqual(crop.lastDamageOptions, { source: "fire", noTrace: true });
   assert.equal(tile.crop, null);
@@ -280,14 +280,14 @@ test("cloud travels sideways before rainfall; water and extinguishing happen onl
   assert.equal(result.extinguishedFires, 1);
 });
 
-test("rain hydrates empty initial soil and surviving reservoir outlasts the cloud", () => {
+test("rain calls the empty soil's watering API without changing its preparation", () => {
   const grid = makeFarm(1, 1, 0);
   const soil = grid.get("0-0").soil;
   soil.soil_state = SoilStates.INITIAL;
   const sim = new FarmEventSimulation(grid);
   const result = sim.startRain();
   sim.update(30);
-  assert.equal(soil.isWatered(), true);
+  assert.ok(soil.waterCalls > 0);
   assert.equal(soil.soil_state, SoilStates.INITIAL);
   assert.equal(result.wateredTiles, 1);
   assert.equal(sim.clouds.size, 0);
@@ -361,18 +361,49 @@ test("scene disposal clears every event reference and prevents future actions", 
   assert.equal([...grid.values()].reduce((sum, tile) => sum + tile.soil.waterCalls, 0), 0);
 });
 
-test("fire uses a slower growth clock at every severity", () => {
+test("fire growth uses the point-scaled clock at every severity", () => {
   for (const points of [100, 500, 2000, 10000]) {
     const sim = new FarmEventSimulation(makeFarm(1, 1));
     const fire = sim.startFire(points).fires[0];
-    sim.update(5.95);
+    const duration = fire.settings.stageDuration;
+    // The simulation applies transitions on the first 50ms tick at/after
+    // the threshold; intermediate point values need not divide that tick.
+    const firstStageAt = Math.ceil((duration - 1e-9) / 0.05) * 0.05;
+    const adultAt = Math.ceil((2 * duration - 1e-9) / 0.05) * 0.05;
+    sim.update(firstStageAt - 0.05);
     assert.equal(fire.stage, 0);
     sim.update(0.05);
     assert.equal(fire.stage, 1);
-    sim.update(5.95);
+    sim.update(adultAt - firstStageAt - 0.05);
     assert.equal(fire.stage, 1);
     sim.update(0.05);
     assert.equal(fire.stage, 2);
+  }
+});
+
+test("spawner points scale fire pressure and rain intensity while travel remains readable", () => {
+  let previousFire, previousRain;
+  for (const points of [100, 500, 2000, 10000]) {
+    const params = getDifficultyParams(points);
+    const fire = fireSettings(params);
+    const rain = rainSettings(params);
+    if (previousFire) {
+      assert.ok(fire.stageDuration < previousFire.stageDuration);
+      assert.ok(fire.damage / fire.damageInterval > previousFire.damage / previousFire.damageInterval);
+      assert.ok(fire.spreadInterval < previousFire.spreadInterval);
+      assert.ok(fire.spreadChance > previousFire.spreadChance);
+      assert.ok(rain.rainDuration > previousRain.rainDuration);
+      assert.ok(rain.dropInterval < previousRain.dropInterval);
+    }
+    assert.ok(fire.stageDuration >= 6);
+    assert.ok(fire.damage / fire.damageInterval <= 2.5);
+    assert.ok(rain.travelDuration >= 4 && rain.exitDuration >= 3);
+    const sim = new FarmEventSimulation(makeFarm());
+    assert.deepEqual(sim.startFire(points).fires[0].settings, fire);
+    const cloud = sim.startRain(points).clouds[0];
+    assert.equal(cloud.rainDuration, rain.rainDuration);
+    assert.equal(cloud.dropInterval, rain.dropInterval);
+    previousFire = fire; previousRain = rain;
   }
 });
 
