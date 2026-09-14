@@ -28,7 +28,7 @@ export function createCommandAPI({
 
   function unlocked(category, name) {
     if (isUnlocked(category, name)) return true;
-    observe(speak, `${category === "globals" ? name + "()" : category === "shop" ? "shop." + name : "bot." + name} is locked!`);
+    reportError(`${category === "globals" ? name + "()" : category === "shop" ? "shop." + name : "bot." + name} is locked!`);
     return false;
   }
 

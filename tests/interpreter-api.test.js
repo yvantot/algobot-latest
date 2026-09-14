@@ -159,8 +159,29 @@ test("locked async actions and checks resume with false without invoking the rob
   assert.equal(h.run(), true);
   assert.deepEqual(h.log.actions, []);
   assert.equal(h.log.checks, 0);
-  assert.equal(h.log.errors.length, 0);
+  assert.equal(h.log.errors.length, 3);
+  assert.equal(h.robot.executionErrorCount, 3);
   assert.ok(h.log.output.includes(false));
+});
+
+test("a locked operation marks its completed code run failed without invoking the robot", () => {
+  for (const source of ["bot.jump(0, 0);", "bot.is_fire();", "columns();", "shop.buy_row();"]) {
+    const h = harness("", {
+      botJump() { assert.fail("locked robot action was invoked"); },
+      checkFire() { assert.fail("locked robot sensor was invoked"); },
+    }, { isUnlocked: () => false });
+    const states = [{ robot: h.robot }];
+    const runner = createCodeRunner({ states, InterpreterClass, telemetry: h.telemetry,
+      prepare: () => source, init: () => createInterpreterInit(h.api), schedule: () => 1, unschedule() {},
+    });
+    runner.start(0);
+    for (let i = 0; i < 20 && states[0].interpreter; i++) runner.step(0);
+    assert.equal(states[0].interpreter, null);
+    assert.deepEqual(h.log.runs, [false], source);
+    assert.equal(h.log.errors.length, 1, source);
+    assert.equal(h.robot.executionErrorCount, 1, source);
+    assert.deepEqual(h.log.quests, [], source);
+  }
 });
 
 test("inventory aliases, shop, live farm dimensions, unlocks and random source are injected", () => {
