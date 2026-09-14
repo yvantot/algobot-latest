@@ -27,6 +27,8 @@
   import { dataLogger } from "../game/ml/data-logger.js";
   import { dda } from "../game/ml/dda.js";
   import { stopCodeRuns } from "../game/global/code-runner.js";
+  import { configureFarmEvents } from "../game/event.js";
+  import { farm_grid_index } from "../game/game.js";
 
   let { onReturnMenu } = $props();
 
@@ -105,6 +107,8 @@
       storageWarning = "Browser storage is unavailable. Export research data before closing this page.";
     }
     ONBOARDING.isModalOpen = showOnboarding;
+    const shouldRun = () => k.debug.timeScale > 0 && !ONBOARDING.isModalOpen && !document.hidden;
+    configureFarmEvents(farm_grid_index, { shouldRun });
     const resumedStage = telemetry.currentStage;
     telemetry.resetSession();
     telemetry.setStage(resumedStage);
@@ -126,9 +130,9 @@
     // Returning the cleanup synchronously is required by Svelte onMount.
     mlAgent.init().then(() => {
       if (disposed) return;
-      eventScheduler.start({ shouldRun: () => k.debug.timeScale > 0 && !ONBOARDING.isModalOpen && !document.hidden });
+      eventScheduler.start({ shouldRun });
       predictionTimer = setInterval(() => {
-        if (k.debug.timeScale > 0 && !ONBOARDING.isModalOpen && !document.hidden) {
+        if (shouldRun()) {
           mlAgent.updateAndPredict(telemetry.currentStage).then(() => {
             if (disposed) return;
             const nextHint = dda.activeHint || "";
@@ -145,6 +149,7 @@
       clearInterval(saveTimer);
       window.removeEventListener("beforeunload", saveSession);
       eventScheduler.stop();
+      configureFarmEvents(farm_grid_index, { shouldRun: () => false });
       saveSession();
       ONBOARDING.isModalOpen = false;
     };

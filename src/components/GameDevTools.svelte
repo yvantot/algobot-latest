@@ -104,7 +104,11 @@
 
   function run(label, fn, color = "text-gray-200") {
     try {
-      fn();
+      const result = fn();
+      if (result?.applied === false || result?.triggered === false) {
+        push(`– ${label}: ${result.reason || "No eligible targets"}`, "text-amber-300");
+        return;
+      }
       push(`✓ ${label}`, color);
     } catch (e) {
       push(`✗ ${label}: ${e.message}`, "text-red-400");
@@ -174,7 +178,7 @@
       if (!tile) continue;
       const { soil } = tile;
       if (soil && soil.soil_state === SoilStates.INITIAL) {
-        soil.setSoilState(SoilStates.READY);
+        soil.till();
         count++;
       }
     }
@@ -188,7 +192,7 @@
       if (!tile) continue;
       const { soil } = tile;
       if (soil && soil.soil_state === SoilStates.READY) {
-        soil.setSoilState(SoilStates.WATERED);
+        soil.water();
         count++;
       }
     }
@@ -239,10 +243,8 @@
     for (const { x, y } of allCells()) {
       const tile = getTile(x, y);
       if (!tile?.crop) continue;
-      if (!tile.crop.absorbing_water) {
-        tile.crop.cropDestroy();
-        count++;
-      }
+      tile.crop.cropDestroy();
+      count++;
     }
     return count;
   }
@@ -253,7 +255,7 @@
       const tile = getTile(x, y);
       if (!tile?.soil) continue;
       // Destroy crop first if any
-      if (tile.crop && !tile.crop.absorbing_water) {
+      if (tile.crop) {
         tile.crop.cropDestroy();
       }
       tile.soil.setSoilState(SoilStates.INITIAL);
@@ -272,13 +274,7 @@
         crop.crop_state !== CropStates.HARVESTABLE &&
         crop.crop_state !== CropStates.DEAD
       ) {
-        crop.crop_state = CropStates.HARVESTABLE;
-        crop.sprite = `${crop.crop_type}${CropStates.HARVESTABLE}`;
-        // Also reset soil to READY so the crop doesn't keep absorbing water
-        const { soil } = tile;
-        if (soil && soil.soil_state === SoilStates.WATERED) {
-          crop.absorbing_water = false;
-        }
+        crop.matureNow();
         count++;
       }
     }
@@ -303,8 +299,7 @@
       if (!tile?.crop) continue;
       const { crop } = tile;
       if (crop.crop_state !== CropStates.DEAD) {
-        crop.crop_state = CropStates.DEAD;
-        crop.sprite = `${crop.crop_type}${CropStates.DEAD}`;
+        crop.markDead();
         count++;
       }
     }
@@ -443,14 +438,14 @@
               spawnBugEvent(farm_grid_index, 10000),
             ),
           )}
-          {@render btn("Fire Event (Unavailable)", "text-[#F2E0CF]", () =>
-            run("Fire Event (Unavailable)", () =>
-              spawnFireEvent(farm_grid_index, 1500),
-            ),
-          )}
-          {@render btn("Rain Event", "text-sky-200", () =>
-            run("Rain Event", () => spawnRainEvent(farm_grid_index, 500)),
-          )}
+          {#each [100, 500, 2000, 10000] as points}
+            {@render btn(`Fire Event (${points} pts)`, "text-orange-300", () =>
+              run(`Fire Event (${points} pts)`, () => spawnFireEvent(farm_grid_index, points)),
+            )}
+            {@render btn(`Rain Event (${points} pts)`, "text-sky-200", () =>
+              run(`Rain Event (${points} pts)`, () => spawnRainEvent(farm_grid_index, points)),
+            )}
+          {/each}
         </div>
 
         {@render sec("Seeds & Resources")}
@@ -852,6 +847,9 @@
           {@render btn("Kill Bug", "text-gray-200", () =>
             run("bot.killBug", () => getBot(botIndex).botKillBug()),
           )}
+          {@render btn("Extinguish", "text-sky-200", () =>
+            run("bot.extinguish", () => getBot(botIndex).botExtinguish()),
+          )}
         </div>
 
         <!-- Plant with crop selector -->
@@ -1106,6 +1104,14 @@
                     tileData.soil.soil_state)
                   : "None"}</span
               >
+            </div>
+            <div>
+              <span class="text-gray-500">Soil Water:</span>
+              <span class="text-sky-300">{Math.round((tileData.soil?.water_remaining ?? 0) * 100)}%</span>
+            </div>
+            <div>
+              <span class="text-gray-500">Fire:</span>
+              <span class="text-orange-300">{tileData.fire?.isBurning() ? `Stage ${tileData.fire.stage + 1} / 3` : "None"}</span>
             </div>
             <div>
               <span class="text-gray-500">Crop:</span>
@@ -1363,13 +1369,21 @@
               >
             </div>
             <div class="flex justify-between">
-              <span class="text-gray-400">Precondition:</span>
+              <span class="text-gray-400">Pest Precondition:</span>
               <span
                 class="font-bold {schedulerInfo.preconditionMet
                   ? 'text-emerald-400'
                   : 'text-red-400'}"
                 >{schedulerInfo.preconditionMet ? "MET" : "NOT MET"}</span
               >
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Fire Precondition:</span>
+              <span class="text-white">{schedulerInfo.firePreconditionMet ? "MET" : "NOT MET"} ({schedulerInfo.plantedCount} planted; need 2/3)</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Event Severity:</span>
+              <span class="text-white">{schedulerInfo.severity} pts</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-400">Spawn Chance (Bootstrap):</span>
@@ -1417,6 +1431,7 @@
             run("Force Event Check", () => {
               const result = eventScheduler.forceCheck();
               schedulerInfo = eventScheduler.getState();
+              return result;
             }),
           )}
         </div>

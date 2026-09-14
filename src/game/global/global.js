@@ -1,5 +1,6 @@
 import { lerp } from "../utils/math.js";
 import { RewardTypes, CropTypes } from "./enum.js";
+import { getWeatherArtwork } from "../events/artwork.js";
 
 export const TYPE_COLORS = {
   keyword: "#c678dd",
@@ -352,7 +353,6 @@ export const SAY_DATA = {
       plant_planted: "Tile is already planted",
       plant_initial: "The soil is not tilled",
       harvest_not_ready: "The crop is not fully grown",
-      destroy_absoring: "The crop is absoring water",
       crop_dead: "The crop is dead, destroy instead",
       out_of_bounds: "Out of bounds",
       insufficient_resources: "Insufficient resources",
@@ -388,10 +388,10 @@ export function setCameraCenter(k, camera) {
 export const DOCUMENT_DATA = {
   events: {
     fire: {
-      definition: "A fire starts on a random crop and spreads to nearby crops unless extinguished quickly.",
-      icon: "/sprites/icon_fire.png",
+      definition: "When at least two thirds of the farm is planted, fire can ignite random crops. Larger events start more fires.",
+      icon: getWeatherArtwork("icon_fire_2"),
       example: `bot.extinguish(); // Put out the fire`,
-      note: "Respond immediately. Delaying can cause the fire to spread across your farm.",
+      note: "Fire damages crops and removes them completely when they burn down. Only fully grown flames spread to adjacent crops. Wet soil reduces spread; bot.extinguish(), bot.water(), and raindrops put fires out.",
       type: "event",
       is_unlocked: true,
       tier: 3,
@@ -408,10 +408,10 @@ export const DOCUMENT_DATA = {
     },
 
     rain: {
-      definition: "Rain automatically waters all crops, reducing the need for manual watering.",
-      icon: "/sprites/icon_rain.png",
+      definition: "Clouds move in from the side and rain on selected tiles, preferring tiles with crops. Larger events bring more clouds.",
+      icon: getWeatherArtwork("icon_cloud"),
       example: `// No action required`,
-      note: "Take advantage of rainy weather by skipping unnecessary watering commands.",
+      note: "Raindrops water soil and extinguish fire. Water stays in empty soil for future crops. Rain does not till the ground; use bot.till() before planting on unprepared soil.",
       type: "event",
       is_unlocked: true,
       tier: 1,
@@ -804,7 +804,7 @@ export const DOCUMENT_DATA = {
       arguments: "None",
       definition: "Waters the soil on the bot's current tile. Crops need water to grow.",
       example: `bot.water();`,
-      note: "Watering a tile that hasn't been planted yet has no effect.",
+      note: "Prepared soil keeps unused water even without a crop. Crops absorb it as they grow; removing a crop leaves the remaining water in the soil. Watering also extinguishes fire on the current tile.",
       is_unlocked: true,
       tier: 0,
     },

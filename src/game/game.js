@@ -3,6 +3,7 @@ import { k, initKaplay } from "../lib/kaplay.js";
 import { addFarmbot, addSoilToGrid } from "./components-kaplay/components.js";
 import { lerpvec2 } from "./utils/math.js";
 import { CAMERA, CONFIG, setGridOrigin, setCameraCenter } from "./global/global.js";
+import { getWeatherArtwork, WEATHER_SPRITE_NAMES } from "./events/artwork.js";
 
 export const farm_grid_index = new Map();
 
@@ -112,6 +113,7 @@ export function game() {
 
   // Events
   k.loadSprite("bug", "/sprites/bug_purple.png");
+  for (const name of WEATHER_SPRITE_NAMES) k.loadSprite(name, getWeatherArtwork(name));
 
   // Effect
   k.loadSprite("effect_large", "/sprites/effect_large.png");

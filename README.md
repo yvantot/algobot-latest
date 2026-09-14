@@ -20,6 +20,8 @@ The audit was run with Node 24.19.0 and npm 11.17.0. Python is optional for play
 
 See [the project audit](documentation/PROJECT_AUDIT.md) for architecture, verified defects, data limitations, research objectives and remaining work. [Research evaluation](documentation/RESEARCH_EVALUATION.md) explains how to evaluate the preserved model and plan the upcoming paired pre/post assessment. [Setup guide](SETUP_GUIDE.md) provides Windows installation instructions.
 
+[Farm lifecycles and weather](documentation/FARM_LIFECYCLES_AND_WEATHER.md) documents the decoupled soil/crop/interpreter components, persistent soil water, fire and moving rain clouds, event tuning, and the expected artwork filenames.
+
 ## Preserve the research record
 
 - Original raw samples, processed arrays, model weights, and historical reports are tracked in Git. `npm run verify:artifacts` checks the 40 baseline artifacts; text line-ending conversion by Git is allowed, binary changes are not.

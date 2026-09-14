@@ -11,7 +11,7 @@ const hook = registerHooks({
     if (url.endsWith("/src/game/game.js")) return { format: "module", source: "export const farm_grid_index = globalThis.__mlTestFarm;", shortCircuit: true };
     if (url.endsWith("/src/game/event.js")) return {
       format: "module", shortCircuit: true,
-      source: "export const spawnBugEvent = () => ({type:'bug'}); export const spawnRainEvent = () => ({type:'rain',applied:globalThis.__mlTestRainApplied});",
+      source: "export const spawnBugEvent = () => ({type:'bug'}); export const spawnRainEvent = () => ({type:'rain',applied:globalThis.__mlTestRainApplied}); export const spawnFireEvent = () => ({applied:false}); export const canStartFireEvent = () => false;",
     };
     return nextLoad(url, context);
   },

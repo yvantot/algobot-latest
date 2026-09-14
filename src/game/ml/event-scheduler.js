@@ -1,9 +1,9 @@
 // Periodic DDA events: rules, hybrid LSTM/rules, or a validated DQN policy.
-// Helpful rain only needs a waterable tile; pests require >1/3 ripe crops.
+// Rain helps plants; challenge events choose eligible pests or fire.
 import { farm_grid_index } from "../game.js";
 import { CONFIG, PLAYER_DATA } from "../global/global.js";
 import { CropStates } from "../global/enum.js";
-import { spawnBugEvent, spawnRainEvent } from "../event.js";
+import { spawnBugEvent, spawnRainEvent, spawnFireEvent, canStartFireEvent } from "../event.js";
 import { mlAgent } from "./agent.js";
 import { DDA_ACTIONS } from "./dda.js";
 import { telemetry } from "./telemetry.js";
@@ -13,7 +13,9 @@ const ML_INTERVAL_MS = 2 * 60 * 1000;
 const COOLDOWN_MS = 5 * 60 * 1000;
 
 export class EventScheduler {
-  constructor() {
+  constructor({ random = Math.random, events = {} } = {}) {
+    this.random = random;
+    this.events = { bug: spawnBugEvent, rain: spawnRainEvent, fire: spawnFireEvent, canStartFire: canStartFireEvent, ...events };
     this.intervalId = null;
     this.lastEventTime = 0;
     this.isRunning = false;
@@ -73,6 +75,14 @@ export class EventScheduler {
     return this.getTotalTiles() > 0 && this.countHarvestableCrops() > this.getTotalTiles() / 3;
   }
 
+  countPlantedCrops() {
+    return [...farm_grid_index.values()].filter(tile => tile.soil && tile.crop && tile.crop.crop_state !== CropStates.DEAD).length;
+  }
+
+  eventSeverity() {
+    return Math.min(10000, 100 + this.countPlantedCrops() * 50 + Math.max(0, PLAYER_DATA.level) * 100);
+  }
+
   isCooldownActive() {
     return this.lastEventTime > 0 && Date.now() - this.lastEventTime < COOLDOWN_MS;
   }
@@ -89,27 +99,39 @@ export class EventScheduler {
   }
 
   _rainCheck() {
-    const result = spawnRainEvent(farm_grid_index);
-    return result.applied ? this._markEvent("rain", result) : { triggered: false, reason: "no_waterable_tiles" };
+    const result = this.events.rain(farm_grid_index, this.eventSeverity());
+    return result.applied ? this._markEvent("rain", result) : { triggered: false, reason: result.reason || "no_waterable_tiles" };
   }
 
   _bugCheck() {
     if (!this.checkPrecondition()) return { triggered: false, reason: "precondition" };
-    const result = spawnBugEvent(farm_grid_index, 100 + this.countHarvestableCrops() * 50);
+    const result = this.events.bug(farm_grid_index, this.eventSeverity());
+    if (result.applied === false) return { triggered: false, reason: result.reason || "no_bug_targets" };
     return this._markEvent("bug", result);
+  }
+
+  _challengeCheck() {
+    const eligible = [];
+    if (this.checkPrecondition()) eligible.push("bug");
+    if (this.events.canStartFire(farm_grid_index)) eligible.push("fire");
+    if (!eligible.length) return { triggered: false, reason: "precondition" };
+    const choice = eligible[Math.min(eligible.length - 1, Math.floor(this.random() * eligible.length))];
+    if (choice === "bug") return this._bugCheck();
+    const result = this.events.fire(farm_grid_index, this.eventSeverity());
+    return result.applied ? this._markEvent("fire", result) : { triggered: false, reason: result.reason || "no_fire_targets" };
   }
 
   _bootstrapCheck(force = false) {
     if (this.isCooldownActive()) return { triggered: false, reason: "cooldown" };
-    if (!force && Math.random() >= this.computeSpawnChance()) return { triggered: false, reason: "chance" };
+    if (!force && this.random() >= this.computeSpawnChance()) return { triggered: false, reason: "chance" };
     if (mlAgent.lastAction === DDA_ACTIONS.SCAFFOLD) return this._rainCheck();
-    return this._bugCheck();
+    return this._challengeCheck();
   }
 
   _mlCheck() {
     if (this.isCooldownActive()) return { triggered: false, reason: "cooldown" };
     if (mlAgent.lastAction === DDA_ACTIONS.SCAFFOLD) return this._rainCheck();
-    if ([DDA_ACTIONS.CHALLENGE, DDA_ACTIONS.STATE_OPTIMIZE].includes(mlAgent.lastAction)) return this._bugCheck();
+    if ([DDA_ACTIONS.CHALLENGE, DDA_ACTIONS.STATE_OPTIMIZE].includes(mlAgent.lastAction)) return this._challengeCheck();
     return { triggered: false, reason: "no_event_for_action" };
   }
 
@@ -134,6 +156,9 @@ export class EventScheduler {
       totalTiles: this.getTotalTiles(),
       threshold: Math.floor(this.getTotalTiles() / 3) + 1,
       preconditionMet: this.checkPrecondition(),
+      plantedCount: this.countPlantedCrops(),
+      firePreconditionMet: this.events.canStartFire(farm_grid_index),
+      severity: this.eventSeverity(),
       spawnChance: this.computeSpawnChance(),
       playerLevel: PLAYER_DATA.level,
       eventsTriggered: this.eventsTriggered,
