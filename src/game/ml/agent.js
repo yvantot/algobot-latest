@@ -1,300 +1,303 @@
-// TensorFlow.js In-Browser RNN (LSTM) + Deep Q-Network (DQN) Agent
-// Models student proficiency across the 5 CS1 curriculum milestones and selects adaptive DDA actions.
-//
-// Two operating modes:
-// - "bootstrap": Uses Bootstrap DDA (deterministic rules) while collecting experience tuples.
-//                 Models exist in memory but are bypassed. No pretrained weights available.
-// - "ml":        Uses trained LSTM for proficiency prediction and trained DQN for action selection.
-//                 Activates automatically when pretrained models are found at /models/lstm/ and /models/dqn/.
-
+// Browser LSTM proficiency inference and greedy DQN policy selection.
+// Missing/incompatible models or scaler use the explicit deterministic fallback.
 import * as tf from "@tensorflow/tfjs";
 import { telemetry } from "./telemetry.js";
 import { dda, DDA_ACTIONS } from "./dda.js";
 import { computeBootstrapAction } from "./dda-bootstrap.js";
+import { FEATURE_COUNT, SEQUENCE_LENGTH, validateScaler, normalizeSequence } from "./model-input.js";
 
-// Feature dimensions (must match telemetry.js getFeatureVector output)
-const FEATURE_COUNT = 10;
-const SEQUENCE_LENGTH = 20;
 const DQN_STATE_SIZE = 4;
 const DQN_ACTION_COUNT = 5;
 
-class MLDiffAgent {
-  constructor() {
+function validateModel(model, inputShape, outputSize) {
+  if (model.inputs?.length !== 1 || model.outputs?.length !== 1 ||
+      JSON.stringify(model.inputs[0].shape.slice(1)) !== JSON.stringify(inputShape) ||
+      model.outputs[0].shape.length !== 2 || model.outputs[0].shape[1] !== outputSize) {
+    throw new Error("Pretrained model shape does not match the runtime feature/action schema");
+  }
+}
+
+function validExperience(exp) {
+  return exp && [exp.state, exp.nextState].every(state =>
+    Array.isArray(state) && state.length === 4 && state.every(Number.isFinite)) &&
+    Number.isInteger(exp.action) && exp.action >= 0 && exp.action < 5 &&
+    Number.isFinite(exp.reward) && typeof exp.done === "boolean";
+}
+
+export class MLDiffAgent {
+  constructor({ loadModel = path => tf.loadLayersModel(path), loadScaler = async () => {
+    const response = await fetch("/models/lstm/scaler_params.json");
+    if (!response.ok) throw new Error(`LSTM scaler unavailable (${response.status})`);
+    return response.json();
+  }, loadPolicyMetadata = async () => {
+    const response = await fetch("/models/dqn/policy_metadata.json");
+    if (!response.ok) throw new Error(`DQN policy metadata unavailable (${response.status})`);
+    return response.json();
+  } } = {}) {
+    this._loadModel = loadModel;
+    this._loadScaler = loadScaler;
+    this._loadPolicyMetadata = loadPolicyMetadata;
+    this.policyMetadata = null;
+    this.dqnDeploymentReady = false;
     this.isInitialized = false;
+    this._initPromise = null;
+    this._updatePromise = null;
     this.lstmModel = null;
     this.dqnModel = null;
-    this.predictedProficiency = 0.5; // 0.0 (High Logic Wall Struggle) to 1.0 (Mastery)
-    this.predictedQValues = [0, 0, 0, 0, 0];
-    this.lastAction = DDA_ACTIONS.NORMAL;
-    this.epsilon = 0.15; // exploration rate (only used in ML mode)
-
-    // Bootstrap/ML mode
-    this.mode = "bootstrap"; // "bootstrap" | "ml"
+    this.scaler = null;
+    this.mode = "bootstrap";
     this.pretrainedLSTM = false;
     this.pretrainedDQN = false;
-
-    // Experience replay buffer (for offline DQN training export)
+    this.fallbackReason = null;
+    this.epsilon = 0; // Deployment always uses the greedy policy.
     this.replayBuffer = [];
     this.replayBufferMax = 500;
-    this.episodeCount = 0;
+    this._sessionGeneration = 0;
+    this.resetSession();
+  }
 
-    // Episode tracking for reward computation
+  resetSession() {
+    this._sessionGeneration++;
+    this._sessionEnded = false;
+    this.sessionId = telemetry.getSessionId();
+    this.episodeCount = 0;
     this.prevState = null;
     this.prevAction = null;
-    this.episodeStarted = false;
+    this.prevMode = null;
+    this.pendingCompletionReward = 0;
+    this.predictedProficiency = 0.5;
+    this.predictedQValues = [0, 0, 0, 0, 0];
+    this.lastAction = DDA_ACTIONS.NORMAL;
+    dda.applyAction(DDA_ACTIONS.NORMAL);
   }
 
   async init() {
     if (this.isInitialized) return;
+    if (this._initPromise) return this._initPromise;
+    this._initPromise = this._initialize();
+    return this._initPromise;
+  }
 
+  async _initialize() {
+    const failures = [];
     try {
-      // 1. Try to load pretrained LSTM model
-      try {
-        this.lstmModel = await tf.loadLayersModel("/models/lstm/model.json");
-        this.pretrainedLSTM = true;
-        console.log("📦 Pretrained LSTM model loaded");
-      } catch {
-        // No pretrained model — build fresh network (bootstrap mode)
-        const lstmInput = tf.input({ shape: [SEQUENCE_LENGTH, FEATURE_COUNT] });
-        const lstmLayer = tf.layers.lstm({ units: 16, returnSequences: false }).apply(lstmInput);
-        const denseEncoder = tf.layers.dense({ units: 8, activation: "relu" }).apply(lstmLayer);
-        const proficiencyOutput = tf.layers.dense({ units: 1, activation: "sigmoid" }).apply(denseEncoder);
+      this.lstmModel = await this._loadModel("/models/lstm/model.json");
+      validateModel(this.lstmModel, [SEQUENCE_LENGTH, FEATURE_COUNT], 1);
+      this.pretrainedLSTM = true;
+    } catch (error) {
+      this.lstmModel?.dispose();
+      this.lstmModel = null;
+      failures.push(`LSTM: ${error.message}`);
+    }
+    try {
+      this.dqnModel = await this._loadModel("/models/dqn/model.json");
+      validateModel(this.dqnModel, [DQN_STATE_SIZE], DQN_ACTION_COUNT);
+      this.pretrainedDQN = true;
+    } catch (error) {
+      this.dqnModel?.dispose();
+      this.dqnModel = null;
+      failures.push(`DQN: ${error.message}`);
+    }
+    try {
+      this.scaler = validateScaler(await this._loadScaler());
+    } catch (error) {
+      failures.push(`Scaler: ${error.message}`);
+    }
+    try {
+      this.policyMetadata = await this._loadPolicyMetadata();
+      this.dqnDeploymentReady = this.policyMetadata?.deployment_ready === true &&
+        Array.from({ length: DQN_ACTION_COUNT }, (_, action) =>
+          this.policyMetadata.observed_action_counts?.[action]).every(count => Number.isInteger(count) && count > 0);
+      if (!this.dqnDeploymentReady) failures.push(`DQN policy withheld: ${this.policyMetadata?.reason ?? "insufficient action coverage or validation"}`);
+    } catch (error) {
+      failures.push(`DQN policy metadata: ${error.message}`);
+    }
+    this.mode = this.pretrainedLSTM && this.scaler
+      ? (this.pretrainedDQN && this.dqnDeploymentReady ? "ml" : "hybrid")
+      : "bootstrap";
+    this.fallbackReason = failures.join("; ") || null;
+    this._loadReplayBuffer();
+    this.isInitialized = true;
+    if (this.fallbackReason) console.warn(`DDA operating in ${this.mode} mode:`, this.fallbackReason);
+  }
 
-        this.lstmModel = tf.model({ inputs: lstmInput, outputs: proficiencyOutput });
-        this.lstmModel.compile({ optimizer: tf.train.adam(0.01), loss: "meanSquaredError" });
-        console.log("🔧 No pretrained LSTM — built fresh network");
-      }
-
-      // 2. Try to load pretrained DQN model
-      try {
-        this.dqnModel = await tf.loadLayersModel("/models/dqn/model.json");
-        this.pretrainedDQN = true;
-        console.log("📦 Pretrained DQN model loaded");
-      } catch {
-        // Build fresh DQN
-        const dqnInput = tf.input({ shape: [DQN_STATE_SIZE] });
-        const dqnHidden1 = tf.layers.dense({ units: 16, activation: "relu" }).apply(dqnInput);
-        const dqnHidden2 = tf.layers.dense({ units: 16, activation: "relu" }).apply(dqnHidden1);
-        const qValuesOutput = tf.layers.dense({ units: DQN_ACTION_COUNT, activation: "linear" }).apply(dqnHidden2);
-
-        this.dqnModel = tf.model({ inputs: dqnInput, outputs: qValuesOutput });
-        this.dqnModel.compile({ optimizer: tf.train.adam(0.005), loss: "meanSquaredError" });
-        console.log("🔧 No pretrained DQN — built fresh network");
-      }
-
-      // 3. Determine operating mode
-      this.mode = (this.pretrainedLSTM && this.pretrainedDQN) ? "ml" : "bootstrap";
-
-      // 4. Load persisted replay buffer from localStorage
-      this._loadReplayBuffer();
-
-      this.isInitialized = true;
-      const modeLabel = this.mode === "ml" ? "🤖 ML Mode" : "🔧 Bootstrap Mode";
-      console.log(`${modeLabel} — TensorFlow.js RNN + DQN DDA Agent initialized in browser!`);
-    } catch (err) {
-      console.warn("TF.js initialization warning:", err);
+  // Coalesce overlapping updates so async inference cannot apply stale actions
+  // out of order, double-sample telemetry, or interleave replay transitions.
+  async updateAndPredict(stage = telemetry.currentStage) {
+    if (this._sessionEnded) return null;
+    if (this._updatePromise) return this._updatePromise;
+    const generation = this._sessionGeneration;
+    this._updatePromise = this._predict(stage, generation);
+    try {
+      return await this._updatePromise;
+    } finally {
+      this._updatePromise = null;
     }
   }
 
-  // Perform inference forward pass or bootstrap DDA action
-  async updateAndPredict(stage = 1) {
-    if (!this.isInitialized) await this.init();
-
+  async _predict(stage, generation) {
+    await this.init();
+    if (generation !== this._sessionGeneration || this._sessionEnded) return null;
+    const safeStage = Number.isInteger(stage) && stage >= 1 && stage <= 5 ? stage : telemetry.currentStage;
+    telemetry.sampleHistory();
     try {
-      if (this.mode === "bootstrap") {
-        return this._bootstrapUpdate(stage);
-      } else {
-        return this._mlUpdate(stage);
-      }
-    } catch (err) {
-      console.error("DDA prediction error:", err);
-      return {
-        proficiency: 0.5,
-        qValues: [0, 0, 0, 0, 0],
-        action: DDA_ACTIONS.NORMAL,
-        mode: this.mode,
-      };
+      if (this.mode === "ml" || this.mode === "hybrid") return await this._mlUpdate(safeStage, generation);
+    } catch (error) {
+      if (generation !== this._sessionGeneration || this._sessionEnded) return null;
+      this.mode = "bootstrap";
+      this.fallbackReason = `Inference: ${error.message}`;
+      console.warn("DDA inference failed; applying bootstrap fallback:", error);
     }
+    return this._bootstrapUpdate(safeStage);
   }
 
-  // --- Bootstrap Mode ---
   _bootstrapUpdate(stage) {
-    // Use deterministic Bootstrap DDA
+    this.predictedProficiency = 0.5; // Unknown; exports identify bootstrap mode.
+    this.predictedQValues = [0, 0, 0, 0, 0];
     const action = computeBootstrapAction(telemetry, stage);
+    const state = [0.5, stage / 5, telemetry.frustrationScore, telemetry.flowScore];
+    this._applyDecision(state, action, stage);
+    return { proficiency: null, qValues: null, action, mode: "bootstrap", fallbackReason: this.fallbackReason };
+  }
+
+  async _predictValues(model, values, shape) {
+    let input;
+    let prediction;
+    try {
+      input = tf.tensor(values, shape);
+      prediction = model.predict(input);
+      if (Array.isArray(prediction)) throw new Error("Expected a single model output");
+      const output = Array.from(await prediction.data());
+      if (output.some(value => !Number.isFinite(value))) throw new Error("Model returned non-finite values");
+      return output;
+    } finally {
+      tf.dispose([input, prediction].filter(Boolean));
+    }
+  }
+
+  async _mlUpdate(stage, generation) {
+    const sequence = normalizeSequence(telemetry.getLSTMInputTensor(), this.scaler);
+    // Keep the DQN state from the same observation as the LSTM input, even if
+    // gameplay progresses while the GPU/backend resolves prediction.data().
+    const frustration = telemetry.frustrationScore;
+    const flow = telemetry.flowScore;
+    const proficiencyValues = await this._predictValues(this.lstmModel, [sequence], [1, SEQUENCE_LENGTH, FEATURE_COUNT]);
+    if (proficiencyValues.length !== 1 || proficiencyValues[0] < 0 || proficiencyValues[0] > 1) {
+      throw new Error("LSTM proficiency must be a scalar in [0, 1]");
+    }
+    const proficiency = proficiencyValues[0];
+    const state = [proficiency, stage / 5, frustration, flow];
+    if (this.mode === "hybrid") {
+      if (generation !== this._sessionGeneration || this._sessionEnded) return null;
+      this.predictedProficiency = proficiency;
+      this.predictedQValues = [0, 0, 0, 0, 0];
+      const action = computeBootstrapAction(telemetry, stage, proficiency);
+      this._applyDecision(state, action, stage);
+      return { proficiency, qValues: null, action, mode: "hybrid", policySource: "rules", proficiencySource: "lstm" };
+    }
+    const qValues = await this._predictValues(this.dqnModel, [state], [1, DQN_STATE_SIZE]);
+    if (qValues.length !== DQN_ACTION_COUNT) throw new Error("DQN must return five action values");
+    if (generation !== this._sessionGeneration || this._sessionEnded) return null;
+    this.predictedProficiency = proficiency;
+    this.predictedQValues = qValues;
+    const action = qValues.indexOf(Math.max(...qValues));
+    this._applyDecision(state, action, stage);
+    return { proficiency, qValues, action, mode: "ml" };
+  }
+
+  _applyDecision(state, action, stage) {
     this.lastAction = action;
     dda.applyAction(action, stage);
-
-    // Record DDA action in telemetry
-    telemetry.recordDDAAction(action, stage);
-
-    // Build state vector for experience tuple (even though we're not training)
-    const stateArr = [
-      0.5, // proficiency unknown in bootstrap mode
-      stage / 5.0,
-      telemetry.frustrationScore,
-      telemetry.flowScore,
-    ];
-
-    // Record experience tuple for future offline DQN training
-    this._recordExperience(stateArr, action, stage);
-
-    // Still sample history for LSTM buffer building
-    telemetry.sampleHistory();
-
-    return {
-      proficiency: null,
-      qValues: null,
-      action,
-      mode: "bootstrap",
-    };
+    telemetry.recordDDAAction(action, stage, {
+      mode: this.mode,
+      policySource: this.mode === "ml" ? "dqn" : "rules",
+      proficiencySource: this.mode === "bootstrap" ? "unknown" : "lstm",
+      proficiency: this.mode === "bootstrap" ? null : state[0],
+    });
+    // Only record a hint when its presentation is confirmed by the UI.
+    this._recordExperience(state, action, stage);
   }
-
-  // --- ML Mode ---
-  async _mlUpdate(stage) {
-    // 1. Extract telemetry sliding window
-    const sequence = telemetry.getLSTMInputTensor(); // [20, 10]
-    const lstmTensor = tf.tensor3d([sequence], [1, SEQUENCE_LENGTH, FEATURE_COUNT]);
-
-    // Predict Student Proficiency via LSTM
-    const profPred = this.lstmModel.predict(lstmTensor);
-    const profVal = (await profPred.data())[0];
-    this.predictedProficiency = Number(profVal.toFixed(3));
-    tf.dispose([lstmTensor, profPred]);
-
-    // 2. Construct State Tensor for DQN: [Proficiency, Stage/5, Frustration, Flow]
-    const stateArr = [
-      this.predictedProficiency,
-      stage / 5.0,
-      telemetry.frustrationScore,
-      telemetry.flowScore,
-    ];
-    const stateTensor = tf.tensor2d([stateArr], [1, DQN_STATE_SIZE]);
-
-    // Predict Q-Values for the 5 DDA actions
-    const qPred = this.dqnModel.predict(stateTensor);
-    const qValues = Array.from(await qPred.data());
-    this.predictedQValues = qValues.map((v) => Number(v.toFixed(3)));
-    tf.dispose([stateTensor, qPred]);
-
-    // 3. Action selection (greedy — no exploration in deployed ML mode)
-    const selectedAction = qValues.indexOf(Math.max(...qValues));
-    this.lastAction = selectedAction;
-    dda.applyAction(selectedAction, stage);
-
-    // Record DDA action in telemetry
-    telemetry.recordDDAAction(selectedAction, stage);
-
-    // Record experience tuple (for evaluation and potential retraining)
-    this._recordExperience(stateArr, selectedAction, stage);
-
-    // Sample history
-    telemetry.sampleHistory();
-
-    return {
-      proficiency: this.predictedProficiency,
-      qValues: this.predictedQValues,
-      action: selectedAction,
-      mode: "ml",
-    };
-  }
-
-  // --- Experience Replay Buffer ---
 
   _recordExperience(currentState, action, stage) {
-    if (this.prevState !== null && this.prevAction !== null) {
-      // Compute reward for the previous action
-      const reward = this._computeReward(this.prevState, this.prevAction, currentState);
-      const done = false;
-
-      this.replayBuffer.push({
-        state: [...this.prevState],
-        action: this.prevAction,
-        reward: Number(reward.toFixed(4)),
-        nextState: [...currentState],
-        done,
-        stage,
-        timestamp: Date.now(),
-      });
-
-      // Trim buffer if too large
-      if (this.replayBuffer.length > this.replayBufferMax) {
-        this.replayBuffer.shift();
-      }
-
-      this.episodeCount++;
-
-      // Persist periodically
-      if (this.episodeCount % 10 === 0) {
-        this._persistReplayBuffer();
-      }
-    }
-
-    // Save current state for next experience tuple
+    this._appendTransition(currentState, false);
     this.prevState = [...currentState];
     this.prevAction = action;
+    this.prevMode = this.mode;
+  }
+
+  _appendTransition(currentState, done) {
+    if (this.prevState === null || this.prevAction === null) return;
+    const reward = Math.max(-2, Math.min(2,
+      this._computeReward(this.prevState, this.prevAction, currentState) + this.pendingCompletionReward));
+    this.pendingCompletionReward = 0;
+    this.replayBuffer.push({
+      session_id: this.sessionId,
+      student_id: telemetry.participantId,
+      mode: this.prevMode,
+      state: [...this.prevState],
+      action: this.prevAction,
+      reward: Number(reward.toFixed(4)),
+      nextState: [...currentState],
+      done,
+      stage: Math.round(this.prevState[1] * 5),
+      timestamp: Date.now(),
+    });
+    if (this.replayBuffer.length > this.replayBufferMax) this.replayBuffer.shift();
+    this.episodeCount++;
+    this._persistReplayBuffer();
   }
 
   _computeReward(prevState, action, currentState) {
-    let reward = 0;
-
-    // Flow improvement: reward maintaining/increasing flow
-    const flowDelta = currentState[3] - prevState[3]; // index 3 = flow
-    reward += flowDelta * 2.0;
-
-    // Frustration reduction: reward reducing frustration
-    const frustDelta = currentState[2] - prevState[2]; // index 2 = frustration
-    reward -= frustDelta * 2.0;
-
-    // Penalty for scaffolding a proficient student (if proficiency is known)
-    if (action === DDA_ACTIONS.SCAFFOLD && prevState[0] > 0.7) {
-      reward -= 0.5;
-    }
-
-    // Penalty for challenging a struggling student
-    if (action === DDA_ACTIONS.CHALLENGE && prevState[0] < 0.3) {
-      reward -= 0.5;
-    }
-
-    // Quest completion bonus is added via telemetry events, not here
-    // (handled separately when quest_complete fires)
-
-    return Math.max(-2.0, Math.min(2.0, reward)); // clamp
+    let reward = (currentState[3] - prevState[3]) * 2 - (currentState[2] - prevState[2]) * 2;
+    if (action === DDA_ACTIONS.SCAFFOLD && prevState[0] > 0.7) reward -= 0.5;
+    if (action === DDA_ACTIONS.CHALLENGE && prevState[0] < 0.3) reward -= 0.5;
+    return Math.max(-2, Math.min(2, reward));
   }
 
-  // Add a quest completion bonus to the most recent experience
   addQuestCompletionReward() {
-    if (this.replayBuffer.length > 0) {
-      const lastExp = this.replayBuffer[this.replayBuffer.length - 1];
-      lastExp.reward = Math.min(2.0, lastExp.reward + 1.0);
+    // Completion belongs to the action currently being experienced, not the
+    // already-finished transition at the end of the replay buffer.
+    if (this.prevState !== null) this.pendingCompletionReward += 1;
+  }
+
+  endSession() {
+    if (this._sessionEnded) return;
+    this._sessionEnded = true;
+    this._sessionGeneration++;
+    telemetry.updateEmotionScores();
+    if (this.prevState) {
+      this._appendTransition([
+        this.prevState[0], telemetry.currentStage / 5,
+        telemetry.frustrationScore, telemetry.flowScore,
+      ], true);
     }
+    this.prevState = null;
+    this.prevAction = null;
+    this.pendingCompletionReward = 0;
+    this._persistReplayBuffer();
   }
 
   _persistReplayBuffer() {
     try {
-      // Store only the last 200 experiences to avoid localStorage limits
-      const toStore = this.replayBuffer.slice(-200);
-      localStorage.setItem("algobot_replay_buffer", JSON.stringify(toStore));
-    } catch {
-      // localStorage full or unavailable — non-critical
+      localStorage.setItem("algobot_replay_buffer", JSON.stringify(this.replayBuffer));
+    } catch (error) {
+      console.warn("Replay persistence failed; export research data before closing:", error.message);
     }
   }
 
   _loadReplayBuffer() {
     try {
-      const stored = localStorage.getItem("algobot_replay_buffer");
-      if (stored) {
-        this.replayBuffer = JSON.parse(stored);
-        console.log(`📥 Loaded ${this.replayBuffer.length} replay experiences from localStorage`);
-      }
+      const stored = JSON.parse(localStorage.getItem("algobot_replay_buffer") || "[]");
+      this.replayBuffer = Array.isArray(stored) ? stored.filter(validExperience).slice(-this.replayBufferMax) : [];
     } catch {
-      // ignore
+      this.replayBuffer = [];
     }
   }
 
-  // --- Export Methods (for training pipeline) ---
-
-  getReplayBuffer() {
-    return [...this.replayBuffer];
+  getReplayBuffer({ sessionOnly = false } = {}) {
+    return structuredClone(sessionOnly
+      ? this.replayBuffer.filter(exp => exp.session_id === this.sessionId)
+      : this.replayBuffer);
   }
 
   getAgentState() {
@@ -302,6 +305,11 @@ class MLDiffAgent {
       mode: this.mode,
       pretrainedLSTM: this.pretrainedLSTM,
       pretrainedDQN: this.pretrainedDQN,
+      scalerLoaded: Boolean(this.scaler),
+      dqnDeploymentReady: this.dqnDeploymentReady,
+      policySource: this.mode === "ml" ? "dqn" : "rules",
+      proficiencySource: this.mode === "bootstrap" ? "unknown" : "lstm",
+      fallbackReason: this.fallbackReason,
       episodeCount: this.episodeCount,
       replayBufferSize: this.replayBuffer.length,
       predictedProficiency: this.predictedProficiency,

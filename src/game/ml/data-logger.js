@@ -1,275 +1,270 @@
-// Data Logger — Session-level data collection and export for ML training pipeline.
-// Captures complete gameplay sessions with dual-layer logging:
-// 1. Raw event stream (immutable, for future re-processing)
-// 2. Engineered feature snapshots (periodic, can be regenerated from raw)
-//
-// Supports JSON and CSV export with dataset versioning.
-
+// Canonical session persistence/export. Legacy lightweight records are preserved
+// and marked incomplete: missing raw events and timestamps cannot be recovered.
 import { telemetry } from "./telemetry.js";
 import { mlAgent } from "./agent.js";
 
-class DataLogger {
+const LABEL_FORMULA = "0.40*completion + 0.25*(1-min(1,errors/10)) + 0.20*(1-min(1,resets/5)) + 0.15*(1-min(1,hints/5))";
+const toISO = value => value ? new Date(value).toISOString() : null;
+
+function exportAttempt(key, attempt, fallbackStage) {
+  return {
+    quest_key: key,
+    stage: attempt.stage ?? fallbackStage,
+    start_time: toISO(attempt.startTime),
+    end_time: toISO(attempt.endTime),
+    start_time_inferred: attempt.startTimeInferred ?? false,
+    duration_seconds: attempt.durationSeconds ?? 0,
+    completed: Boolean(attempt.completed),
+    errors: attempt.errors ?? 0,
+    resets: attempt.resets ?? 0,
+    code_runs: attempt.codeRuns ?? 0,
+    hints_shown: attempt.hintsShown ?? 0,
+    dda_action: attempt.ddaAction ?? 0,
+    feature_vector_start: attempt.featureVectorAtStart ?? [],
+    feature_vector_end: attempt.featureVectorAtEnd ?? [],
+    proficiency_label: attempt.proficiencyLabel ?? null,
+  };
+}
+
+export function normalizeStoredSession(session) {
+  if (session.session_id && Array.isArray(session.quest_attempts)) return structuredClone(session);
+  const summary = session.summary || {};
+  return {
+    dataset_version: "v1",
+    feature_schema_version: "10f",
+    telemetry_revision: "legacy",
+    label_formula: LABEL_FORMULA,
+    student_id: summary.participantId ?? "unknown",
+    session_id: summary.sessionId ?? null,
+    start_time: summary.startTime ?? null,
+    duration_minutes: summary.durationMinutes ?? 0,
+    editor_mode_primary: summary.editorMode ?? "unknown",
+    dda_mode: session.agentState?.mode ?? "unknown",
+    quest_attempts: Object.entries(session.questAttempts || {}).map(([key, attempt]) =>
+      exportAttempt(key, attempt, summary.currentStage ?? 1)),
+    feature_timeseries: structuredClone(session.featureSnapshots || []),
+    dda_log: structuredClone(session.ddaLog || []),
+    replay_buffer: [],
+    raw_events: [],
+    data_quality: {
+      legacy_lightweight_record: true,
+      raw_events_available: false,
+      recorded_raw_event_count: session.rawEventCount ?? null,
+      timestamps_available: false,
+    },
+    summary: structuredClone(summary),
+  };
+}
+
+function csvCell(value) {
+  let text = value == null ? "" : String(value);
+  // Participant IDs and other strings must not become executable spreadsheet formulas.
+  if (typeof value === "string" && /^[=+@-]/.test(text)) text = `'${text}`;
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+export class DataLogger {
   constructor() {
     this.storageKey = "algobot_sessions";
     this.rawStorageKey = "algobot_raw_sessions";
-    this.datasetVersion = "v1";
+    this.datasetVersion = "v2";
+    this.lastPersistenceError = null;
+    // A failed save must survive a return to the menu and the next telemetry
+    // reset. Keep immutable per-session snapshots in memory until persistence
+    // succeeds or the user explicitly clears research data.
+    this.pendingSessions = new Map();
   }
 
-  // --- Session Export ---
-
-  /**
-   * Builds a complete session export object from current telemetry state.
-   * Call this at session end (beforeunload) or on manual export.
-   */
   buildSessionExport() {
     const summary = telemetry.getSessionSummary();
-    const questAttempts = telemetry.getQuestAttempts();
-    const featureSnapshots = telemetry.getFeatureSnapshots();
-    const ddaLog = telemetry.getDDALog();
-    const rawEvents = telemetry.getRawEvents();
+    const attempts = telemetry.getQuestAttempts();
     const agentState = mlAgent.getAgentState();
-    const replayBuffer = mlAgent.getReplayBuffer();
-
+    const replay = mlAgent.getReplayBuffer({ sessionOnly: true });
     return {
-      // Metadata
       dataset_version: this.datasetVersion,
       export_date: new Date().toISOString(),
       feature_schema_version: "10f",
-      label_formula: "0.40*completion + 0.25*(1-errors) + 0.20*(1-resets) + 0.15*(1-hints)",
-
-      // Session identity
+      telemetry_revision: "v2-timestamped-outcomes",
+      label_formula: LABEL_FORMULA,
+      label_interpretation: "Gameplay heuristic; not an independent algorithmic-logic assessment",
       student_id: summary.participantId,
       session_id: summary.sessionId,
       start_time: summary.startTime,
       duration_minutes: summary.durationMinutes,
       editor_mode_primary: summary.editorMode,
       dda_mode: agentState.mode,
-
-      // Quest attempts with proficiency labels
-      quest_attempts: Object.entries(questAttempts).map(([key, attempt]) => ({
-        quest_key: key,
-        stage: attempt.stage || telemetry.currentStage,
-        start_time: attempt.startTime ? new Date(attempt.startTime).toISOString() : null,
-        end_time: attempt.endTime ? new Date(attempt.endTime).toISOString() : null,
-        duration_seconds: attempt.durationSeconds || 0,
-        completed: attempt.completed,
-        errors: attempt.errors,
-        resets: attempt.resets,
-        code_runs: attempt.codeRuns,
-        hints_shown: attempt.hintsShown,
-        dda_action: attempt.ddaAction || 0,
-        feature_vector_start: attempt.featureVectorAtStart || [],
-        feature_vector_end: attempt.featureVectorAtEnd || [],
-        proficiency_label: attempt.proficiencyLabel || null,
-      })),
-
-      // Feature time series (for LSTM training)
-      feature_timeseries: featureSnapshots,
-
-      // DDA action log
-      dda_log: ddaLog,
-
-      // DQN experience tuples (for offline DQN training)
-      replay_buffer: replayBuffer,
-
-      // Raw event stream (immutable — for future re-processing)
-      raw_events: rawEvents,
-
-      // Session summary statistics
+      agent_state: agentState,
+      quest_attempts: Object.entries(attempts).map(([key, attempt]) => exportAttempt(key, attempt, summary.currentStage)),
+      feature_timeseries: telemetry.getFeatureSnapshots(),
+      dda_log: telemetry.getDDALog(),
+      replay_buffer: replay,
+      raw_events: telemetry.getRawEvents(),
+      data_quality: { legacy_lightweight_record: false, raw_events_available: true, timestamps_available: true },
       summary: {
-        total_quests_attempted: Object.keys(questAttempts).length,
-        total_quests_completed: Object.values(questAttempts).filter(a => a.completed).length,
+        total_quests_attempted: Object.keys(attempts).length,
+        total_quests_completed: Object.values(attempts).filter(attempt => attempt.completed).length,
         total_errors: summary.totalErrors,
         total_resets: summary.totalResets,
         total_code_runs: summary.totalCodeRuns,
         code_run_success_rate: summary.codeRunSuccessRate,
         total_hints_shown: summary.totalHintsShown,
-        max_stage_reached: summary.currentStage,
+        max_stage_reached: summary.maxStageReached,
         avg_frustration: summary.avgFrustration,
         avg_flow: summary.avgFlow,
+        emotion_sample_count: summary.emotionSampleCount,
         total_interpreter_steps: summary.totalSteps,
-        replay_buffer_size: replayBuffer.length,
+        replay_buffer_size: replay.length,
         agent_episode_count: agentState.episodeCount,
       },
     };
   }
 
-  // --- Persistence ---
+  _readStoredSessions() {
+    const stored = JSON.parse(localStorage.getItem(this.storageKey) || "[]");
+    if (!Array.isArray(stored) || stored.some(session => !session || typeof session !== "object")) {
+      throw new Error("Saved session data is malformed; existing storage was preserved");
+    }
+    return stored;
+  }
 
-  /**
-   * Save current session to localStorage (lightweight — no raw events).
-   * Used by beforeunload handler for automatic persistence.
-   */
+  // Kept for existing callers; now saves the complete canonical record and upserts
+  // by session ID so periodic, unload and return-to-menu saves do not duplicate it.
   saveSessionLight() {
     try {
-      const sessionData = {
-        summary: telemetry.getSessionSummary(),
-        questAttempts: telemetry.getQuestAttempts(),
-        featureSnapshots: telemetry.getFeatureSnapshots(),
-        ddaLog: telemetry.getDDALog(),
-        rawEventCount: telemetry.getRawEvents().length,
-        agentState: mlAgent.getAgentState(),
-      };
-      const stored = JSON.parse(localStorage.getItem(this.storageKey) || "[]");
-      stored.push(sessionData);
+      const current = this.buildSessionExport();
+      this.pendingSessions.set(current.session_id, structuredClone(current));
+      const stored = this._readStoredSessions();
+      for (const pending of this.pendingSessions.values()) {
+        const index = stored.findIndex(session => (session.session_id ?? session.summary?.sessionId) === pending.session_id);
+        if (index < 0) stored.push(pending);
+        else stored[index] = pending;
+      }
       localStorage.setItem(this.storageKey, JSON.stringify(stored));
+      this.pendingSessions.clear();
+      this.lastPersistenceError = null;
       return true;
-    } catch (e) {
-      console.warn("Failed to save session data:", e);
+    } catch (error) {
+      this.lastPersistenceError = error.message;
+      console.warn("Failed to save complete research session; export before closing:", error);
       return false;
     }
   }
 
-  /**
-   * Get count of stored sessions.
-   */
   getSessionCount() {
+    const ids = new Set(this.pendingSessions.keys());
     try {
-      const stored = JSON.parse(localStorage.getItem(this.storageKey) || "[]");
-      return stored.length;
-    } catch {
-      return 0;
-    }
+      const sessions = this._readStoredSessions();
+      sessions.forEach((session, index) => ids.add(session.session_id ?? session.summary?.sessionId ?? `legacy-${index}`));
+    } catch { /* Failed saves still remain available in pendingSessions. */ }
+    return ids.size;
   }
 
-  // --- Export: JSON ---
-
-  /**
-   * Export all stored sessions as a downloadable JSON file.
-   * Includes the current active session.
-   */
-  exportAllSessionsJSON() {
-    const currentSession = this.buildSessionExport();
-    const storedSessions = JSON.parse(localStorage.getItem(this.storageKey) || "[]");
-
-    const exportData = {
+  buildDatasetExport() {
+    const current = this.buildSessionExport();
+    const sessions = new Map();
+    const storageErrors = [];
+    const unconvertedRecords = [];
+    let unparsedStoredSessions = null;
+    try {
+      this._readStoredSessions().forEach((stored, index) => {
+        try {
+          const session = normalizeStoredSession(stored);
+          sessions.set(session.session_id ?? `legacy-${index}`, session);
+        } catch (error) {
+          unconvertedRecords.push(stored);
+          storageErrors.push(`Stored record ${index}: ${error.message}`);
+        }
+      });
+    } catch (error) {
+      storageErrors.push(error.message);
+      // Preserve the original storage bytes inside the JSON download when they
+      // can still be read. Never overwrite corrupt storage during recovery.
+      try { unparsedStoredSessions = localStorage.getItem(this.storageKey); } catch { /* Storage access denied. */ }
+    }
+    if (storageErrors.length) this.lastPersistenceError = storageErrors.join("; ");
+    for (const pending of this.pendingSessions.values()) {
+      sessions.set(pending.session_id, structuredClone(pending));
+    }
+    sessions.set(current.session_id, current);
+    const records = [...sessions.values()];
+    return {
       dataset_version: this.datasetVersion,
       export_date: new Date().toISOString(),
-      participant_count: new Set([
-        currentSession.student_id,
-        ...storedSessions.map(s => s.summary?.participantId || "unknown"),
-      ]).size,
-      session_count: storedSessions.length + 1,
+      participant_count: new Set(records.map(session => session.student_id)).size,
+      session_count: records.length,
       feature_schema_version: "10f",
-      label_formula: currentSession.label_formula,
-      sessions: [...storedSessions, currentSession],
+      label_formula: LABEL_FORMULA,
+      data_quality: {
+        stored_sessions_fully_readable: storageErrors.length === 0,
+        storage_read_errors: storageErrors,
+        pending_unpersisted_session_count: this.pendingSessions.size,
+      },
+      ...(unparsedStoredSessions !== null ? { unparsed_stored_sessions_backup: unparsedStoredSessions } : {}),
+      ...(unconvertedRecords.length ? { unconverted_stored_records: unconvertedRecords } : {}),
+      sessions: records,
     };
-
-    this._downloadFile(
-      JSON.stringify(exportData, null, 2),
-      `algobot_dataset_${this.datasetVersion}_${Date.now()}.json`,
-      "application/json"
-    );
   }
 
-  // --- Export: CSV (flattened quest attempts) ---
+  exportAllSessionsJSON() {
+    this._downloadFile(JSON.stringify(this.buildDatasetExport(), null, 2),
+      `algobot_dataset_${this.datasetVersion}_${Date.now()}.json`, "application/json");
+  }
 
-  /**
-   * Export quest attempts as a flattened CSV for Python preprocessing.
-   * Each row = one quest attempt with features and proficiency label.
-   */
-  exportQuestCSV() {
-    const currentSession = this.buildSessionExport();
-    const storedSessions = JSON.parse(localStorage.getItem(this.storageKey) || "[]");
-
-    // CSV header
+  buildQuestCSV() {
     const headers = [
-      "student_id", "session_id", "quest_key", "stage",
-      "duration_seconds", "completed", "errors", "resets",
-      "code_runs", "hints_shown", "dda_action", "dda_mode",
-      "proficiency_label",
-      "f0_error_rate", "f1_exec_speed", "f2_iteration_usage",
-      "f3_condition_reactivity", "f4_greedy_efficiency", "f5_yield_quality",
-      "f6_frustration", "f7_code_success_rate", "f8_hint_rate", "f9_completion_time",
+      "student_id", "session_id", "quest_key", "stage", "duration_seconds", "completed", "errors", "resets",
+      "code_runs", "hints_shown", "dda_action", "dda_mode", "proficiency_label", "f0_error_rate", "f1_exec_speed",
+      "f2_iteration_usage", "f3_condition_reactivity", "f4_greedy_efficiency", "f5_yield_quality", "f6_frustration",
+      "f7_code_success_rate", "f8_hint_rate", "f9_completion_time",
     ];
-
-    const rows = [headers.join(",")];
-
-    // Process current session
-    for (const qa of currentSession.quest_attempts) {
-      const fv = qa.feature_vector_end || new Array(10).fill(0);
-      rows.push([
-        currentSession.student_id,
-        currentSession.session_id,
-        qa.quest_key,
-        qa.stage,
-        qa.duration_seconds.toFixed(1),
-        qa.completed ? 1 : 0,
-        qa.errors,
-        qa.resets,
-        qa.code_runs,
-        qa.hints_shown,
-        qa.dda_action,
-        currentSession.dda_mode,
-        qa.proficiency_label ?? "",
-        ...fv.map(v => (typeof v === "number" ? v.toFixed(4) : "0")),
-      ].join(","));
-    }
-
-    // Process stored sessions (limited data — may not have full quest attempt details)
-    for (const session of storedSessions) {
-      if (session.questAttempts) {
-        for (const [key, qa] of Object.entries(session.questAttempts)) {
-          const fv = qa.featureVectorAtEnd || new Array(10).fill(0);
-          rows.push([
-            session.summary?.participantId || "unknown",
-            session.summary?.sessionId || "unknown",
-            key,
-            qa.stage || 1,
-            (qa.durationSeconds || 0).toFixed(1),
-            qa.completed ? 1 : 0,
-            qa.errors || 0,
-            qa.resets || 0,
-            qa.codeRuns || 0,
-            qa.hintsShown || 0,
-            qa.ddaAction || 0,
-            "bootstrap",
-            qa.proficiencyLabel ?? "",
-            ...fv.map(v => (typeof v === "number" ? v.toFixed(4) : "0")),
-          ].join(","));
-        }
+    const rows = [headers];
+    for (const session of this.buildDatasetExport().sessions) {
+      for (const attempt of session.quest_attempts) {
+        const features = Array.from({ length: 10 }, (_, i) => {
+          const value = attempt.feature_vector_end?.[i];
+          return Number.isFinite(value) ? value.toFixed(4) : "";
+        });
+        rows.push([
+          session.student_id, session.session_id, attempt.quest_key, attempt.stage,
+          Number(attempt.duration_seconds ?? 0).toFixed(1), attempt.completed ? 1 : 0,
+          attempt.errors, attempt.resets, attempt.code_runs, attempt.hints_shown, attempt.dda_action,
+          session.dda_mode, attempt.proficiency_label ?? "", ...features,
+        ]);
       }
     }
-
-    this._downloadFile(
-      rows.join("\n"),
-      `algobot_quests_${this.datasetVersion}_${Date.now()}.csv`,
-      "text/csv"
-    );
+    return rows.map(row => row.map(csvCell).join(",")).join("\n");
   }
 
-  // --- Export: Replay Buffer (for offline DQN training) ---
+  exportQuestCSV() {
+    this._downloadFile(this.buildQuestCSV(), `algobot_quests_${this.datasetVersion}_${Date.now()}.csv`, "text/csv");
+  }
 
   exportReplayBufferJSON() {
-    const buffer = mlAgent.getReplayBuffer();
-    this._downloadFile(
-      JSON.stringify(buffer, null, 2),
-      `algobot_replay_buffer_${Date.now()}.json`,
-      "application/json"
-    );
+    this._downloadFile(JSON.stringify(mlAgent.getReplayBuffer(), null, 2),
+      `algobot_replay_buffer_${Date.now()}.json`, "application/json");
   }
-
-  // --- Clear ---
 
   clearAllData() {
     localStorage.removeItem(this.storageKey);
     localStorage.removeItem(this.rawStorageKey);
     localStorage.removeItem("algobot_replay_buffer");
-    console.log("🗑️ All stored session data cleared");
+    this.pendingSessions.clear();
+    mlAgent.replayBuffer = [];
+    mlAgent.prevState = null;
+    mlAgent.prevAction = null;
+    mlAgent.pendingCompletionReward = 0;
   }
-
-  // --- Utility ---
 
   _downloadFile(content, filename, mimeType) {
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 }
 

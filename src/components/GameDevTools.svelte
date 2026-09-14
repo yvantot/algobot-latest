@@ -443,13 +443,13 @@
               spawnBugEvent(farm_grid_index, 10000),
             ),
           )}
-          {@render btn("Fire Event (WIP)", "text-[#F2E0CF]", () =>
-            run("Fire Event (WIP)", () =>
+          {@render btn("Fire Event (Unavailable)", "text-[#F2E0CF]", () =>
+            run("Fire Event (Unavailable)", () =>
               spawnFireEvent(farm_grid_index, 1500),
             ),
           )}
-          {@render btn("Rain Event (WIP)", "text-sky-200", () =>
-            run("Rain Event (WIP)", () => spawnRainEvent(farm_grid_index, 500)),
+          {@render btn("Rain Event", "text-sky-200", () =>
+            run("Rain Event", () => spawnRainEvent(farm_grid_index, 500)),
           )}
         </div>
 
@@ -1298,23 +1298,23 @@
             <span
               class="font-bold {mlAgent.mode === 'ml'
                 ? 'text-emerald-400'
-                : 'text-amber-400'}">{mlAgent.mode || "bootstrap"}</span
+                : 'text-amber-400'}">{mlAgent.mode === "hybrid" ? "LSTM + Rules" : mlAgent.mode === "ml" ? "LSTM + DQN" : "Rules"}</span
             >
           </div>
           <div class="flex justify-between">
             <span class="text-gray-400">Predicted Proficiency:</span>
             <span class="font-bold text-white"
-              >{(mlAgent.predictedProficiency * 100).toFixed(1)}%</span
+              >{mlAgent.mode === "bootstrap" ? "Unavailable" : `${(mlAgent.predictedProficiency * 100).toFixed(1)}%`}</span
             >
           </div>
           <div class="flex justify-between">
-            <span class="text-gray-400">Frustration Index:</span>
+            <span class="text-gray-400">Frustration Proxy:</span>
             <span class="font-bold text-red-400"
               >{(telemetry.frustrationScore * 100).toFixed(1)}%</span
             >
           </div>
           <div class="flex justify-between">
-            <span class="text-gray-400">Flow Score:</span>
+            <span class="text-gray-400">Flow Proxy:</span>
             <span class="font-bold text-emerald-400"
               >{(telemetry.flowScore * 100).toFixed(1)}%</span
             >

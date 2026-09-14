@@ -34,6 +34,7 @@
   let agentMode = $state("bootstrap");
   let sessionCount = $state(0);
   let replaySize = $state(0);
+  let policyReason = $state("");
 
   // Poll DDA + telemetry state every 2 seconds for dashboard display
   $effect(() => {
@@ -48,13 +49,14 @@
       agentMode = mlAgent.mode || "bootstrap";
       sessionCount = dataLogger.getSessionCount();
       replaySize = mlAgent.replayBuffer?.length || 0;
+      policyReason = mlAgent.policyMetadata?.reason || "";
     }, 2000);
     return () => clearInterval(interval);
   });
 
   function colorBar(val) {
-    if (val < 0.33) return "#ef4444";
-    if (val < 0.66) return "#f59e0b";
+    if (val < 0.3) return "#ef4444";
+    if (val < 0.6) return "#f59e0b";
     return "#22c55e";
   }
 
@@ -129,7 +131,7 @@
             ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
             : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}"
         >
-          {agentMode === "ml" ? "ML Mode" : "Bootstrap"}
+          {agentMode === "ml" ? "LSTM + DQN" : agentMode === "hybrid" ? "LSTM + Rules" : "Rules"}
         </span>
       </div>
       <button
@@ -151,6 +153,12 @@
       </div>
 
       <!-- CS1 Curriculum Stage -->
+      {#if agentMode === "hybrid"}
+        <p class="text-amber-200 text-xs">
+          LSTM estimates proficiency; rules select difficulty. The DQN policy is not deployed.
+          {policyReason}
+        </p>
+      {/if}
       <div class="flex flex-col gap-1">
         <span
           class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
@@ -170,13 +178,13 @@
             >Proficiency (LSTM)</span
           >
           <span class="font-bold" style="color: {colorBar(proficiency)}"
-            >{(proficiency * 100).toFixed(1)}%</span
+            >{agentMode === "bootstrap" || !Number.isFinite(proficiency) ? "Unavailable" : `${(proficiency * 100).toFixed(1)}%`}</span
           >
         </div>
         <div class="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
           <div
             class="h-2 rounded-full transition-all duration-500"
-            style="width: {proficiency * 100}%; background-color: {colorBar(
+            style="width: {agentMode === 'bootstrap' || !Number.isFinite(proficiency) ? 0 : proficiency * 100}%; background-color: {colorBar(
               proficiency,
             )}"
           ></div>
@@ -188,7 +196,7 @@
         <div class="flex justify-between items-center">
           <span
             class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
-            >Frustration Index</span
+            >Frustration Proxy</span
           >
           <span class="font-bold" style="color: {colorBar(1 - frustration)}"
             >{(frustration * 100).toFixed(1)}%</span
@@ -209,7 +217,7 @@
         <div class="flex justify-between items-center">
           <span
             class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
-            >Flow Score</span
+            >Flow Proxy</span
           >
           <span class="font-bold" style="color: {colorBar(flow)}"
             >{(flow * 100).toFixed(1)}%</span
@@ -230,7 +238,7 @@
         >
           <span
             class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
-            >Active DDA Action (DQN)</span
+            >Active DDA Action ({agentMode === "ml" ? "DQN" : "Rules"})</span
           >
           <span
             class="font-bold"
@@ -249,6 +257,7 @@
       {/if}
 
       <!-- DQN Q-Values -->
+      {#if agentMode === "ml"}
       <div class="flex flex-col gap-1">
         <span
           class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
@@ -287,6 +296,7 @@
           {/each}
         </div>
       </div>
+      {/if}
 
       <!-- Telemetry Counters -->
       <div
