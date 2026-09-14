@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import { createCodeRunner } from "../src/game/global/code-runner.js";
+import { createCommandAPI } from "../src/game/global/command-api.js";
+import { createInterpreterInit } from "../src/game/global/interpreter-bindings.js";
 import { isPurchaseAmount, expansionTiles, waterRainTiles } from "../src/game/global/farm-rules.js";
 import { SoilStates, CropStates } from "../src/game/global/enum.js";
 import { preferences } from "../src/game/utils/preferences.js";
@@ -150,19 +152,9 @@ test("rain waters prepared growing tiles without watering untilled or dead crops
 test("documented inventory and pest checks work in the actual interpreter bindings", () => {
   const output = [];
   const checks = [];
-  const bindingContext = vm.createContext({
-    CONFIG: { FARM: { rows: 2, columns: 2 } },
-    INVENTORY: { crops: { wheat: 5 }, coins: 50 },
-    DOCUMENT_DATA: {}, CropStates,
-    telemetry: { recordInterpreterStep() {}, recordCheckBeforeAction() {}, recordBotAction() {}, recordLoopExecution() {}, recordIfCondition() {} },
-    farm_grid_index: new Map(),
-    buyLand() {}, buyUpgrade() {}, buyPlants() {},
-  });
-  const source = fs.readFileSync(new URL("../src/game/global/interpreter.js", import.meta.url), "utf8")
-    .replace(/^import .*;\r?\n/gm, "").replace("export function createInit", "function createInit");
-  vm.runInContext(source, bindingContext);
   const robot = { sayText(value) { output.push(value); }, isBug(cb) { checks.push("bug"); cb(true); } };
-  const interpreter = new InterpreterClass('bot.say(inventory.seed("wheat")); bot.say(inventory.coin()); bot.say(inventory.seeds("wheat")); bot.say(bot.is_bug()); console.log("ready");', bindingContext.createInit(robot));
+  const api = createCommandAPI({ robot, inventory: { crops: { wheat: 5 }, coins: 50 } });
+  const interpreter = new InterpreterClass('bot.say(inventory.seed("wheat")); bot.say(inventory.coin()); bot.say(inventory.seeds("wheat")); bot.say(bot.is_bug()); console.log("ready");', createInterpreterInit(api));
   while (interpreter.step()) { /* all fixture callbacks complete synchronously */ }
   assert.deepEqual(output, [5, 50, 5, true, "ready"]);
   assert.deepEqual(checks, ["bug"]);
