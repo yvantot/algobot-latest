@@ -2,7 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
+import { registerHooks } from "node:module";
+import { FarmEventSimulation } from "../src/game/events/simulation.js";
 import { CropStates, CropTypes, FreshnessStates, SoilStates, IconTypes, OrbTypes } from "../src/game/global/enum.js";
+
+const dataHook = registerHooks({
+  load(url, context, nextLoad) {
+    if (url.endsWith("/src/lib/kaplay.js")) return { format: "module", source: "export const k = {};", shortCircuit: true };
+    return nextLoad(url, context);
+  },
+});
+const { CROP_DATA: deployedCropData } = await import("../src/game/global/global.js");
+dataHook.deregister();
 
 // Exercise the actual component methods with a small engine boundary. Destruction
 // mirrors KAPLAY: component hooks run before child teardown and timer updates stop.
@@ -297,4 +308,31 @@ test("planting into an explicit target uses that tile and does not replace its s
   assert.equal(target.crop.grid_x, 1);
   assert.equal(target.crop.grid_y, 0);
   assert.equal(h.farm.get("0-0").crop, null);
+});
+
+test("default fire kills every deployed crop with its real health and resistance, then extinguishes", () => {
+  for (const points of [100, 10000]) for (const [type, data] of Object.entries(deployedCropData)) {
+    const h = harness();
+    h.context.CROP_DATA[type] = data;
+    const soil = h.addSoil();
+    soil.water();
+    const crop = h.plant(type);
+    const sim = new FarmEventSimulation(h.farm);
+    const fire = sim.startFire(points).fires[0];
+    // Leave the young crop unharvested; fire must kill it by damage even if it
+    // never matures/spoils. Wet soil must not provide damage immunity.
+    for (let tick = 0; tick < 500 && !crop.removed; tick++) {
+      h.advance(0.05);
+      sim.update(0.05);
+      if (tick === 20) assert.ok(crop.crop_health < data.health, `${type} takes early damage`);
+    }
+    assert.equal(crop.removed, true, `${type} must burn down within 25 game seconds at ${points} points`);
+    assert.equal(crop.crop_health, 0, `${type} dies from damage, not spoilage`);
+    assert.equal(crop.crop_removal_reason, "fire");
+    assert.equal(fire.isBurning(), false);
+    assert.equal(h.farm.get("0-0").fire, null);
+    assert.equal(h.farm.get("0-0").crop, null);
+    assert.equal(soil.exists(), true);
+    assert.deepEqual(h.rewards, { coins: 0, exp: 0, seeds: 0, spoiled: 0 });
+  }
 });

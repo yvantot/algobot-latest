@@ -1,5 +1,6 @@
 import { CropStates } from "../global/enum.js";
 import { getDifficultyParams } from "./difficulty.js";
+import { RAIN_TIMING } from "./motion.js";
 
 const STEP = 0.05;
 const EPSILON = 1e-9;
@@ -40,14 +41,13 @@ function shuffled(values, random) {
 
 export function fireSettings(params) {
   return {
-    stageDuration: params.attackInterval,
-    damageInterval: params.attackInterval,
-    damage: params.damage * 0.2,
-    spreadInterval: params.attackInterval,
+    stageDuration: 6,
+    damageInterval: 1,
+    damage: 2,
+    stageDamageMultipliers: [0.5, 1, 2.5],
+    spreadInterval: 3,
     spreadChance: 0.35 + Math.min(1, (params.pts - 100) / 9900) * 0.2,
     wetSpreadMultiplier: 0.2,
-    // An adult flame gets one final spread window after losing its crop.
-    fuelGrace: params.attackInterval,
   };
 }
 
@@ -86,7 +86,8 @@ export class FarmEventSimulation {
     if (this.disposed || !tile?.soil || !isLivingCrop(tile.crop) || tile.fire?.isBurning() || !coordinates(key)) return null;
     const fire = {
       id: ++this.sequence, key, ...coordinates(key), settings: { ...settings },
-      stage: 0, age: 0, damageClock: 0, spreadClock: 0, fuelClock: 0,
+      crop: tile.crop,
+      stage: 0, age: 0, damageClock: 0, spreadClock: 0,
       spawned_at: this.now(), active: true,
       isBurning: () => fire.active,
       extinguish: (source = "bot") => this.extinguish(fire, source),
@@ -123,7 +124,7 @@ export class FarmEventSimulation {
       const cloud = {
         id: ++this.sequence, key, ...coordinates(key), side: this.random() < 0.5 ? -1 : 1,
         phase: "entering", phaseAge: 0, dropClock: 0, progress: 0,
-        travelDuration: 1.5, rainDuration: 6, exitDuration: 1.2, dropInterval: 0.6,
+        ...RAIN_TIMING,
         recordImpact: ({ wateredSoil, extinguished }) => {
           if (extinguished) result.extinguishedFires++;
           if (wateredSoil) watered.add(key);
@@ -168,34 +169,30 @@ export class FarmEventSimulation {
   updateFire(fire, dt) {
     const tile = this.grid.get(fire.key);
     if (!tile?.soil || tile.fire !== fire) return this.extinguish(fire, "tile_removed");
+    // A replacement plant must never inherit the previous crop's flame.
+    if (tile.crop !== fire.crop) return this.extinguish(fire, "no_fuel");
     // Spoilage can happen between fire ticks. A crop already burning must not
     // leave a dead remnant just because its spoilage timer beat lethal damage.
     if (tile.crop?.crop_state === CropStates.DEAD) tile.crop.cropDestroy("fire");
-    const hasFuel = isLivingCrop(tile.crop);
-    if (!hasFuel && (fire.stage < 2 || this.neighbors(fire).length === 0)) {
-      return this.extinguish(fire, "no_fuel");
-    }
-    fire.fuelClock = hasFuel ? 0 : fire.fuelClock + dt;
+    if (!isLivingCrop(tile.crop)) return this.extinguish(fire, "no_fuel");
     fire.age += dt;
     const previousStage = fire.stage;
     fire.stage = Math.min(2, Math.floor((fire.age + EPSILON) / fire.settings.stageDuration));
+    fire.damageClock += dt;
+    if (fire.damageClock + EPSILON >= fire.settings.damageInterval) {
+      fire.damageClock -= fire.settings.damageInterval;
+      const multiplier = fire.settings.stageDamageMultipliers?.[fire.stage] ?? 1;
+      tile.crop.damage(fire.settings.damage * multiplier, { source: "fire", noTrace: true });
+    }
+    // Damage resolves before spread. A lethal tick cannot create an orphan
+    // flame or spread again after consuming its plant.
+    if (!isLivingCrop(tile.crop) || tile.crop !== fire.crop) return this.extinguish(fire, "no_fuel");
     if (fire.stage === 2) {
       fire.spreadClock += dt;
       if (previousStage < 2 || fire.spreadClock + EPSILON >= fire.settings.spreadInterval) {
         fire.spreadClock = 0;
         this.spread(fire);
       }
-    }
-    if (hasFuel) {
-      fire.damageClock += dt;
-      if (fire.damageClock + EPSILON >= fire.settings.damageInterval) {
-        fire.damageClock -= fire.settings.damageInterval;
-        tile.crop.damage(fire.settings.damage, { source: "fire", noTrace: true });
-      }
-    }
-    if (!isLivingCrop(tile.crop)
-      && (fire.stage < 2 || this.neighbors(fire).length === 0 || fire.fuelClock + EPSILON >= fire.settings.fuelGrace)) {
-      this.extinguish(fire, "no_fuel");
     }
   }
 
@@ -207,18 +204,20 @@ export class FarmEventSimulation {
       if (cloud.phaseAge + EPSILON >= cloud.travelDuration) {
         cloud.phase = "raining";
         cloud.phaseAge = 0;
+        cloud.progress = 0;
         cloud.dropClock = cloud.dropInterval; // First visible drop starts on arrival.
       }
     } else if (cloud.phase === "raining") {
       cloud.dropClock += dt;
       if (cloud.dropClock + EPSILON >= cloud.dropInterval) {
         cloud.dropClock -= cloud.dropInterval;
-        const drop = { id: ++this.sequence, key: cloud.key, cloud, age: 0, duration: 0.45, progress: 0 };
+        const drop = { id: ++this.sequence, key: cloud.key, cloud, age: 0, duration: cloud.dropDuration, progress: 0 };
         this.drops.set(drop.id, drop);
       }
       if (cloud.phaseAge + EPSILON >= cloud.rainDuration) {
         cloud.phase = "leaving";
         cloud.phaseAge = 0;
+        cloud.progress = 0;
       }
     } else {
       cloud.progress = Math.min(1, cloud.phaseAge / cloud.exitDuration);

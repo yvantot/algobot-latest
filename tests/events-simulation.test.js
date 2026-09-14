@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { CropStates, SoilStates } from "../src/game/global/enum.js";
 import { getDifficultyParams } from "../src/game/events/difficulty.js";
 import { FarmEventSimulation, canStartFireEvent, fireSettings } from "../src/game/events/simulation.js";
+import { RAIN_TIMING, cloudPosition, dropPosition } from "../src/game/events/motion.js";
 
 function makeFarm(rows = 3, columns = 3, planted = rows * columns) {
   const grid = new Map();
@@ -39,7 +40,7 @@ function settings(overrides = {}) {
   return {
     ...fireSettings(getDifficultyParams(100)),
     stageDuration: 1, damageInterval: 100, spreadInterval: 1,
-    spreadChance: 1, fuelGrace: 1,
+    spreadChance: 1,
     ...overrides,
   };
 }
@@ -182,14 +183,12 @@ test("a juvenile flame cannot grow or spread after its crop is removed", () => {
   assert.equal(grid.get("0-1").crop.crop_health, 100);
 });
 
-test("a mature fire has a finite final spread window after losing its crop", () => {
+test("a mature fire extinguishes immediately after losing its crop even with neighbors", () => {
   const grid = makeFarm(1, 2);
   const sim = new FarmEventSimulation(grid, { random: () => 0.9 });
   const fire = sim.ignite("0-0", settings({ spreadChance: 0.5 }));
   sim.update(2);
   grid.get("0-0").crop = null;
-  sim.update(0.95);
-  assert.equal(fire.isBurning(), true);
   sim.update(0.05);
   assert.equal(fire.isBurning(), false);
   assert.equal(sim.fires.size, 0);
@@ -205,7 +204,7 @@ test("an isolated mature fire immediately dies when no crop remains to burn", ()
   assert.equal(fire.isBurning(), false);
 });
 
-test("adult embers can spread once during their final fuel window, then disappear", () => {
+test("a mature fire cannot spread after its fuel is removed", () => {
   const grid = makeFarm(1, 2);
   let roll = 0.9;
   const sim = new FarmEventSimulation(grid, { random: () => roll });
@@ -215,8 +214,7 @@ test("adult embers can spread once during their final fuel window, then disappea
   roll = 0;
   sim.update(1);
   assert.equal(fire.isBurning(), false);
-  assert.equal(grid.get("0-1").fire.isBurning(), true);
-  assert.equal(grid.get("0-1").fire.stage, 0);
+  assert.equal(grid.get("0-1").fire, undefined);
 });
 
 test("bot extinguishing and repeated cleanup cancel damage and release only their own tile reference", () => {
@@ -265,11 +263,11 @@ test("cloud travels sideways before rainfall; water and extinguishing happen onl
   const result = sim.startRain();
   const cloud = result.clouds[0];
   assert.equal(cloud.side, -1);
-  sim.update(0.75);
+  sim.update(RAIN_TIMING.travelDuration / 2);
   assert.equal(cloud.phase, "entering");
   assert.ok(Math.abs(cloud.progress - 0.5) < 1e-9);
   assert.equal(tile.soil.isWatered(), false);
-  sim.update(1.2);
+  sim.update(RAIN_TIMING.travelDuration / 2 + RAIN_TIMING.dropDuration);
   assert.equal(cloud.phase, "raining");
   assert.equal(tile.soil.isWatered(), false);
   assert.equal(fire.isBurning(), true);
@@ -301,7 +299,7 @@ test("rain still lands on its soil when the target crop disappears in flight", (
   const sim = new FarmEventSimulation(grid);
   sim.startRain();
   grid.get("0-0").crop = null;
-  sim.update(2);
+  sim.update(RAIN_TIMING.travelDuration + RAIN_TIMING.dropDuration + 0.05);
   assert.equal(grid.get("0-0").soil.isWatered(), true);
 });
 
@@ -309,7 +307,7 @@ test("destroying a cloud cancels its pending drops and future impacts", () => {
   const grid = makeFarm(1, 1);
   const sim = new FarmEventSimulation(grid);
   const cloud = sim.startRain().clouds[0];
-  sim.update(1.7);
+  sim.update(RAIN_TIMING.travelDuration + 0.2);
   assert.equal(sim.drops.size, 1);
   assert.equal(cloud.destroy(), true);
   assert.equal(cloud.destroy(), false);
@@ -361,4 +359,84 @@ test("scene disposal clears every event reference and prevents future actions", 
   assert.equal(sim.startFire().applied, false);
   assert.equal(sim.startRain().applied, false);
   assert.equal([...grid.values()].reduce((sum, tile) => sum + tile.soil.waterCalls, 0), 0);
+});
+
+test("fire uses a slower growth clock at every severity", () => {
+  for (const points of [100, 500, 2000, 10000]) {
+    const sim = new FarmEventSimulation(makeFarm(1, 1));
+    const fire = sim.startFire(points).fires[0];
+    sim.update(5.95);
+    assert.equal(fire.stage, 0);
+    sim.update(0.05);
+    assert.equal(fire.stage, 1);
+    sim.update(5.95);
+    assert.equal(fire.stage, 1);
+    sim.update(0.05);
+    assert.equal(fire.stage, 2);
+  }
+});
+
+test("lethal adult damage extinguishes before a simultaneous spread attempt", () => {
+  const grid = makeFarm(1, 2);
+  const sim = new FarmEventSimulation(grid, { random: () => 0 });
+  const fire = sim.ignite("0-0", settings({ damageInterval: 2, damage: 100 }));
+  sim.update(2);
+  assert.equal(grid.get("0-0").crop, null);
+  assert.equal(grid.get("0-0").fire, null);
+  assert.equal(fire.active, false);
+  assert.equal(grid.get("0-1").fire, undefined);
+});
+
+test("replacement crops cannot inherit a removed crop's fire", () => {
+  const grid = makeFarm(1, 2);
+  const sim = new FarmEventSimulation(grid, { random: () => 0 });
+  const fire = sim.ignite("0-0", settings());
+  sim.update(2);
+  const replacement = { crop_state: CropStates.YOUNG, crop_health: 20, damage() { assert.fail("old fire damaged new crop"); } };
+  grid.get("0-0").crop = replacement;
+  sim.update(0.05);
+  assert.equal(fire.active, false);
+  assert.equal(grid.get("0-0").crop, replacement);
+});
+
+test("eased cloud motion stays continuous across arrival and departure", () => {
+  const sim = new FarmEventSimulation(makeFarm(1, 1));
+  const cloud = sim.startRain().clouds[0];
+  const target = { x: 300, y: 200 };
+  const position = () => cloudPosition(cloud, 0, target, sim.accumulator);
+  assert.equal(position().x, 0);
+  sim.update(cloud.travelDuration / 4);
+  assert.ok(position().x > 0 && position().x < 75, "sine ease accelerates gently");
+  sim.update(cloud.travelDuration * 3 / 4);
+  assert.equal(cloud.phase, "raining");
+  assert.equal(position().x, 300);
+  sim.update(cloud.rainDuration);
+  assert.equal(cloud.phase, "leaving");
+  assert.equal(cloud.progress, 0, "departure must not retain arrival's 100% progress");
+  assert.equal(position().x, 300, "no teleport to the outside edge on the transition frame");
+  sim.update(0.05);
+  assert.ok(position().x < 300 && position().x > 299);
+  sim.update(cloud.exitDuration - 0.05);
+  assert.equal(position().x, 0);
+  assert.equal(sim.clouds.size, 0);
+});
+
+test("clouds and falling drops animate between fixed ticks and stop with game time", () => {
+  const sim = new FarmEventSimulation(makeFarm(1, 1));
+  const cloud = sim.startRain().clouds[0];
+  const center = { x: 300, y: 200 };
+  sim.update(1);
+  const first = cloudPosition(cloud, 0, center, sim.accumulator).x;
+  sim.update(0.01);
+  const next = cloudPosition(cloud, 0, center, sim.accumulator).x;
+  assert.ok(next > first, "visual movement does not wait for the next 50ms tick");
+  sim.update(cloud.travelDuration - 1.01 + 0.05);
+  const drop = [...sim.drops.values()][0];
+  const start = dropPosition(drop, center, sim.accumulator).y;
+  sim.update(0.01);
+  assert.ok(dropPosition(drop, center, sim.accumulator).y > start);
+  const paused = dropPosition(drop, center, sim.accumulator);
+  sim.update(0);
+  assert.deepEqual(dropPosition(drop, center, sim.accumulator), paused);
+  assert.equal(dropPosition({ ...drop, age: drop.duration }, center).y, center.y);
 });

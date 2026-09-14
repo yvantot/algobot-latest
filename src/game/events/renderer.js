@@ -1,6 +1,7 @@
 import { k } from "../../lib/kaplay.js";
 import { CONFIG } from "../global/global.js";
 import { FarmEventSimulation, farmTiles } from "./simulation.js";
+import { cloudPosition, dropPosition } from "./motion.js";
 
 const runtimes = new WeakMap();
 const configuration = new WeakMap();
@@ -17,7 +18,7 @@ function tileCenter(grid, key) {
 }
 
 /** Visual objects are owned by one scene object; no global loops or wall timers. */
-class FarmEventRenderer {
+export class FarmEventRenderer {
   constructor(owner, simulation) {
     this.owner = owner;
     this.simulation = simulation;
@@ -99,16 +100,16 @@ class FarmEventRenderer {
       if (!center) continue;
       let entry = this.cloudViews.get(id);
       if (!entry) {
-        const view = this.sprite("icon_cloud", 76, { x: center.x, y: center.y - 100 });
+        const outside = cloud.side < 0 ? left : right;
+        const view = this.sprite("icon_cloud", 76, cloudPosition(cloud, outside, center, simulation.accumulator));
         view.onDestroy(() => simulation.removeCloud(cloud));
-        entry = { view };
+        // Capture the travel endpoints once. Expanding the farm mid-flight
+        // must not shift the departure point and teleport a moving cloud.
+        entry = { view, outside, center };
         this.cloudViews.set(id, entry);
       }
-      const outside = cloud.side < 0 ? left : right;
-      let x = center.x;
-      if (cloud.phase === "entering") x = outside + (center.x - outside) * cloud.progress;
-      if (cloud.phase === "leaving") x = center.x + (outside - center.x) * cloud.progress;
-      entry.view.pos = k.vec2(x, center.y - 100);
+      const position = cloudPosition(cloud, entry.outside, entry.center, simulation.accumulator);
+      entry.view.pos = k.vec2(position.x, position.y);
       entry.view.z = center.y + 200;
     }
 
@@ -117,13 +118,13 @@ class FarmEventRenderer {
       if (!center) continue;
       let entry = this.dropViews.get(id);
       if (!entry) {
-        const view = this.sprite("icon_raindrop", 12, center);
+        const view = this.sprite("icon_raindrop", 12, dropPosition(drop, center, simulation.accumulator));
         view.onDestroy(() => simulation.removeDrop(drop));
         entry = { view };
         this.dropViews.set(id, entry);
       }
-      const offset = ((drop.id % 3) - 1) * 12;
-      entry.view.pos = k.vec2(center.x + offset, center.y - 85 + 85 * drop.progress);
+      const position = dropPosition(drop, center, simulation.accumulator);
+      entry.view.pos = k.vec2(position.x, position.y);
       entry.view.z = center.y + 150;
     }
 
