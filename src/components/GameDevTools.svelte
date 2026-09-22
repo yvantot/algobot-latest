@@ -1,5 +1,10 @@
 <script>
   import { onMount } from "svelte";
+  import { fly } from "svelte/transition";
+  import { devInteger, inspectFarm, executeDevAction } from "../game/dev-console.js";
+  import { destroyFarmEvents } from "../game/event.js";
+  import { robots_state, ONBOARDING, finishIntroduction } from "./global.svelte.js";
+  import { stopCodeRuns } from "../game/global/code-runner.js";
   import {
     addFarmbot,
     addBug,
@@ -35,12 +40,54 @@
   import { dataLogger } from "../game/ml/data-logger.js";
   import { eventScheduler } from "../game/ml/event-scheduler.js";
 
-  let { showDDADashboard = $bindable(false) } = $props();
+  let { showDDADashboard = $bindable(false), gameSpeed = $bindable(1) } = $props();
 
   let isVisible = $state(false);
   let position = $state({ x: 20, y: 20 });
-  let size = $state({ w: 380, h: 580 });
-  let activeTab = $state("world");
+  let size = $state({ w: 540, h: 680 });
+  let activeTab = $state("testing");
+  let revision = $state(0);
+  let points = $state(500);
+  let stackCount = $state(3);
+  let pending = $state(false);
+  let snapshot = $state([]);
+
+  function refresh() {
+    snapshot = inspectFarm(farm_grid_index);
+    schedulerInfo = eventScheduler.getState();
+    revision++;
+  }
+
+  function selectedTile() {
+    const x = devInteger(inspectX, 0, CONFIG.FARM.columns - 1, "Column");
+    const y = devInteger(inspectY, 0, CONFIG.FARM.rows - 1, "Row");
+    const tile = getTile(x, y);
+    if (!tile?.soil) throw new Error("Tile is not available");
+    return { tile, x, y };
+  }
+
+  function prepareFarm(wet) {
+    stopCodeRuns(robots_state, telemetry);
+    destroyFarmEvents(farm_grid_index);
+    batchKillAllBugs();
+    batchResetSoil();
+    batchTillAll();
+    INVENTORY.changeCrops(batchCrop, allCells().length);
+    const count = batchPlantAll(batchCrop);
+    batchInstantGrow();
+    if (wet) batchWaterAll();
+    return count;
+  }
+
+  function exportDiagnostics() {
+    refresh();
+    const data = { version: 1, capturedAt: new Date().toISOString(),
+      farm: { rows: CONFIG.FARM.rows, columns: CONFIG.FARM.columns },
+      speed: gameSpeed, tiles: snapshot, scheduler: schedulerInfo, actions: log };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type:"application/json"}));
+    const link = document.createElement("a"); link.href = url; link.download = "algobot-debug.json"; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
   let log = $state([]);
   let questKey = $state(Object.keys(QUEST_DATA)[0]);
   let questAmt = $state(1);
@@ -65,6 +112,7 @@
   let schedulerInfo = $state(null);
 
   const TABS = [
+    { id: "testing", label: "Testing" },
     { id: "world", label: "World" },
     { id: "player", label: "Player" },
     { id: "quests", label: "Quests" },
@@ -91,10 +139,13 @@
 
   onMount(() => {
     const handleKeydown = (e) => {
-      if (e.key === "\\") isVisible = !isVisible;
+      if (e.key === "Escape" && isVisible) { isVisible = false; return; }
+      if (e.target.closest?.("input, textarea, select, [contenteditable=true], .monaco-editor, .cm-editor")) return;
+      if (e.key === "\\" && !e.repeat) { isVisible = !isVisible; if (isVisible) refresh(); }
     };
+    const timer = setInterval(() => { if (isVisible && !ONBOARDING.isModalOpen) refresh(); }, 500);
     window.addEventListener("keydown", handleKeydown);
-    return () => window.removeEventListener("keydown", handleKeydown);
+    return () => { clearInterval(timer); window.removeEventListener("keydown", handleKeydown); };
   });
 
   function push(msg, color = "text-gray-300") {
@@ -102,17 +153,15 @@
     log = [{ ts, msg, color }, ...log].slice(0, 80);
   }
 
-  function run(label, fn, color = "text-gray-200") {
+  async function run(label, fn, color = "text-gray-200") {
+    if (pending) return;
+    pending = true;
     try {
-      const result = fn();
-      if (result?.applied === false || result?.triggered === false) {
-        push(`– ${label}: ${result.reason || "No eligible targets"}`, "text-amber-300");
-        return;
-      }
-      push(`✓ ${label}`, color);
+      const result = await executeDevAction(fn);
+      push(`${result.ok ? "✓" : "!"} ${label}: ${result.message}`, result.ok ? color : "text-amber-300");
     } catch (e) {
       push(`✗ ${label}: ${e.message}`, "text-red-400");
-    }
+    } finally { pending = false; refresh(); }
   }
 
   function drag(node) {
@@ -120,12 +169,12 @@
     const onMouseDown = (e) => {
       const isResizeHandle =
         e.offsetX > node.offsetWidth - 20 && e.offsetY > node.offsetHeight - 20;
-      if (e.target.closest("button, input, select") || isResizeHandle) return;
+      if (!e.target.closest("[data-dev-drag]") || e.target.closest("button, input, select") || isResizeHandle) return;
       moving = true;
     };
     const onMouseMove = (e) => {
       if (moving)
-        position = { x: position.x + e.movementX, y: position.y + e.movementY };
+        position = { x: Math.max(0, Math.min(window.innerWidth - 100, position.x + e.movementX)), y: Math.max(0, Math.min(window.innerHeight - 50, position.y + e.movementY)) };
     };
     const onMouseUp = () => (moving = false);
     node.addEventListener("mousedown", onMouseDown);
@@ -283,10 +332,9 @@
 
   function batchKillAllBugs() {
     let count = 0;
-    for (const { x, y } of allCells()) {
-      const tile = getTile(x, y);
-      if (!tile?.bug) continue;
-      tile.bug.bugDestroy();
+    const bugs = new Set([...farm_grid_index.values()].map(tile => tile?.bug).filter(Boolean));
+    for (const bug of bugs) {
+      bug.bugDestroy();
       count++;
     }
     return count;
@@ -328,6 +376,7 @@
 
 {#snippet btn(label, color = "text-gray-200", cb)}
   <button
+    disabled={pending}
     onclick={() => cb && cb()}
     class="rounded bg-gray-800 px-2 py-1 text-left text-sm transition-colors hover:bg-gray-700 active:scale-95 cursor-pointer {color}"
     >{label}</button
@@ -336,7 +385,7 @@
 
 {#snippet sec(title)}
   <h3
-    class="mt-3 mb-1 text-[9px] font-black uppercase tracking-widest text-gray-500 border-b border-gray-800 pb-1"
+    class="mt-4 mb-2 text-xs font-bold text-gray-300 border-b border-gray-700 pb-1"
   >
     {title}
   </h3>
@@ -357,15 +406,20 @@
 {#if isVisible}
   <div
     use:drag
+    transition:fly={{y:12,duration:180}}
+    role="region" aria-label="Dev Console"
     class="fixed z-[9999] flex flex-col overflow-hidden rounded-xl border border-gray-700 bg-gray-950/97 text-white shadow-2xl backdrop-blur-md"
     style:left="{position.x}px"
     style:top="{position.y}px"
     style:width="{size.w}px"
     style:height="{size.h}px"
     style:resize="both"
+    style:max-width="calc(100vw - 24px)"
+    style:max-height="calc(100vh - 24px)"
   >
     <!-- Header -->
     <div
+      data-dev-drag
       class="flex cursor-grab items-center justify-between bg-gray-900 px-4 py-2 active:cursor-grabbing select-none shrink-0"
     >
       <div class="flex items-center gap-2">
@@ -374,9 +428,10 @@
           class="text-sm font-black uppercase tracking-tighter text-gray-300"
           >Dev Console</span
         >
-        <span class="text-[9px] text-gray-600">[ \ ] to toggle</span>
+        <span class="text-xs text-gray-400">[ \ ] to toggle</span>
       </div>
       <button
+        aria-label="Close Dev Console"
         onclick={() => (isVisible = false)}
         class="text-gray-500 hover:text-white cursor-pointer">✕</button
       >
@@ -384,21 +439,68 @@
 
     <!-- Tabs -->
     <div
-      class="flex shrink-0 border-b border-gray-800 bg-gray-900/60 overflow-x-auto"
+      class="flex flex-wrap shrink-0 border-b border-gray-800 bg-gray-900/60"
     >
       {#each TABS as tab}
         <button
+          aria-pressed={activeTab === tab.id}
           onclick={() => (activeTab = tab.id)}
           class="flex-1 py-1.5 px-2 text-sm font-bold transition-colors cursor-pointer whitespace-nowrap {activeTab ===
           tab.id
             ? 'bg-gray-800 text-white'
-            : 'text-gray-500 hover:text-gray-300'}">{tab.label}</button
+            : 'text-gray-400 hover:text-gray-200'}">{tab.label}</button
         >
       {/each}
     </div>
 
     <!-- Content -->
     <div class="flex-1 overflow-y-auto p-3 custom-scrollbar text-sm space-y-1">
+      {#if ONBOARDING.isModalOpen}<p>Close the introduction or reward dialog before testing the farm.</p>{:else}
+      {#if activeTab === "testing"}
+        <p class="text-gray-300">Testing changes the current game and can enter session logs. Use a test session.</p>
+        {@render sec("Simulation")}
+        <div class="grid grid-cols-3 gap-2">
+          {#each [0, 0.25, 0.5, 1, 2, 4] as speed}
+            {@render btn(speed === 0 ? "Pause" : `${speed}× speed`, gameSpeed === speed ? "text-green-300" : "text-gray-200", () => run(`Simulation ${speed}×`, () => { gameSpeed = speed; }))}
+          {/each}
+          {@render btn("Stop all programs", "text-amber-300", () => run("Stop programs", () => stopCodeRuns(robots_state, telemetry)))}
+          {@render btn("End protected practice", "text-amber-300", () => run("End practice", finishIntroduction))}
+        </div>
+        {@render sec("Events")}
+        <label class="flex gap-2 items-center">Difficulty points <input aria-label="Difficulty points" type="number" min="100" max="10000" bind:value={points} class="w-28 bg-gray-800 p-2 rounded" /></label>
+        <div class="grid grid-cols-3 gap-2 mt-2">
+          {#each [["Fire", spawnFireEvent], ["Rain", spawnRainEvent], ["Pests", spawnBugEvent]] as event}
+            {@render btn(event[0], "text-gray-200", () => run(event[0], () => event[1](farm_grid_index, devInteger(points,100,10000,"Points"))))}
+          {/each}
+          {@render btn("Clear weather", "text-sky-300", () => run("Clear weather", () => destroyFarmEvents(farm_grid_index)))}
+          {@render btn("Remove all pests", "text-amber-300", () => run("Remove pests", batchKillAllBugs))}
+        </div>
+        <p class="text-gray-300 mt-2">{schedulerInfo?.plantedCount ?? 0} planted. Fire requires at least 2/3 of the farm; normal DDA multipliers apply.</p>
+        {@render sec("Repeatable farm setups (replace crops)")}
+        {@render cropSelect("Crop", batchCrop, value => batchCrop = value)}
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          {@render btn("Ripe dry farm", "text-gray-200", () => run("Ripe dry farm", () => prepareFarm(false)))}
+          {@render btn("Ripe wet farm", "text-gray-200", () => run("Ripe wet farm", () => prepareFarm(true)))}
+          {@render btn("Spoilage setup", "text-gray-200", () => run("Spoilage setup", () => { prepareFarm(false); return batchDeadAll(); }))}
+          {@render btn("Empty farm", "text-amber-300", () => run("Empty farm", () => { stopCodeRuns(robots_state,telemetry); destroyFarmEvents(farm_grid_index); batchKillAllBugs(); return batchResetSoil(); }))}
+        </div>
+        {@render sec("Selected tile")}
+        <div class="flex gap-3">
+          <label>Column <input aria-label="Tile column" type="number" min="0" max={CONFIG.FARM.columns-1} bind:value={inspectX} class="w-16 bg-gray-800 p-1" /></label>
+          <label>Row <input aria-label="Tile row" type="number" min="0" max={CONFIG.FARM.rows-1} bind:value={inspectY} class="w-16 bg-gray-800 p-1" /></label>
+        </div>
+        <div class="grid grid-cols-3 gap-2 mt-2">
+          {#each [["Till", t => t.soil.till()], ["Water", t => t.soil.water()], ["Mature", t => t.crop ? (t.crop.matureNow(), true) : false], ["Rot", t => t.crop ? (t.crop.markDead(), true) : false], ["Destroy crop", t => t.crop ? (t.crop.cropDestroy(), true) : false], ["Extinguish", t => t.fire?.extinguish("dev") ?? false]] as action}
+            {@render btn(action[0], "text-gray-200", () => run(action[0], () => action[1](selectedTile().tile)))}
+          {/each}
+          {@render btn("Inspect tile", "text-sky-300", () => activeTab = "inspect")}
+        </div>
+        <label class="flex gap-2 mt-2">Bots to add <input aria-label="Bots to add" type="number" min="1" max="20" bind:value={stackCount} class="w-16 bg-gray-800 p-1" /></label>
+        {@render btn("Stack new bots here", "text-gray-200", () => run("Stack bots", () => { const {x,y} = selectedTile(); const count=devInteger(stackCount,1,20,"Bots"); for(let i=0;i<count;i++) addFarmbot(robots.length,farm_grid_index,x,y); return count; }))}
+        {@render sec("Live diagnostics")}
+        <p>{snapshot.length} tiles · {snapshot.filter(t => t.crop).length} crops · {snapshot.filter(t => t.fire).length} fires · {robots.length} bots</p>
+        {@render btn("Download diagnostics JSON", "text-sky-300", () => run("Export diagnostics", exportDiagnostics))}
+      {/if}
       <!-- WORLD TAB -->
       {#if activeTab === "world"}
         {@render sec("Spawn Entity")}
@@ -649,7 +751,7 @@
         </div>
 
         {@render sec("Reset")}
-        {@render btn("Reset All Progress", "text-red-400", () =>
+        {@render btn("Reset EXP, coins and seeds", "text-red-400", () =>
           run("Reset progress", () => {
             PLAYER_DATA.exp = 0;
             PLAYER_DATA.updateUI();
@@ -1087,6 +1189,7 @@
           >
         </div>
 
+        {#key revision}
         {@const tileData = getTile(inspectX, inspectY)}
         <div
           class="rounded bg-gray-900 p-2 text-sm font-mono space-y-1 border border-gray-800"
@@ -1165,6 +1268,7 @@
           {/if}
         </div>
 
+        {/key}
         {@render sec("All farm_grid_index Entries")}
         <div class="flex gap-1 items-center mb-1">
           <span class="text-sm text-gray-500 shrink-0">Filter:</span>
@@ -1179,6 +1283,7 @@
           </select>
         </div>
 
+        {#key revision}
         {@const entries = getGridEntries()}
         <div
           class="rounded bg-gray-900 p-2 text-sm font-mono space-y-1 max-h-56 overflow-y-auto border border-gray-800 custom-scrollbar"
@@ -1224,6 +1329,7 @@
             </p>
           {/each}
         </div>
+        {/key}
       {/if}
 
       <!-- DDA TAB -->
@@ -1455,6 +1561,7 @@
           )}
         </div>
       {/if}
+      {/if}
     </div>
 
     <!-- Log -->
@@ -1462,25 +1569,25 @@
       class="shrink-0 border-t border-gray-800 bg-gray-900/80 px-3 py-2 max-h-28 overflow-y-auto custom-scrollbar"
     >
       <div class="flex justify-between items-center mb-1">
-        <p class="text-[9px] font-bold uppercase text-gray-600">Log</p>
+        <p class="text-xs font-bold text-gray-300">Action log {pending ? "(running)" : ""}</p>
         <button
           onclick={() => (log = [])}
-          class="text-[9px] text-gray-700 hover:text-gray-400 cursor-pointer"
+          class="text-xs text-gray-300 hover:text-white cursor-pointer"
           >Clear</button
         >
       </div>
       {#each log as entry}
-        <p class="text-[9px] font-mono {entry.color}">
-          <span class="text-gray-700">[{entry.ts}]</span>
+        <p class="text-xs font-mono {entry.color}">
+          <span class="text-gray-400">[{entry.ts}]</span>
           {entry.msg}
         </p>
       {:else}
-        <p class="text-[9px] text-gray-700 italic">No actions yet.</p>
+        <p class="text-xs text-gray-400">No actions yet.</p>
       {/each}
     </div>
 
     <div
-      class="bg-gray-900/30 p-1 text-[8px] text-gray-600 text-center border-t border-gray-800/50 shrink-0"
+      class="bg-gray-900 p-2 text-xs text-gray-400 text-center border-t border-gray-800 shrink-0"
     >
       DRAG TO MOVE · BOTTOM-RIGHT TO RESIZE · [ \ ] TOGGLE
     </div>
@@ -1488,6 +1595,8 @@
 {/if}
 
 <style>
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #86efac; outline-offset: 2px; }
+  button:disabled { opacity: .5; cursor: wait; }
   .custom-scrollbar::-webkit-scrollbar {
     width: 4px;
   }

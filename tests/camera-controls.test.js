@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { attachCameraControls } from "../src/game/camera-controls.js";
+import { attachCameraControls, snapZoom, clampFarmCamera } from "../src/game/camera-controls.js";
 function setup() {
  const listeners = new Map();
  const surface = name => ({ style:{}, addEventListener(type,fn){listeners.set(name+type,fn)}, removeEventListener(type){listeners.delete(name+type)},getBoundingClientRect:()=>({left:0,top:0,width:1000,height:600}) });
@@ -27,4 +27,21 @@ test("wheel zoom preserves the world point beneath the pointer and ignores Ctrl-
  h.emit("canvas","wheel",{deltaY:-100,deltaMode:0});
  assert.ok(h.getZoom()>1); assert.ok(Math.abs(h.camera.x+(100-500)/h.getZoom()-before)<1e-9);
  const zoom=h.getZoom();h.emit("canvas","wheel",{deltaY:-100,ctrlKey:true}); assert.equal(h.getZoom(),zoom);
+});
+
+test("zoom snaps to ten percent and stops at fifty and one hundred fifty percent",()=>{
+ const h=setup();
+ for(let i=0;i<30;i++) h.emit("canvas","wheel",{deltaY:-1});
+ assert.equal(h.getZoom(),1.5);
+ for(let i=0;i<30;i++) { h.emit("canvas","wheel",{deltaY:1}); assert.equal(h.getZoom(),snapZoom(h.getZoom())); }
+ assert.equal(h.getZoom(),.5);
+ h.emit("canvas","wheel",{deltaY:0}); assert.equal(h.getZoom(),.5);
+ assert.equal(snapZoom(.79999999),.8);
+});
+
+test("camera bounds track the farm origin and expanded dimensions",()=>{
+ const farm={grid_origin:{x:100,y:200},cell_size:80,rows:3,columns:3};
+ assert.deepEqual(clampFarmCamera({x:-10000,y:10000},farm),{x:20,y:520});
+ farm.rows=6; farm.columns=5;
+ assert.deepEqual(clampFarmCamera({x:10000,y:10000},farm),{x:580,y:760});
 });

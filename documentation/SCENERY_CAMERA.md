@@ -5,6 +5,9 @@ over it to zoom around the pointer. The camera controls include a Center farm
 button. HTML panels retain their own input: dragging starts only on the canvas,
 requires six pixels of movement, and stops on crossing an HTML panel. Modal and
 introduction states disable these controls. Ctrl-wheel remains browser input.
+Zoom uses exact 10% steps from 50% to 150%, including the on-screen buttons.
+The camera center is constrained to the farm rectangle plus one tile on each
+side; current farm dimensions are read for every drag/zoom, including upgrades.
 
 The scenery uses the existing grass and flower atlases. One KAPLAY draw component
 keeps a deterministic list of decorations for the visible world rectangle, plus

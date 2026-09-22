@@ -1,5 +1,5 @@
 <script>
-  import { attachCameraControls } from "../game/camera-controls.js";
+  import { attachCameraControls, snapZoom, clampFarmCamera } from "../game/camera-controls.js";
   import { CAMERA, CONFIG } from "../game/global/global.js";
   import { createTransientNotice } from "./transient-notice.js";
   import { fly } from "svelte/transition";
@@ -108,7 +108,7 @@
     let saved = false;
     const detachCamera = attachCameraControls({canvas:document.getElementById("game"), engine:k, camera:CAMERA,
       enabled:() => !ONBOARDING.isModalOpen && !showConfirmReturn && !Object.values(Modals).some(Boolean),
-      getZoom:() => camera_scale, setZoom:value => camera_scale=value});
+      getFarm:() => CONFIG.FARM, getZoom:() => camera_scale, setZoom:value => camera_scale=value});
     const hintNotice = createTransientNotice(message => activeHint = message);
     let predictionTimer;
     let saveTimer;
@@ -174,6 +174,8 @@
   $effect(() => {
     k.debug.timeScale = game_speed;
     k.setCamScale(camera_scale);
+    clampFarmCamera(CAMERA, CONFIG.FARM);
+    k.setCamPos(CAMERA.x, CAMERA.y);
   });
 
   $effect(() => {
@@ -207,7 +209,7 @@
       {activeHint}
     </div>
   {/if}
-  <GameDevTools bind:showDDADashboard />
+  <GameDevTools bind:showDDADashboard bind:gameSpeed={game_speed} />
   <DDADashboard bind:visible={showDDADashboard} />
   <LevelReward />
   <FarmPersonalize />
@@ -230,7 +232,7 @@
         class="flex rounded-lg backdrop-brightness-70 justify-center w-fit p-1"
       >
         <button
-          onclick={() => (camera_scale = Math.max(camera_scale - 0.2, 0.4))}
+          onclick={() => (camera_scale = snapZoom(camera_scale - 0.1))}
           class="cursor-pointer"
         >
           <img
@@ -240,7 +242,7 @@
           />
         </button>
         <button
-          onclick={() => (camera_scale = Math.min(camera_scale + 0.2, 1.4))}
+          onclick={() => (camera_scale = snapZoom(camera_scale + 0.1))}
           class="cursor-pointer"
         >
           <img

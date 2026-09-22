@@ -1,4 +1,13 @@
-export function attachCameraControls({ canvas, engine, camera, enabled, getZoom, setZoom, doc = document, win = window }) {
+export const snapZoom = value => Math.max(0.5, Math.min(1.5, Math.round(value * 10) / 10));
+
+export function clampFarmCamera(camera, farm) {
+  const margin = farm.cell_size;
+  camera.x = Math.max(farm.grid_origin.x - margin, Math.min(farm.grid_origin.x + farm.columns * farm.cell_size + margin, camera.x));
+  camera.y = Math.max(farm.grid_origin.y - margin, Math.min(farm.grid_origin.y + farm.rows * farm.cell_size + margin, camera.y));
+  return camera;
+}
+
+export function attachCameraControls({ canvas, engine, camera, enabled, getZoom, setZoom, getFarm, doc = document, win = window }) {
   let drag = null;
   const previousCursor = canvas.style.cursor;
   const previousTouch = canvas.style.touchAction;
@@ -18,6 +27,7 @@ export function attachCameraControls({ canvas, engine, camera, enabled, getZoom,
     const rect = canvas.getBoundingClientRect();
     camera.x -= dx * engine.width()/rect.width/getZoom();
     camera.y -= dy * engine.height()/rect.height/getZoom();
+    if (getFarm) clampFarmCamera(camera, getFarm());
     engine.setCamPos(engine.vec2(camera.x,camera.y));
     drag.x=event.clientX; drag.y=event.clientY;
     canvas.style.cursor="grabbing"; event.preventDefault();
@@ -28,11 +38,12 @@ export function attachCameraControls({ canvas, engine, camera, enabled, getZoom,
     const rect=canvas.getBoundingClientRect();
     const point=engine.vec2((event.clientX-rect.left)*engine.width()/rect.width,(event.clientY-rect.top)*engine.height()/rect.height);
     const oldZoom=getZoom();
-    const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?rect.height:1);
-    const zoom=Math.max(.4,Math.min(1.4,getZoom()*Math.exp(-Math.max(-120,Math.min(120,delta))*.0015)));
+    if (!event.deltaY) return;
+    const zoom=snapZoom(oldZoom - Math.sign(event.deltaY) * .1);
     setZoom(zoom); engine.setCamScale(zoom);
     camera.x+=(point.x-engine.width()/2)*(1/oldZoom-1/zoom);
     camera.y+=(point.y-engine.height()/2)*(1/oldZoom-1/zoom);
+    if (getFarm) clampFarmCamera(camera, getFarm());
     engine.setCamPos(engine.vec2(camera.x,camera.y));
   }
   canvas.addEventListener("pointerdown",down);

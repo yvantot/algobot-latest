@@ -200,7 +200,6 @@
     {#if onShowIntroduction}
       <button onclick={onShowIntroduction} class="rounded-lg border-2 border-slate-400 bg-green-200 hover:bg-green-300 p-2 font-bold text-slate-700 cursor-pointer">Watch the farm introduction</button>
     {/if}
-    <p class="text-xs text-slate-600 px-2">Drag the farm with the left or middle mouse button to pan. Scroll over the farm to zoom. Use Center farm beside the zoom controls to return. HTML panels keep their own scrolling and dragging.</p>
     <!-- Tab Buttons -->
     <div class="flex flex-wrap gap-1 justify-center shrink-0">
       <button
