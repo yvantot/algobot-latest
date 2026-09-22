@@ -4,7 +4,7 @@
   let active = $derived(currentQuest());
 </script>
 <section class="path" aria-label="Mission path">
-  <h1>Your mission path</h1><p>Learn the basics, repeat with loops, then make decisions with conditions.</p>
+<header><img src="/sprites/bot_teacher.png" alt="Bot Teacher"/><div><h1>Quests & Mission Path</h1><p>Complete missions to unlock your next farming skill.</p></div></header>
   <ol>
     {#each Object.entries(QUEST_DATA) as [key, quest]}
       {@const state = QUEST_STATE[key]}
@@ -20,5 +20,5 @@
   </ol>
 </section>
 <style>
-  .path{width:min(440px,90vw);height:95vh;overflow:auto;background:#f5f0df;border:3px solid #60755c;border-radius:10px;color:#263c32;padding:20px}h1{font-size:24px;font-weight:800}h2{font-weight:bold;font-size:17px;margin:5px 0}p{font-size:14px;line-height:1.45;margin:5px 0}ol{padding-left:24px;margin-top:18px}li{padding:12px;margin-bottom:10px;border:2px solid #c2c9b6;border-radius:7px}li.active{border-color:#315936;background:#e1edcf}.locked{background:#e6e5dc}.state{font-size:10px;font-weight:bold;letter-spacing:.08em}.small{font-size:12px}button{background:#315936;color:white;padding:9px;border-radius:5px;cursor:pointer}button:focus-visible{outline:3px solid #aa620d;outline-offset:3px}
+  .path{width:min(440px,90vw);height:95vh;overflow:auto;background:#f3f4f6;border:4px solid #64748b;border-radius:12px;color:#334155;padding:12px;box-shadow:0 8px 20px #0003}header{display:flex;gap:10px;align-items:center;border-bottom:2px solid #94a3b8;padding-bottom:10px}header img{width:40px;image-rendering:pixelated}h1{font-size:16px;font-weight:700}header p{color:#64748b;font-size:12px}h2{font-weight:bold;font-size:15px;margin:5px 0}p{font-size:13px;line-height:1.45;margin:5px 0}ol{padding:0;list-style:none;margin-top:14px;display:grid;gap:10px}li{padding:12px;border:2px solid #cbd5e1;background:white;border-radius:8px}li.active{border-color:#4ade80;background:#f0fdf4;box-shadow:inset 0 0 0 1px #86efac}.locked{background:#e5e7eb}.state{font-size:10px;font-weight:bold;letter-spacing:.06em;color:#475569}.active .state{color:#166534}.small{font-size:12px;color:#475569}button{background:#bbf7d0;color:#1e293b;border:2px solid #94a3b8;font-weight:bold;padding:8px 12px;border-radius:6px;cursor:pointer}button:focus-visible{outline:3px solid #16a34a;outline-offset:3px}
 </style>

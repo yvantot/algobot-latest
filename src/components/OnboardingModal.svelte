@@ -1,6 +1,7 @@
 <script>
   import { dialogFocus } from "./dialog-focus.js";
   import { startLiveDemonstration } from "../game/global/live-demonstration.js";
+  import { farm_grid_index } from "../game/game.js";
   import { fly, fade } from "svelte/transition";
   let { isOpen = $bindable(false), onClose } = $props();
   let command = $state("");
@@ -10,7 +11,19 @@
     const revision = replay;
     if (!isOpen) return;
     complete = false;
-    return startLiveDemonstration(text => command = text, () => complete = true);
+    let frame;
+    let dispose;
+    command = "Getting the farm ready…";
+    function startWhenReady() {
+      // k.go enters the scene on the next engine frame, after Svelte mounts.
+      if (!farm_grid_index.get("0-0")?.soil?.exists()) {
+        frame = requestAnimationFrame(startWhenReady);
+        return;
+      }
+      dispose = startLiveDemonstration(text => command = text, () => complete = true);
+    }
+    frame = requestAnimationFrame(startWhenReady);
+    return () => { cancelAnimationFrame(frame); dispose?.(); };
   });
   function close() { isOpen = false; onClose?.(); }
 </script>

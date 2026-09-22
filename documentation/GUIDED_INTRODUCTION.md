@@ -10,8 +10,13 @@ the default editor. Text coding opens after the hazard introduction.
 - Quest state determines the active mission, prerequisites, and one-time rewards.
 - Successful movement reports its destination, executing block ID, and loop
   context. Placing a block or entering an empty loop does not award movement credit.
-- `OnboardingModal` is an isolated animated illustration, not a live farm run.
-  It cannot change inventory, quests, or performance counters.
+- `OnboardingModal` runs the actual robot and crop components on a private demo farm
+  after the scene is ready. It moves, tills, plants, waters twice, and harvests.
+  Skip and replay dispose the demo and restore the paused player entities. Demo
+  planting and harvesting do not spend seeds or grant rewards/research credit.
+- Inventory has a reserved column beside the mission HUD. Mission panels use the
+  Help & Game Guide gray/slate styling, with green accents. Rewards scale/slide
+  in and out; completed missions leave before the new mission enters.
 - `QuestHUD` shows one mission, progressive optional hints, and a mission-path link.
   The editor offers a button that opens the relevant Blockly category.
 - `QuestFeedback` queues completion feedback. Introductory rewards are claimed

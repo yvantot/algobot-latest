@@ -120,6 +120,23 @@ function harness() {
   return { context, make, k, farm, timers, roots, rewards, addSoil, plant, bot, advance };
 }
 
+test("live demonstration plants and harvests without changing player rewards", () => {
+  const h = harness();
+  h.farm.isDemonstration = true;
+  h.addSoil();
+  h.context.INVENTORY.crops.wheat = 0;
+  const bot = h.bot(); h.advance(1);
+  assert.equal(bot.botPlant("wheat"), true);
+  h.advance(1);
+  const crop = h.farm.get("0-0").crop;
+  assert.ok(crop);
+  crop.crop_state = CropStates.HARVESTABLE;
+  assert.equal(bot.botHarvest(), "wheat");
+  h.advance(2);
+  assert.equal(h.farm.get("0-0").crop, null);
+  assert.deepEqual(h.rewards, { coins: 0, exp: 0, seeds: 0, spoiled: 0 });
+});
+
 test("protected practice allows crop growth but defers deterioration until released", () => {
   const h = harness(); const soil = h.addSoil(); const crop = h.plant();
   h.context.tutorialPolicy.protected = true;

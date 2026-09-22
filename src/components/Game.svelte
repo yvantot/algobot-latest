@@ -185,7 +185,7 @@
   }
 </script>
 
-<div class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
+<div class:cutscene={showOnboarding} class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
   {#if storageWarning}
     <div role="alert" class="fixed top-4 left-1/2 -translate-x-1/2 max-w-sm rounded-lg border-2 border-red-400 bg-white p-3 text-sm text-red-900 shadow-lg">{storageWarning}</div>
   {/if}
@@ -438,7 +438,7 @@
         </div>
       </div>
       <div class="flex gap-4 items-start" class:practice-layout={TUTORIAL.active}>
-        <div class:practice-inventory={TUTORIAL.active}><Inventory /></div>
+        <div class="inventory-slot"><Inventory /></div>
         <div class="quest-slot"><QuestHUD
           onReplay={() => showOnboarding = true}
           onOpenQuestMenu={() => toggleMenu(Menus.QUEST)}
@@ -578,15 +578,20 @@
     padding: 0.2rem;
   }
 
-  .practice-inventory :global(.flex.flex-col.gap-0 > div:nth-child(n+3)){display:none}
+  .cutscene > :global(*){visibility:hidden}
+  .cutscene > :global(.live-cutscene){visibility:visible}
+  .inventory-slot{width:112px;min-width:112px;flex-shrink:0}
+  .quest-slot{width:300px;min-width:0}
   @media(max-width:1050px){
-    .practice-layout{flex-direction:column;gap:8px}
-    .practice-inventory{display:none}
-    .quest-slot :global(.mission){width:clamp(210px,calc(100vw - 432px),300px);max-height:60vh;overflow:auto}
+    .practice-layout{gap:12px}
+    .quest-slot{width:250px}
   }
-  @media(max-width:640px){
-    .quest-slot{position:fixed;left:12px;top:100px;z-index:60}
-    .quest-slot :global(.mission){width:calc(100vw - 24px);max-height:28vh}
-    :global(.tutorial-editor){max-width:calc(100vw - 24px);height:50vh!important}
+  @media(max-width:900px){
+    .quest-slot{position:fixed;left:144px;top:108px;width:230px;z-index:60}
+    .quest-slot :global(.mission){max-height:35vh;overflow:auto}
+    :global(.tutorial-editor){position:fixed;top:auto!important;bottom:12px;right:12px;height:48vh!important;max-width:calc(100vw - 24px)}
+  }
+  @media(max-width:480px){
+    .quest-slot{left:132px;right:12px;width:auto}
   }
 </style>

@@ -1,4 +1,6 @@
 <script>
+  import { fly } from "svelte/transition";
+  import { cubicOut, cubicIn } from "svelte/easing";
   import { onMount } from "svelte";
   import { QUEST_DATA } from "../game/global/quests.js";
   import { INTRO_HINTS } from "../game/global/tutorial.js";
@@ -59,7 +61,11 @@
 </script>
 
 <aside aria-label="Current mission" class="mission">
-  <div class="heading"><span>{TUTORIAL.active ? "PROTECTED PRACTICE" : "YOUR NEXT MISSION"}</span><button onclick={onOpenQuestMenu}>Mission path</button></div>
+  <div class="heading"><img src="/sprites/icon_quest.png" alt="" /><span>{TUTORIAL.active ? "PROTECTED PRACTICE" : "YOUR NEXT MISSION"}</span><button onclick={onOpenQuestMenu}>Mission path</button></div>
+  <div class="mission-stage">
+  {#each [key] as missionKey (missionKey)}
+  {@const mission = QUEST_DATA[missionKey]}
+  <div class="mission-content" in:fly={{y:18,duration:320,delay:180,easing:cubicOut}} out:fly={{y:-18,duration:180,easing:cubicIn}}>
   {#if awaitingClaim}
     <h2>{QUEST_DATA[awaitingClaim].title}</h2><p>Complete! Collect your reward to continue.</p>
     <button class="primary" onclick={() => claimQuest(awaitingClaim)}>Collect reward</button>
@@ -74,8 +80,14 @@
     {#if hintLevel}<p class="hint" aria-live="polite">{hints[hintLevel - 1]}</p>{/if}
     {#if key === "tut_2" && needsSeed}<button onclick={() => { if (INVENTORY.crops.wheat < 1) INVENTORY.changeCrops("wheat", 1); }}>Replace a used practice seed</button>{/if}
   {:else}<h2>All missions complete</h2><p>Keep experimenting with your farm programs.</p>{/if}
+  </div>
+  {/each}
+  </div>
   <button class="replay" onclick={onReplay}>Watch the demonstration</button>
 </aside>
 <style>
-  .mission{box-sizing:border-box;width:300px;max-width:90vw;background:#f5f0df;color:#263c32;border:3px solid #60755c;border-radius:10px;padding:15px;box-shadow:0 4px 10px #0002}.heading{display:flex;align-items:center;gap:10px;justify-content:space-between}.heading span{font-size:10px;letter-spacing:.06em;font-weight:bold}h2{font-size:20px;line-height:1.2;font-weight:800;margin:12px 0}p{font-size:14px;line-height:1.45;margin:8px 0}button{font-size:12px;padding:7px 8px;border-radius:5px;cursor:pointer;background:#e0e5d5;color:#263c32;margin:3px 3px 3px 0}.primary{background:#315936;color:white;font-weight:bold}.replay{display:block;margin-top:12px;background:transparent;text-decoration:underline}progress{width:100%;accent-color:#426c36;height:12px}.count{font-size:12px}.hint{background:#fff6cd;padding:10px;border-radius:5px}button:focus-visible{outline:3px solid #aa620d;outline-offset:2px}
+  .mission{box-sizing:border-box;width:100%;background:#f3f4f6;color:#334155;border:4px solid #64748b;border-radius:12px;box-shadow:0 6px 14px #0003;overflow:hidden}
+  .heading{display:flex;align-items:center;gap:7px;padding:9px 10px;background:#dcfce7;border-bottom:2px solid #94a3b8}.heading img{width:28px;height:28px;object-fit:contain;image-rendering:pixelated}.heading span{font-size:10px;font-weight:800;flex:1;letter-spacing:.04em}.heading button{font-size:11px;background:#e5e7eb;white-space:nowrap}
+  .mission-stage{display:grid;overflow:hidden}.mission-content{grid-area:1/1;padding:12px}h2{font-size:19px;line-height:1.2;font-weight:800;margin:0 0 10px}p{font-size:13px;line-height:1.45;margin:8px 0}button{font-size:12px;padding:7px 8px;border:1px solid #94a3b8;border-radius:6px;cursor:pointer;background:#e5e7eb;color:#334155;margin:3px 3px 3px 0;transition:background .15s,transform .15s}button:hover{background:#d1d5db;transform:translateY(-1px)}.primary{background:#bbf7d0;font-weight:bold}.primary:hover{background:#86efac}.replay{display:block;margin:0 12px 12px;background:transparent;font-size:11px}progress{width:100%;accent-color:#22c55e;height:14px}.count{font-size:11px;color:#475569}.hint{background:#fff;border:2px solid #cbd5e1;padding:9px;border-radius:7px}button:focus-visible{outline:3px solid #16a34a;outline-offset:2px}
+  @media(prefers-reduced-motion:reduce){.mission-content{animation:none!important}button{transition:none}}
 </style>
