@@ -78,7 +78,7 @@ function harness() {
   }]));
   const CONFIG = { FARM: { tile_size: 64, cell_size: 70, grid_origin: vec2(), columns: 2, rows: 2 }, BOT: { move_duration: 0.7, action_duration: 0.8, check_duration: 0.5 } };
   const context = vm.createContext({
-    k, CONFIG, CROP_DATA, CropStates, CropTypes, SoilStates, FreshnessStates, IconTypes, OrbTypes, console,
+    tutorialPolicy: { protected: false }, k, CONFIG, CROP_DATA, CropStates, CropTypes, SoilStates, FreshnessStates, IconTypes, OrbTypes, console,
     robots: [], triggerDidYouKnow() {}, play_sfx() {},
     telemetry: { recordCropHarvestOutcome(spoiled) { if (spoiled) rewards.spoiled++; }, recordError() {}, recordEventResponse() {} },
     INVENTORY: { crops: { wheat: 100 }, changeCoins(value) { rewards.coins += value; }, changeCrops(type, value) { rewards.seeds += value; } },

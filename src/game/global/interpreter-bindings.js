@@ -20,6 +20,7 @@ export function createInterpreterInit(api, workspace = null) {
     for (const [name, fn] of Object.entries(api.globals)) bindNative(globalObject, name, fn);
     for (const [name, fn] of Object.entries(api.hooks)) bindNative(globalObject, name, fn);
     bindNative(globalObject, "highlightBlock", id => {
+      api.hooks.__highlightBlock?.(id);
       // Highlighting is a UI observer; switching editors may dispose its old
       // workspace while a robot command is still completing.
       try { workspace?.highlightBlock(id == null ? "" : String(id)); } catch { /* editor disposed */ }

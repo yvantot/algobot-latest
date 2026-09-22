@@ -1,238 +1,42 @@
 <script>
-  import { preferences } from "../game/utils/preferences.js";
-  import { onMount } from "svelte";
-
+  import { dialogFocus } from "./dialog-focus.js";
   let { isOpen = $bindable(false), onClose } = $props();
-
-  let currentSlide = $state(0);
-  let dontShowAgain = $state(false);
-
-  const SLIDES = [
-    {
-      title: "Welcome to AlgoBot!",
-      subtitle: "An Algorithmic Farming Edutainment System",
-      description:
-        "Learn fundamental programming concepts by coding autonomous robots to manage, plant, water, and harvest your farm!",
-      image: "/sprites/art_intro_0.png",
-      fallbackText: "Introduction",
-      highlights: [
-        "Write real code (or use drag-and-drop blocks)",
-        "Automate tasks across your entire farm grid",
-        "Master loops, conditions, and variables",
-      ],
-    },
-    {
-      title: "The Farming Lifecycle",
-      subtitle: "Till -> Plant -> Water -> Harvest",
-      description:
-        "Every crop needs proper care to grow successfully. Follow the essential farming steps:",
-      image: "/sprites/art_intro_1.png",
-      fallbackText: "Farming Cycle",
-      highlights: [
-        "Till soil first using bot.till()",
-        'Plant seeds with bot.plant("wheat")',
-        "Water soil with bot.water() to start growth",
-        "Harvest mature crops with bot.harvest() for Coins & EXP",
-      ],
-    },
-    {
-      title: "Quests & Algorithmic Automation",
-      subtitle: "Complete Quests to Unlock Power-Ups",
-      description:
-        "Expand your programming toolkit as you complete quest milestones and build an automated farming empire!",
-      image: "/sprites/art_intro_2.png",
-      fallbackText: "Automation & Quests",
-      highlights: [
-        "Unlock loops (for, while) to automate repetitive rows",
-        "Use conditional statements (if, else) to react to crop states",
-        "Unlock higher-tier crops & extra helper robots in the Shop",
-      ],
-    },
-  ];
-
-  onMount(() => {
-    const hidden = preferences.getItem("algobot_hide_onboarding") === "true";
-    dontShowAgain = hidden;
+  let step = $state(0);
+  const commands = ["bot.right()", "bot.water()", "bot.harvest()"];
+  $effect(() => {
+    if (!isOpen) return;
+    step = 0;
+    const timer = setInterval(() => { if (step < 3) step++; }, 2200);
+    return () => clearInterval(timer);
   });
-
-  function nextSlide() {
-    if (currentSlide < SLIDES.length - 1) {
-      currentSlide++;
-    } else {
-      handleClose();
-    }
-  }
-
-  function prevSlide() {
-    if (currentSlide > 0) {
-      currentSlide--;
-    }
-  }
-
-  function handleClose() {
-    if (dontShowAgain) {
-      preferences.setItem("algobot_hide_onboarding", "true");
-    } else {
-      preferences.removeItem("algobot_hide_onboarding");
-    }
-    isOpen = false;
-    if (onClose) onClose();
-  }
+  function close() { isOpen = false; onClose?.(); }
 </script>
-
 {#if isOpen}
-  <div
-    class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
-  >
-    <div
-      class="relative w-full max-w-2xl bg-gray-100 text-slate-700 border-4 border-slate-500 rounded-xl shadow-2xl overflow-hidden flex flex-col"
-    >
-      <!-- Header -->
-      <div
-        class="flex justify-between items-center bg-gray-200 border-b-2 border-slate-400 px-4 py-2"
-      >
-        <h2 class="font-bold text-sm text-slate-800 uppercase tracking-wide">
-          Tutorial & Onboarding ({currentSlide + 1} / {SLIDES.length})
-        </h2>
-        <button
-          onclick={handleClose}
-          class="text-slate-500 hover:text-slate-800 text-lg font-bold px-2 py-0.5 rounded cursor-pointer"
-          >✕</button
-        >
+  <div class="demo-backdrop">
+    <div use:dialogFocus tabindex="-1" role="dialog" aria-modal="true" aria-label="Watch your robot follow instructions" class="demo">
+      <p class="eyebrow">WATCH FIRST · DEMONSTRATION</p>
+      <h1>Your instructions bring the farm to life.</h1>
+      <div class="preview" aria-label="Robot moves to wheat, waters it, then harvests it">
+        <div class="tiles"><span></span><span></span><span></span></div>
+        {#if step < 3}<img class="crop" src={step >= 2 ? "/sprites/wheat_harvestable.png" : "/sprites/wheat_young.png"} alt="Wheat" />{/if}
+        <img class="robot" class:moved={step >= 1} src="/sprites/bot.png" alt="Robot" />
+        {#if step === 2}<img class="drop" src="/sprites/icon_raindrop.png" alt="Water" />{/if}
+        {#if step === 3}<span class="harvest">Harvest collected!</span>{/if}
       </div>
-
-      <!-- Slide Content -->
-      <div class="p-6 flex flex-col gap-4 min-h-[360px] justify-between">
-        <!-- Title & Subtitle -->
-        <div class="text-center space-y-1">
-          <h3
-            class="text-xl font-extrabold text-slate-800"
-            style="font-family: 'Quicksand', sans-serif"
-          >
-            {SLIDES[currentSlide].title}
-          </h3>
-          <p
-            class="text-sm font-semibold text-green-800 uppercase tracking-wider"
-          >
-            {SLIDES[currentSlide].subtitle}
-          </p>
-        </div>
-
-        <!-- Image Slot with Graphic Fallback -->
-        <div
-          class="relative w-full h-fit bg-gray-200 rounded-lg border-2 border-slate-300 overflow-hidden flex items-center justify-center"
-        >
-          <img
-            src={SLIDES[currentSlide].image}
-            alt={SLIDES[currentSlide].title}
-            class="w-full h-full object-contain relative z-10"
-            onerror={(e) => {
-              e.currentTarget.style.display = "none";
-              if (e.currentTarget.nextElementSibling) {
-                e.currentTarget.nextElementSibling.classList.remove("hidden");
-                e.currentTarget.nextElementSibling.classList.add("flex");
-              }
-            }}
-          />
-        </div>
-
-        <!-- Highlights List with Bot Teacher -->
-        <div class="flex gap-3 items-start">
-          <img
-            src="/sprites/bot_teacher.png"
-            alt="Bot Teacher"
-            class="bot-teacher-idle w-16 h-16 object-contain shrink-0 mt-1"
-            style="image-rendering: pixelated;"
-          />
-          <div
-            class="bg-white border-2 border-slate-300 rounded-lg p-3 space-y-1.5 shadow-inner flex-grow"
-          >
-            {#each SLIDES[currentSlide].highlights as highlight}
-              <div class="flex items-center gap-2 text-sm text-slate-700">
-                <span class="text-green-700 font-bold">✓</span>
-                <span>{highlight}</span>
-              </div>
-            {/each}
-          </div>
-        </div>
-      </div>
-
-      <!-- Footer & Controls -->
-      <div
-        class="flex justify-between items-center bg-gray-200 border-t-2 border-slate-400 px-4 py-3"
-      >
-        <!-- Don't Show Again Checkbox -->
-        <label
-          class="flex items-center gap-2 cursor-pointer select-none text-sm text-slate-600 hover:text-slate-900 font-medium"
-        >
-          <input
-            type="checkbox"
-            bind:checked={dontShowAgain}
-            class="rounded border-slate-400 text-green-600 focus:ring-green-500 w-4 h-4 cursor-pointer"
-          />
-          <span>Don't show again on start</span>
-        </label>
-
-        <!-- Slide Indicator Dots & Buttons -->
-        <div class="flex items-center gap-4">
-          <!-- Dots -->
-          <div class="flex gap-1.5">
-            {#each SLIDES as _, i}
-              <button
-                onclick={() => (currentSlide = i)}
-                class="w-2.5 h-2.5 rounded-full transition-all cursor-pointer {i ===
-                currentSlide
-                  ? 'bg-slate-700 scale-110'
-                  : 'bg-gray-400 hover:bg-slate-500'}"
-                aria-label="Go to slide {i + 1}"
-              ></button>
-            {/each}
-          </div>
-
-          <!-- Buttons -->
-          <div class="flex gap-2">
-            {#if currentSlide > 0}
-              <button
-                onclick={prevSlide}
-                class="px-3 py-1.5 bg-gray-300 hover:bg-gray-400 text-slate-800 font-bold rounded-lg text-sm border border-slate-400 cursor-pointer transition-colors"
-              >
-                Previous
-              </button>
-            {/if}
-
-            {#if currentSlide < SLIDES.length - 1}
-              <button
-                onclick={nextSlide}
-                class="px-4 py-1.5 bg-gray-300 hover:bg-gray-400 text-slate-800 font-bold rounded-lg text-sm border border-slate-400 cursor-pointer transition-colors"
-              >
-                Next
-              </button>
-            {:else}
-              <button
-                onclick={handleClose}
-                class="px-5 py-1.5 bg-gray-300 hover:bg-gray-400 text-slate-800 font-bold rounded-lg text-sm border border-slate-400 cursor-pointer transition-colors"
-              >
-                Start Farming
-              </button>
-            {/if}
-          </div>
-        </div>
-      </div>
+      <ol aria-label="Demonstration program">
+        {#each commands as command, i}<li class:executing={Math.min(step, 2) === i}><span>{i + 1}</span><code>{command}</code></li>{/each}
+      </ol>
+      <p aria-live="polite">{["One command. One action.", "The robot moves to its crop.", "Water helps the wheat grow.", "Now make your own robot move."][step]}</p>
+      <div class="actions"><button onclick={close}>{step === 3 ? "Your turn" : "Skip demonstration"}</button><button class="secondary" onclick={() => step = 0}>Replay</button></div>
     </div>
   </div>
 {/if}
-
 <style>
-  @keyframes bot-teacher-bounce {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-4px);
-    }
-  }
-  .bot-teacher-idle {
-    animation: bot-teacher-bounce 1.6s ease-in-out infinite;
-  }
+  .demo-backdrop{position:fixed;inset:0;background:#17251bcc;display:grid;place-items:center;z-index:10000;padding:20px}
+  .demo{width:min(540px,100%);max-height:95vh;overflow:auto;background:#f6f1df;color:#243c31;border:4px solid #64715b;border-radius:14px;padding:26px}
+  h1{font-size:24px;font-weight:800;line-height:1.2;margin:10px 0}.eyebrow{font-size:12px;letter-spacing:.1em;font-weight:800}
+  .preview{height:170px;position:relative;background:#bdd192;border-radius:10px;overflow:hidden;margin:18px 0}.tiles{position:absolute;left:12%;right:12%;top:90px;display:flex;gap:5px}.tiles span{background:#95724a;height:52px;flex:1;border-bottom:8px solid #765735}
+  .robot{position:absolute;width:64px;left:15%;top:46px;transition:left 1s cubic-bezier(.45,0,.55,1);image-rendering:pixelated}.robot.moved{left:42%}.crop{position:absolute;width:60px;left:55%;top:65px;image-rendering:pixelated}.drop{position:absolute;width:28px;left:58%;top:28px}.harvest{position:absolute;right:15px;top:20px;background:#fff8da;padding:8px;border-radius:6px}
+  ol{list-style:none;padding:0;display:grid;gap:6px}li{padding:9px;background:#e0e4d6;border:2px solid transparent;border-radius:6px}li.executing{border-color:#39653e;background:#c9e5b3}li span{margin-right:14px;font-weight:bold}.actions{display:flex;gap:10px;margin-top:18px}button{background:#315936;color:white;padding:10px 16px;border-radius:6px;font-weight:bold;cursor:pointer}.secondary{background:#e1e6d6;color:#243c31}button:focus-visible{outline:3px solid #b16a12;outline-offset:3px}
+  @media(prefers-reduced-motion:reduce){.robot{transition:none}}
 </style>

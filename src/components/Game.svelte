@@ -1,4 +1,7 @@
 <script>
+  import QuestFeedback from "./QuestFeedback.svelte";
+  import { tutorialPolicy } from "../game/global/tutorial.js";
+  import { TUTORIAL, QUEST_FEEDBACK } from "./global.svelte.js";
   import Inventory from "./Inventory.svelte";
   import TextBased from "./TextBased.svelte";
   import BlockBased from "./BlockBased.svelte";
@@ -100,12 +103,13 @@
     showOnboarding = true;
     let participantId = `p_${crypto.randomUUID()}`;
     try {
-      showOnboarding = localStorage.getItem("algobot_hide_onboarding") !== "true";
+      showOnboarding = TUTORIAL.active;
       participantId = localStorage.getItem("algobot_participant_id") || participantId;
       localStorage.setItem("algobot_participant_id", participantId);
     } catch {
       storageWarning = "Browser storage is unavailable. Export research data before closing this page.";
     }
+    tutorialPolicy.protected = TUTORIAL.active;
     ONBOARDING.isModalOpen = showOnboarding;
     const shouldRun = () => k.debug.timeScale > 0 && !ONBOARDING.isModalOpen && !document.hidden;
     configureFarmEvents(farm_grid_index, { shouldRun });
@@ -130,9 +134,9 @@
     // Returning the cleanup synchronously is required by Svelte onMount.
     mlAgent.init().then(() => {
       if (disposed) return;
-      eventScheduler.start({ shouldRun });
+      eventScheduler.start({ shouldRun: () => shouldRun() && !TUTORIAL.active });
       predictionTimer = setInterval(() => {
-        if (shouldRun()) {
+        if (shouldRun() && !TUTORIAL.active) {
           mlAgent.updateAndPredict(telemetry.currentStage).then(() => {
             if (disposed) return;
             const nextHint = dda.activeHint || "";
@@ -160,10 +164,11 @@
   });
 
   $effect(() => {
-    ONBOARDING.isModalOpen = showOnboarding;
+    ONBOARDING.isModalOpen = showOnboarding || QUEST_FEEDBACK.hazardsPending || !!QUEST_FEEDBACK.queue[0]?.milestone;
   });
 
   function toggleEditor() {
+    if (TUTORIAL.active) return;
     current_editor =
       current_editor === Editors.TEXT ? Editors.BLOCK : Editors.TEXT;
     // ML Pipeline: track editor mode as metadata (not ML feature)
@@ -194,6 +199,7 @@
   <LevelReward />
   <FarmPersonalize />
   <OnboardingModal bind:isOpen={showOnboarding} />
+  <QuestFeedback />
   <DidYouKnowPopup />
   <UnlockFlyOverlay />
   <EventBanner />
@@ -433,6 +439,7 @@
       <div class="flex gap-16 items-start">
         <Inventory />
         <QuestHUD
+          onReplay={() => showOnboarding = true}
           onOpenQuestMenu={() => toggleMenu(Menus.QUEST)}
           onOpenBlockEditor={() => {
             current_menu = Menus.COMMAND;
@@ -449,6 +456,8 @@
       <div in:panelIn out:panelOut class="relative">
         <button
           class="absolute top-2 left-2 z-10 bg-gray-300 border-2 border-gray-400"
+          disabled={TUTORIAL.active}
+          title={TUTORIAL.active ? "Text coding unlocks after your first loop" : "Switch editor"}
           aria-label={current_editor === Editors.BLOCK ? "Switch to text editor" : "Switch to block editor"}
           onclick={toggleEditor}
         >

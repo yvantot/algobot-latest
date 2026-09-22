@@ -4,7 +4,7 @@
   import "blockly/blocks";
   import { javascriptGenerator } from "blockly/javascript";
   import { CONFIG, DOCUMENT_DATA } from "../game/global/global";
-  import { robots, robots_state, UNLOCK_VERSION, ONBOARDING } from "./global.svelte.js";
+  import { robots, robots_state, UNLOCK_VERSION, ONBOARDING, TUTORIAL, currentQuest } from "./global.svelte.js";
   import { trackQuest, beginActiveQuest } from "./global.svelte.js";
   import { createResizable } from "./interface.svelte.js";
   import { createInit } from "../game/global/interpreter.js";
@@ -698,9 +698,12 @@
     const finalCategories = [];
 
     for (const cat of rawCategories) {
-      const filteredContents = cat.contents.filter((item) =>
-        isBlockUnlocked(item.type),
-      );
+      const mission = currentQuest();
+      const allowed = mission === "intro_run" || mission === "intro_build"
+        ? ["bot_left", "bot_right", "bot_up", "bot_down"]
+        : mission === "tut_2" ? ["bot_left", "bot_right", "bot_up", "bot_down", "bot_till", "bot_plant", "bot_water", "bot_harvest"]
+        : mission === "intro_loop" ? ["bot_left", "bot_right", "bot_up", "bot_down", "controls_repeat_ext", "math_number"] : null;
+      const filteredContents = cat.contents.filter(item => isBlockUnlocked(item.type) && (!allowed || allowed.includes(item.type)));
       if (filteredContents.length > 0) {
         finalCategories.push({ ...cat, contents: filteredContents });
       }
@@ -730,15 +733,7 @@
     };
   }
 
-  const START_XML = `<xml>
-    <block type="bot_say">
-      <value name="TEXT">
-        <shadow type="text">
-          <field name="TEXT">Hello World!</field>
-        </shadow>
-      </value>
-    </block>
-  </xml>`;
+  const START_XML = `<xml><block type="bot_right" x="30" y="30"></block></xml>`;
 
   $effect(() => {
     robots.forEach((bot, index) => {
@@ -865,7 +860,11 @@
       scrollbars: true,
     });
 
-    workspace.addChangeListener(() => {
+    workspace.addChangeListener((event) => {
+      if (currentQuest() === "intro_build" && event.type === Blockly.Events.BLOCK_CREATE && event.recordUndo) {
+        const created = (event.ids || []).some(id => ["bot_left", "bot_right", "bot_up", "bot_down"].includes(workspace.getBlockById(id)?.type));
+        if (created) TUTORIAL.authoredBlocks.push(...(event.ids || []));
+      }
       if (robots_state[selected_robot]) {
         robots_state[selected_robot].block_code =
           javascriptGenerator.workspaceToCode(workspace);
@@ -891,6 +890,8 @@
   // Dynamically update toolbox whenever unlock version changes
   $effect(() => {
     const _ = UNLOCK_VERSION.count;
+    const mission = currentQuest();
+    const practice = TUTORIAL.active;
     if (workspace) {
       workspace.updateToolbox(buildToolbox());
     }

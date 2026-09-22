@@ -107,7 +107,8 @@ export function createCommandAPI({
     bot[name] = command(name, "botJump", {
       category: "bot_movement", action: "move",
       args: () => [robot.grid_x + dx, robot.grid_y + dy],
-      after: () => quest("tut_1", 1, robot.executingLoop ? "loop" : "move"),
+      before: () => ({ inLoop: !!robot.executingLoop, blockId: robot.currentBlockId }),
+      after: (_result, context) => quest("tut_1", 1, context),
     });
   }
   for (const [name, method] of Object.entries({
@@ -147,6 +148,7 @@ export function createCommandAPI({
     },
     console: { log: (...values) => { try { return speak(values.map(String).join(" ")); } catch (error) { reportError(error); } } },
     hooks: {
+      __highlightBlock: id => { robot.currentBlockId = id; },
       __trackLoop: type => { record("recordLoopExecution", type ? String(type) : "for"); quest("cs_loop_0"); },
       __trackIf: result => record("recordIfCondition", !!result),
     },

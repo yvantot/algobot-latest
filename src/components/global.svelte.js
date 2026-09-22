@@ -30,7 +30,7 @@ export const Modals = $state({
 });
 
 export const QUEST_FEEDBACK = $state({ queue: [], hazardsPending: false, revision: 0 });
-export const TUTORIAL = $state({ active: true, authored: false });
+export const TUTORIAL = $state({ active: true, authoredBlocks: [] });
 export function currentQuest() { return activeQuest(QUEST_DATA, QUEST_STATE); }
 export function finishIntroduction() {
   TUTORIAL.active = false; tutorialPolicy.protected = false;
@@ -64,7 +64,7 @@ export function beginActiveQuest() {
 
 export function trackQuest(key, amount = 1, action = null) {
 	if (key === "tut_1") {
-    key = movementQuest(currentQuest(), { authored: TUTORIAL.authored, inLoop: action === "loop" });
+    key = movementQuest(currentQuest(), { authored: TUTORIAL.authoredBlocks.includes(action?.blockId), inLoop: action?.inLoop === true });
     if (!key) return;
   }
   if (!Number.isFinite(amount) || amount <= 0) return;
@@ -102,7 +102,7 @@ export function trackQuest(key, amount = 1, action = null) {
 	}
 
 	// Trigger async DDA update (non-blocking)
-	mlAgent.updateAndPredict(telemetry.currentStage).catch(() => { });
+	if (!TUTORIAL.active) mlAgent.updateAndPredict(telemetry.currentStage).catch(() => { });
 }
 
 export const UNLOCK_VERSION = $state({ count: 0 });

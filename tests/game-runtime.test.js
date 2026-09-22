@@ -1,3 +1,4 @@
+import { activeQuest, movementQuest, INTRO_QUESTS } from "../src/game/global/tutorial.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -163,7 +164,7 @@ test("documented inventory and pest checks work in the actual interpreter bindin
 test("farming tutorial cannot be completed by repeating the same action", () => {
   const completions = [];
   const questContext = vm.createContext({
-    $state: value => value,
+    $state: value => value, activeQuest, movementQuest, INTRO_QUESTS, tutorialPolicy: { protected: false },
     AvatarTypes: { FARMER: "farmer" }, ModalTypes: {},
     QUEST_DATA: { tut_2: { goal: 4, prereq: [] } },
     PLAYER_DATA: {}, INVENTORY: {}, DOCUMENT_DATA: {}, SHOP_DATA: {}, CROP_DATA: {},
