@@ -127,9 +127,11 @@ export function startLiveDemonstration(onChange) {
         plantAt(1, 1, CropStates.HARVESTABLE);
         const pest = addBug(farm, { damage: 1, attack_interval: 2, move_interval: 60 });
         owned.push(pest);
-        pest.grid_x = 1; pest.grid_y = 1;
+        // Let component startup finish before placing the scripted pest.
+        if (!await wait(0.1)) return;
+        pest.bug_move_timer?.cancel();
+        pest.gridPlace(1, 1);
         pest.updateGridIndex(1, 1);
-        pest.pos = pest.gridAxisToWorld();
         if (!await wait(4)) return;
         if (!await action(robot, 1, "botKillBug")) return;
         break;

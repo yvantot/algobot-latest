@@ -59,3 +59,11 @@ the playable mission explains both watering cycles.
 Existing Blockly drag-and-drop accessibility, old resize handles, and mobile farm
 camera framing need a separate interface pass. This is a playable desktop draft,
 not a claim of complete accessibility conformance or student usability validation.
+
+### Teacher-led introduction verification (2026-09-22)
+
+The full eleven-scene browser walkthrough completed, including both robots,
+visible cloud/rainfall, fresh-to-rotten wheat with green gas, extinguishing fire,
+and removing a pest. The closing transition returned to 50 coins, 5 wheat seeds,
+Bot 0 and zero first-mission progress. The scripted pest's movement loop is stopped
+after component startup so it stays on the tile described by the teacher.
