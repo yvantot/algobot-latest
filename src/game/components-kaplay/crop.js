@@ -93,7 +93,7 @@ export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
       this.showFreshness(FreshnessStates.DEAD);
       this.effectsEnabled(false);
       this.sprite = `${type}${this.crop_state}`;
-      if (reason === "spoilage") {
+      if (reason === "spoilage" && !farm_grid_index.isDemonstration) {
         telemetry.recordCropHarvestOutcome(true);
         triggerDidYouKnow("spoilage");
       }
@@ -143,6 +143,12 @@ export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
       const dropSeed = Math.random() < this.crop_seed_drop_chance;
       // Rewards commit together only when this crop survives the harvest.
       this.cropWait(1, () => {
+        if (farm_grid_index.isDemonstration) {
+          play_sfx("collect");
+          this.crop_harvest_completed = true;
+          this.cropDestroy("harvest");
+          return;
+        }
         telemetry.recordCropHarvestOutcome(false);
         if (dropSeed) {
           triggerDidYouKnow("seed_drop");

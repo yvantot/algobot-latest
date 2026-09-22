@@ -41,7 +41,7 @@ export function botact(id, farm_grid_index) {
 
     showError(message) {
       this.executionErrorCount = (this.executionErrorCount || 0) + 1;
-      telemetry.recordError(message);
+      if (!farm_grid_index.isDemonstration) telemetry.recordError(message);
       this.sayText(message, "#ffb8bd", "#763c40");
       this.setDisplayColor(k.RED);
     },
@@ -192,7 +192,7 @@ export function botact(id, farm_grid_index) {
       if (!soil) return this.rejectAction(SAY_DATA.farm.error.out_of_bounds, callback);
       if (!soil.till()) return this.rejectAction(SAY_DATA.farm.error.till_tilled, callback);
       this.showIcon(IconTypes.HOE, this.botact_duration);
-      triggerDidYouKnow("soil");
+      if (!farm_grid_index.isDemonstration) triggerDidYouKnow("soil");
       play_sfx("bot_till");
       return this.performAct(true, this.botact_duration, callback, true);
     },
@@ -230,9 +230,9 @@ export function botact(id, farm_grid_index) {
       if (!tile?.soil) return this.rejectAction(SAY_DATA.farm.error.out_of_bounds, callback);
       if (tile.crop) return this.rejectAction(SAY_DATA.farm.error.plant_planted, callback);
       if (tile.soil.soil_state === SoilStates.INITIAL) return this.rejectAction(SAY_DATA.farm.error.plant_initial, callback);
-      if (!(INVENTORY.crops[type] > 0)) return this.rejectAction(SAY_DATA.farm.error.insufficient_resources, callback);
+      if (!farm_grid_index.isDemonstration && !(INVENTORY.crops[type] > 0)) return this.rejectAction(SAY_DATA.farm.error.insufficient_resources, callback);
       tile.crop = addCrop(farm_grid_index, type, x, y);
-      INVENTORY.changeCrops(type, -1);
+      if (!farm_grid_index.isDemonstration) INVENTORY.changeCrops(type, -1);
       this.showIcon(IconTypes.SEEDPACK, this.botact_duration);
       play_sfx("plant");
       return this.performAct(true, this.botact_duration, callback, true);
@@ -293,6 +293,6 @@ export function addFarmbot(id, farm_grid_index, x = 0, y = 0) {
     effects(),
     displaytext(id, -64 / 2, -58, { size: 20, color: k.GREEN }),
     botact(id, farm_grid_index)]);
-  robots.push(object);
+  if (!farm_grid_index.isDemonstration) robots.push(object);
   return object;
 }
