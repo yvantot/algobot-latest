@@ -17,6 +17,7 @@
   let lastErrors = 0;
   let lastProgress = 0;
   let awaitingClaim = $derived(Object.keys(QUEST_DATA).find(id => QUEST_STATE[id]?.is_completed && !QUEST_STATE[id]?.is_claimed));
+  let needsSeed = $derived.by(() => { const refresh = tick; return INVENTORY.crops.wheat < 1; });
   let hints = $derived(INTRO_HINTS[key] || [mission?.tip || "Open the mission path to choose your next task."]);
   $effect(() => { const id = key; hintLevel = 0; offered = false; idle = 0; lastProgress = 0; lastErrors = telemetry.errorCount || 0; });
   function showHint() {
@@ -31,12 +32,12 @@
     const refresh = tick;
     if (key !== "tut_2") return mission?.description;
     const actions = QUEST_STATE.tut_2.actions || [];
-    if (!actions.includes("till")) return "Open Farm. Add bot.till and press Start.";
-    if (!actions.includes("plant")) return "Plant wheat on the tilled tile using bot.plant.";
-    if (!actions.includes("water")) return "Water your wheat using bot.water.";
+    if (!actions.includes("till")) return "Clear the previous blocks. Open Farm, add bot.till, then press Start.";
+    if (!actions.includes("plant")) return "Replace bot.till with bot.plant wheat. Press Start on the same tile.";
+    if (!actions.includes("water")) return "Replace the planting block with bot.water and press Start.";
     const crop = [...farm_grid_index.values()].find(tile => tile.crop?.crop_type === "wheat")?.crop;
     if (crop && crop.crop_state !== "_harvestable") return crop.absorbing_water ? "Your wheat is growing. Watch the water soak in." : "Water again when the soil dries. Wheat needs two watering cycles.";
-    return "Your wheat is ready. Run bot.harvest to collect it.";
+    return "Your wheat is ready. Replace the water block with bot.harvest and press Start.";
   }
   onMount(() => {
     const resetIdle = () => { idle = 0; };
@@ -71,10 +72,10 @@
     <button onclick={showHint}>Show me the next step</button>
     {#if offered && hintLevel === 0}<p class="hint">Need a hand? Try “Show me the next step”.</p>{/if}
     {#if hintLevel}<p class="hint" aria-live="polite">{hints[hintLevel - 1]}</p>{/if}
-    {#if key === "tut_2"}<button onclick={() => { if (INVENTORY.crops.wheat < 1) INVENTORY.changeCrops("wheat", 1); }}>Replace a used practice seed</button>{/if}
+    {#if key === "tut_2" && needsSeed}<button onclick={() => { if (INVENTORY.crops.wheat < 1) INVENTORY.changeCrops("wheat", 1); }}>Replace a used practice seed</button>{/if}
   {:else}<h2>All missions complete</h2><p>Keep experimenting with your farm programs.</p>{/if}
   <button class="replay" onclick={onReplay}>Watch the demonstration</button>
 </aside>
 <style>
-  .mission{width:300px;max-width:90vw;background:#f5f0df;color:#263c32;border:3px solid #60755c;border-radius:10px;padding:15px;box-shadow:0 4px 10px #0002}.heading{display:flex;align-items:center;gap:10px;justify-content:space-between}.heading span{font-size:10px;letter-spacing:.06em;font-weight:bold}h2{font-size:20px;line-height:1.2;font-weight:800;margin:12px 0}p{font-size:14px;line-height:1.45;margin:8px 0}button{font-size:12px;padding:7px 8px;border-radius:5px;cursor:pointer;background:#e0e5d5;color:#263c32;margin:3px 3px 3px 0}.primary{background:#315936;color:white;font-weight:bold}.replay{display:block;margin-top:12px;background:transparent;text-decoration:underline}progress{width:100%;accent-color:#426c36;height:12px}.count{font-size:12px}.hint{background:#fff6cd;padding:10px;border-radius:5px}button:focus-visible{outline:3px solid #aa620d;outline-offset:2px}
+  .mission{box-sizing:border-box;width:300px;max-width:90vw;background:#f5f0df;color:#263c32;border:3px solid #60755c;border-radius:10px;padding:15px;box-shadow:0 4px 10px #0002}.heading{display:flex;align-items:center;gap:10px;justify-content:space-between}.heading span{font-size:10px;letter-spacing:.06em;font-weight:bold}h2{font-size:20px;line-height:1.2;font-weight:800;margin:12px 0}p{font-size:14px;line-height:1.45;margin:8px 0}button{font-size:12px;padding:7px 8px;border-radius:5px;cursor:pointer;background:#e0e5d5;color:#263c32;margin:3px 3px 3px 0}.primary{background:#315936;color:white;font-weight:bold}.replay{display:block;margin-top:12px;background:transparent;text-decoration:underline}progress{width:100%;accent-color:#426c36;height:12px}.count{font-size:12px}.hint{background:#fff6cd;padding:10px;border-radius:5px}button:focus-visible{outline:3px solid #aa620d;outline-offset:2px}
 </style>

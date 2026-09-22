@@ -17,6 +17,12 @@
 
   let blocklyDiv;
   let workspace;
+  let tutorialCategory = $derived(currentQuest() === "tut_2" ? "Farm" : currentQuest() === "intro_loop" ? "Loops" : "Bot");
+  function focusTutorialBlocks() {
+    const toolbox = workspace?.getToolbox();
+    const category = toolbox?.getToolboxItems().find(item => item.getName?.().includes(tutorialCategory));
+    if (category) toolbox.setSelectedItem(category);
+  }
   let selected_robot = $state(0);
   let is_command_ready = $state(false);
   let startBtnRef = $state(null);
@@ -616,7 +622,7 @@
             kind: "block",
             type: "controls_repeat_ext",
             inputs: {
-              TIMES: { shadow: { type: "math_number", fields: { NUM: 10 } } },
+              TIMES: { shadow: { type: "math_number", fields: { NUM: TUTORIAL.active ? 2 : 10 } } },
             },
           },
           { kind: "block", type: "controls_whileUntil" },
@@ -625,7 +631,7 @@
             type: "controls_for",
             inputs: {
               FROM: { shadow: { type: "math_number", fields: { NUM: 1 } } },
-              TO: { shadow: { type: "math_number", fields: { NUM: 10 } } },
+              TO: { shadow: { type: "math_number", fields: { NUM: TUTORIAL.active ? 2 : 10 } } },
               BY: { shadow: { type: "math_number", fields: { NUM: 1 } } },
             },
           },
@@ -709,7 +715,7 @@
       }
     }
 
-    if (DOCUMENT_DATA.syntax.var?.is_unlocked) {
+    if (!TUTORIAL.active && DOCUMENT_DATA.syntax.var?.is_unlocked) {
       finalCategories.push({
         kind: "category",
         name: "📦  Variables",
@@ -718,7 +724,7 @@
       });
     }
 
-    if (DOCUMENT_DATA.syntax["function"]?.is_unlocked) {
+    if (!TUTORIAL.active && DOCUMENT_DATA.syntax["function"]?.is_unlocked) {
       finalCategories.push({
         kind: "category",
         name: "⚙️  Functions",
@@ -947,7 +953,7 @@
 
 <div
   style="width: {resize.width}px;"
-  class="text-slate-700 h-[95vh] bottom-4 flex flex-col w-[30vw] bg-gray-100 border-4 border-slate-500 rounded-xl shadow-xl overflow-hidden text-sm z-50"
+  class="tutorial-editor text-slate-700 h-[95vh] bottom-4 flex flex-col w-[30vw] bg-gray-100 border-4 border-slate-500 rounded-xl shadow-xl overflow-hidden text-sm z-50"
 >
   <div
     role="separator"
@@ -973,6 +979,12 @@
     </div>
   </div>
 
+  {#if TUTORIAL.active && currentQuest() !== "intro_run"}
+    <div class="px-3 py-2 bg-amber-100 text-slate-800 text-sm flex items-center justify-between gap-2">
+      <span>{currentQuest() === "intro_loop" ? "Put movement inside repeat." : "Drag a block here, then press Start."}</span>
+      <button class="underline font-bold cursor-pointer" onclick={focusTutorialBlocks}>Open {tutorialCategory} blocks</button>
+    </div>
+  {/if}
   <div class="flex-1 bg-white min-h-0 overflow-hidden relative">
     <div class="absolute inset-0 w-full h-full" bind:this={blocklyDiv}></div>
   </div>

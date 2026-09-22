@@ -1,4 +1,5 @@
 <script>
+  import TutorialTarget from "./TutorialTarget.svelte";
   import QuestFeedback from "./QuestFeedback.svelte";
   import { tutorialPolicy } from "../game/global/tutorial.js";
   import { TUTORIAL, QUEST_FEEDBACK } from "./global.svelte.js";
@@ -118,7 +119,6 @@
     telemetry.setStage(resumedStage);
     mlAgent.resetSession();
     telemetry.setParticipantId(participantId);
-    beginActiveQuest();
 
     function saveSession() {
       if (saved) return;
@@ -200,6 +200,7 @@
   <FarmPersonalize />
   <OnboardingModal bind:isOpen={showOnboarding} />
   <QuestFeedback />
+  <TutorialTarget />
   <DidYouKnowPopup />
   <UnlockFlyOverlay />
   <EventBanner />
@@ -300,7 +301,7 @@
       <div class="flex gap-4">
         <PlayerInfo />
         <div class="pt-2 flex items-center gap-1">
-          {#each menuButtons as btn}
+          {#each menuButtons.filter(btn => !TUTORIAL.active || [Menus.COMMAND, Menus.QUEST].includes(btn.id)) as btn}
             <button
               class="cursor-pointer group relative"
               onclick={() => toggleMenu(btn.id)}
@@ -436,16 +437,16 @@
           {/if}
         </div>
       </div>
-      <div class="flex gap-16 items-start">
-        <Inventory />
-        <QuestHUD
+      <div class="flex gap-4 items-start" class:practice-layout={TUTORIAL.active}>
+        <div class:practice-inventory={TUTORIAL.active}><Inventory /></div>
+        <div class="quest-slot"><QuestHUD
           onReplay={() => showOnboarding = true}
           onOpenQuestMenu={() => toggleMenu(Menus.QUEST)}
           onOpenBlockEditor={() => {
             current_menu = Menus.COMMAND;
             current_editor = Editors.BLOCK;
           }}
-        />
+        /></div>
       </div>
     </div>
   </div>
@@ -575,5 +576,17 @@
   button {
     border-radius: 0.2rem;
     padding: 0.2rem;
+  }
+
+  .practice-inventory :global(.flex.flex-col.gap-0 > div:nth-child(n+3)){display:none}
+  @media(max-width:1050px){
+    .practice-layout{flex-direction:column;gap:8px}
+    .practice-inventory{display:none}
+    .quest-slot :global(.mission){width:clamp(210px,calc(100vw - 432px),300px);max-height:60vh;overflow:auto}
+  }
+  @media(max-width:640px){
+    .quest-slot{position:fixed;left:12px;top:100px;z-index:60}
+    .quest-slot :global(.mission){width:calc(100vw - 24px);max-height:28vh}
+    :global(.tutorial-editor){max-width:calc(100vw - 24px);height:50vh!important}
   }
 </style>

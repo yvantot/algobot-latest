@@ -8,8 +8,8 @@ export function activeQuest(definitions, states) {
     (definitions[key].prereq || []).every(id => states[id]?.is_claimed));
 }
 
-export function movementQuest(key, { authored = false, inLoop = false } = {}) {
-  if (key === "intro_run") return key;
+export function movementQuest(key, { authored = false, inLoop = false, x, y } = {}) {
+  if (key === "intro_run" && x === 1 && y === 0) return key;
   if (key === "intro_build" && authored) return key;
   if (key === "intro_loop" && inLoop) return key;
   return null;
@@ -18,6 +18,6 @@ export function movementQuest(key, { authored = false, inLoop = false } = {}) {
 export const INTRO_HINTS = {
   intro_run: ["Find the Start button above the blocks.", "The prepared bot.right block moves one tile right.", "Press Start once and watch the robot move."],
   intro_build: ["Open the Bot category in the editor.", "Drag a movement block into the workspace. Remove the old block if you need to.", "Try bot.down, then press Start. Choose a direction with a free tile."],
-  tut_2: ["Use the Farm category on the robot's current tile.", "Till, plant wheat, then water. Wait until the wheat is ready.", "Run bot.harvest only when the wheat is fully grown. Your crop cannot spoil during practice."],
+  tut_2: ["Use the Farm category on the robot's current tile.", "Till, plant wheat, then water. When the soil dries, water again.", "Run bot.harvest only when the wheat is fully grown. Your crop cannot spoil during practice."],
   intro_loop: ["Open Loops and choose repeat.", "Put movement blocks inside repeat. The robot must make two successful moves inside a loop.", "Repeat twice: bot.left then bot.right. Start away from the left edge; this route returns to the same tile."],
 };

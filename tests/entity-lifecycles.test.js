@@ -120,6 +120,21 @@ function harness() {
   return { context, make, k, farm, timers, roots, rewards, addSoil, plant, bot, advance };
 }
 
+test("protected practice allows crop growth but defers deterioration until released", () => {
+  const h = harness(); const soil = h.addSoil(); const crop = h.plant();
+  h.context.tutorialPolicy.protected = true;
+  soil.water(); h.advance(10);
+  assert.equal(crop.crop_state, CropStates.GROWING);
+  soil.water(); h.advance(10);
+  assert.equal(crop.crop_state, CropStates.HARVESTABLE);
+  h.advance(100);
+  assert.equal(crop.crop_state, CropStates.HARVESTABLE);
+  assert.equal(crop.spoilage_remaining, 8);
+  h.context.tutorialPolicy.protected = false;
+  h.advance(8);
+  assert.equal(crop.crop_state, CropStates.DEAD);
+});
+
 test("empty watered soil drains visually in 0.25 seconds without storing a growth dose", () => {
   const h = harness(); const soil = h.addSoil();
   soil.water();

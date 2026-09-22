@@ -64,7 +64,7 @@ export function beginActiveQuest() {
 
 export function trackQuest(key, amount = 1, action = null) {
 	if (key === "tut_1") {
-    key = movementQuest(currentQuest(), { authored: TUTORIAL.authoredBlocks.includes(action?.blockId), inLoop: action?.inLoop === true });
+    key = movementQuest(currentQuest(), { authored: TUTORIAL.authoredBlocks.includes(action?.blockId), inLoop: action?.inLoop === true, x: action?.x, y: action?.y });
     if (!key) return;
   }
   if (!Number.isFinite(amount) || amount <= 0) return;
@@ -284,6 +284,7 @@ export const DID_YOU_KNOW_STATE = $state({
 });
 
 export function triggerDidYouKnow(id) {
+  if (TUTORIAL.active) return;
 	if (DID_YOU_KNOW_STATE.shown[id]) return;
 	const tip = DID_YOU_KNOW_TIPS[id];
 	if (!tip) return;

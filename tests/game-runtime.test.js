@@ -33,6 +33,21 @@ function harness(code, init = () => {}) {
   return { runner, states, records, complete };
 }
 
+test("movement credit identifies an executed loop and the executing block, not an empty loop", () => {
+  const moves = [];
+  const robot = { grid_x: 0, grid_y: 0, botJump(x, y, cb) { this.grid_x = x; this.grid_y = y; cb(true); } };
+  const api = createCommandAPI({ robot, onQuestEvent(key, amount, context) { if (key === "tut_1") moves.push(context); } });
+  const h = harness('for(var i=0;i<2;i++){} highlightBlock("outside"); bot.right(); for(var j=0;j<2;j++){ highlightBlock("inside"); bot.down(); }', createInterpreterInit(api));
+  h.states[0].robot = robot;
+  h.runner.start(0); h.complete();
+  assert.deepEqual(moves, [
+    { inLoop: false, blockId: "outside", x: 1, y: 0 },
+    { inLoop: true, blockId: "inside", x: 1, y: 1 },
+    { inLoop: true, blockId: "inside", x: 1, y: 2 },
+  ]);
+  assert.equal(robot.executingLoop, false);
+});
+
 test("normal completion is one success, not a reset, and releases its interval", () => {
   const h = harness("var a = 1 + 2;");
   h.runner.start(0);

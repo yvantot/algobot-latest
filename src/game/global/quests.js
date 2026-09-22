@@ -18,7 +18,7 @@ export const QUEST_DATA = {
   },
   "intro_build": {
     type: QuestTypes.TUTORIAL, title: "Give your robot a direction",
-    description: "Add a movement block from Bot, then press Start.",
+    description: "Clear the prepared block. Add a movement block from Bot, then press Start.",
     tip: "Drag bot.down from Bot into the workspace and run it.",
     goal: 1, rewards: { exp: 15, coins: 20, unlocks: ["is_tilled", "is_planted", "rows", "columns"] },
     prereq: ["intro_run"],

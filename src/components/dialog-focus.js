@@ -1,4 +1,5 @@
-export function dialogFocus(node) {
+export function dialogFocus(node, enabled = true) {
+  if (!enabled) return {};
   const previous = document.activeElement;
   const buttons = () => [...node.querySelectorAll('button:not(:disabled), [tabindex="0"]')];
   queueMicrotask(() => buttons()[0]?.focus());

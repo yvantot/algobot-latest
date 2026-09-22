@@ -85,6 +85,7 @@ export class DataLogger {
       export_date: new Date().toISOString(),
       feature_schema_version: "10f",
       telemetry_revision: "v2-timestamped-outcomes",
+      introduction_version: summary.introductionVersion,
       label_formula: LABEL_FORMULA,
       label_interpretation: "Gameplay heuristic; not an independent algorithmic-logic assessment",
       student_id: summary.participantId,

@@ -6,7 +6,7 @@
   $effect(() => {
     if (!isOpen) return;
     step = 0;
-    const timer = setInterval(() => { if (step < 3) step++; }, 2200);
+    const timer = setInterval(() => { if (!document.hidden && step < 3) step++; }, 2200);
     return () => clearInterval(timer);
   });
   function close() { isOpen = false; onClose?.(); }
@@ -24,7 +24,7 @@
         {#if step === 3}<span class="harvest">Harvest collected!</span>{/if}
       </div>
       <ol aria-label="Demonstration program">
-        {#each commands as command, i}<li class:executing={Math.min(step, 2) === i}><span>{i + 1}</span><code>{command}</code></li>{/each}
+        {#each commands as command, i}<li class:executing={Math.max(0, step - 1) === i}><span>{i + 1}</span><code>{command}</code></li>{/each}
       </ol>
       <p aria-live="polite">{["One command. One action.", "The robot moves to its crop.", "Water helps the wheat grow.", "Now make your own robot move."][step]}</p>
       <div class="actions"><button onclick={close}>{step === 3 ? "Your turn" : "Skip demonstration"}</button><button class="secondary" onclick={() => step = 0}>Replay</button></div>

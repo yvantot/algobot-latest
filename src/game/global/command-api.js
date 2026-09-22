@@ -107,7 +107,7 @@ export function createCommandAPI({
     bot[name] = command(name, "botJump", {
       category: "bot_movement", action: "move",
       args: () => [robot.grid_x + dx, robot.grid_y + dy],
-      before: () => ({ inLoop: !!robot.executingLoop, blockId: robot.currentBlockId }),
+      before: () => ({ inLoop: !!robot.executingLoop, blockId: robot.currentBlockId, x: robot.grid_x + dx, y: robot.grid_y + dy }),
       after: (_result, context) => quest("tut_1", 1, context),
     });
   }

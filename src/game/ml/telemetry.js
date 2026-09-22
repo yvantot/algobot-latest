@@ -451,6 +451,7 @@ export class TelemetryTracker {
   getSessionSummary() {
     return {
       sessionId: this.sessionId,
+      introductionVersion: "guided-v1",
       participantId: this.participantId,
       startTime: new Date(this.sessionStartTime).toISOString(),
       durationMinutes: Number(((Date.now() - this.sessionStartTime) / 60000).toFixed(2)),
