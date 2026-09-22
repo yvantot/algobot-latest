@@ -144,6 +144,12 @@ export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
       // Rewards commit together only when this crop survives the harvest.
       this.cropWait(1, () => {
         if (farm_grid_index.isDemonstration) {
+          const visuals = [
+            ...(this.dropOrbs(this, this.crop_exp, OrbTypes.EXP) || []),
+            ...(this.dropOrbs(this, this.crop_reward, OrbTypes.COIN) || []),
+            ...(dropSeed ? this.dropOrbs(this, 1, "icon_seedpack", 0.4) || [] : []),
+          ];
+          farm_grid_index.demoEffects?.push(...visuals);
           play_sfx("collect");
           this.crop_harvest_completed = true;
           this.cropDestroy("harvest");

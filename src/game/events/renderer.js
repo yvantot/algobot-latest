@@ -26,6 +26,7 @@ export class FarmEventRenderer {
     this.cloudViews = new Map();
     this.dropViews = new Map();
     this.smoke = new Set();
+    this.smokeSequence = 0;
     this.disposed = false;
   }
 
@@ -40,9 +41,10 @@ export class FarmEventRenderer {
     if (this.disposed || this.simulation.disposed) return;
     const center = tileCenter(this.simulation.grid, fire.key);
     if (!center) return;
-    const view = this.sprite(`icon_smoke_${fire.id % 2}`, 24, { x: center.x, y: center.y - 30 });
+    const variant = this.smokeSequence++ % 2;
+    const view = this.sprite(`icon_smoke_${variant}`, 24, { x: center.x, y: center.y - 30 });
     view.z = center.y + 50;
-    this.smoke.add({ view, age: 0, center, drift: fire.id % 2 ? 10 : -10 });
+    this.smoke.add({ view, age: 0, center, drift: variant ? 14 : -12 });
   }
 
   syncRemoved(views, states) {

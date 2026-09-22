@@ -1,4 +1,5 @@
 <script>
+  import Confetti from "./Confetti.svelte";
   import { fade } from "svelte/transition";
   import { rewardMotion } from "./quest-motion.js";
   import { dialogFocus } from "./dialog-focus.js";
@@ -41,7 +42,7 @@
 
 {#if item}
   {#each [item] as item (item.key)}
-    {#if item.milestone}<div class="scrim" transition:fade|global={{duration:400}}></div>{/if}
+    {#if item.milestone}<Confetti/><div class="scrim" transition:fade|global={{duration:400}}></div>{/if}
     <section in:rewardMotion|global={{enter:true}} out:rewardMotion|global={{enter:false}} data-quest-reward bind:this={panel} use:dialogFocus={item.milestone} class="completion" class:milestone={item.milestone} role="status" aria-live="polite">
       <img src="/sprites/bot.png" alt="" class="celebrate" />
       <p>{item.milestone ? "MILESTONE REACHED" : "MISSION COMPLETE"}</p>

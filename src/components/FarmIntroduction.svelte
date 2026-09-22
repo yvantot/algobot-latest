@@ -1,4 +1,5 @@
 <script>
+  import Confetti from "./Confetti.svelte";
   import { onDestroy } from "svelte";
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
@@ -12,6 +13,8 @@
   let ready = $state(false);
   let coins = $state(0);
   let exp = $state(0);
+  let rewardVisible = $state(false);
+  let rewardTimer;
   let error = $state(false);
   let closing = $state(false);
   let controller;
@@ -31,13 +34,13 @@
         if (update.chapter !== undefined) chapter = update.chapter;
         if (update.line !== undefined) line = update.line;
         if (update.ready !== undefined) ready = update.ready;
-        if (update.coins !== undefined) coins = update.coins;
+        if (update.coins !== undefined) { coins = update.coins; rewardVisible = true; clearTimeout(rewardTimer); rewardTimer = setTimeout(() => rewardVisible = false, 3800); }
         if (update.exp !== undefined) exp = update.exp;
         if (update.error) error = true;
       });
     }
     frame = requestAnimationFrame(startWhenReady);
-    return () => { cancelAnimationFrame(frame); clearTimeout(closeTimer); controller?.dispose(); controller = null; };
+    return () => { cancelAnimationFrame(frame); clearTimeout(rewardTimer); rewardVisible = false; clearTimeout(closeTimer); controller?.dispose(); controller = null; };
   });
   function close() {
     if (closing) return;
@@ -60,8 +63,10 @@
           {#each scene.code as command, i}<pre class:active={line === i}><span>{i + 1}</span><code>{command}</code></pre>{/each}
         </div>
       {/each}
-      {#if coins > 0}<div class="earnings" in:fly={{y:12,duration:400}}><img src="/sprites/icon_coin.png" alt=""/>+{coins} coins · +{exp} EXP <small>Example harvest</small></div>{/if}
+
     </aside>
+    {#if rewardVisible}<div class="earnings" in:fly={{y:24,duration:450}} out:fly={{y:-24,duration:450}} role="status"><img src="/sprites/icon_coin.png" alt=""/>+{coins} coins · +{exp} EXP <small>Example harvest</small></div>{/if}
+    {#if chapter === INTRODUCTION_STORY.length - 1 && ready && !error}<Confetti/>{/if}
     <section class="teacher" in:fly={{y:45,delay:350,duration:reducedMotion ? 0 : 500,easing:cubicOut}}>
       <img class="portrait" src="/sprites/bot_teacher.png" alt="Bot Teacher"/>
       <div class="speech">
@@ -87,9 +92,9 @@
 .live-cutscene{position:fixed;inset:0;z-index:10000;padding:18px;color:#334155;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(#17251b55,transparent 20%,transparent 65%,#17251b66)}
 .curtain{position:absolute;inset:0;background:#142016;z-index:10;pointer-events:none;opacity:0;animation:reveal .8s ease-out;transition:opacity .45s ease-in-out}.curtain.closing{opacity:1;animation:none}@keyframes reveal{from{opacity:1}to{opacity:0}}
 header{display:flex;align-items:center;justify-content:space-between;color:white;font-size:13px;font-weight:bold;text-shadow:0 1px 2px #0008}button{font-family:inherit;padding:9px 14px;border:2px solid #64748b;border-radius:7px;background:#e5e7eb;color:#334155;font-weight:bold;cursor:pointer;text-shadow:none}button:disabled{opacity:.55;cursor:default}button:focus-visible{outline:3px solid #16a34a;outline-offset:3px}.primary{background:#bbf7d0;white-space:nowrap}
-.program{position:absolute;top:82px;left:18px;width:260px;background:#f3f4f6;border:3px solid #64748b;border-radius:10px;overflow:hidden;box-shadow:0 5px 15px #0002}.program h2{font-size:14px;font-weight:bold;margin:0;padding:10px 12px;background:#e5e7eb;border-bottom:2px solid #94a3b8}.program>p{font-size:11px;margin:8px 12px;color:#475569}pre{font-size:12px;margin:0;padding:9px 10px;white-space:pre-wrap;overflow-wrap:anywhere;border-left:3px solid transparent;transition:background .2s}pre span{color:#64748b;margin-right:8px}pre.active{background:#bbf7d0;border-color:#15803d}code{font-family:monospace}.earnings{margin:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;font-weight:bold;color:#166534}.earnings img{width:24px}.earnings small{width:100%;font-size:10px;color:#64748b}
+.program{position:absolute;top:90px;left:max(18px,calc(50% - 510px));width:330px;background:#f3f4f6;border:3px solid #64748b;border-radius:10px;overflow:hidden;box-shadow:0 5px 15px #0002}.program h2{font-size:18px;font-weight:bold;margin:0;padding:10px 12px;background:#e5e7eb;border-bottom:2px solid #94a3b8}.program>p{font-size:11px;margin:8px 12px;color:#475569}pre{font-size:16px;margin:0;padding:9px 10px;white-space:pre-wrap;overflow-wrap:anywhere;border-left:3px solid transparent;transition:background .2s}pre span{color:#64748b;margin-right:8px}pre.active{background:#bbf7d0;border-color:#15803d}code{font-family:monospace}.earnings{position:absolute;left:50%;top:58%;transform:translateX(-50%);padding:12px 20px;border:3px solid #64748b;border-radius:10px;background:#f3f4f6;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;font-weight:bold;color:#166534}.earnings img{width:24px}.earnings small{width:100%;font-size:10px;color:#64748b}
 .teacher{margin-top:auto;align-self:center;display:flex;gap:18px;align-items:center;width:min(940px,100%);padding:18px;background:#f3f4f6;border:4px solid #64748b;border-radius:12px;box-shadow:0 8px 24px #0004}.portrait{width:76px;image-rendering:pixelated;flex-shrink:0}.speech{flex:1;min-width:0}.speaker{font-size:12px;font-weight:bold;color:#15803d}h1{font-size:21px;font-weight:800;margin:4px 0 8px}.speech p{font-size:15px;line-height:1.5;margin:0}footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px}footer>span{font-size:11px;color:#64748b}
-@media(max-width:900px){.program{width:205px;top:70px}.teacher{padding:12px;gap:12px}.portrait{width:50px}h1{font-size:18px}.speech p{font-size:13px}pre{font-size:11px;padding:7px}.live-cutscene{padding:12px}}
+@media(max-width:900px){.program{width:240px;top:70px;left:12px}.teacher{padding:12px;gap:12px}.portrait{width:50px}h1{font-size:18px}.speech p{font-size:13px}pre{font-size:13px;padding:8px}.live-cutscene{padding:12px}}
 @media(max-width:500px){.program{width:170px;left:12px}.portrait{display:none}.teacher{max-height:42vh;overflow:auto}footer{flex-wrap:wrap}header span{font-size:11px}button{padding:7px 9px}.speech p{font-size:12px}}
 @media(prefers-reduced-motion:reduce){.curtain{animation:none;transition:none}pre{transition:none}}
 </style>

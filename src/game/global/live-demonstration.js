@@ -17,13 +17,20 @@ export function startLiveDemonstration(onChange) {
   let elapsed = 0;
   const originals = k.get().map(object => ({ object, hidden: object.hidden, paused: object.paused }));
   const speed = k.debug.timeScale;
+  const cameraPosition = k.getCamPos();
+  const cameraScale = k.getCamScale();
+  k.setCamScale(1);
+  k.setCamPos(CONFIG.FARM.grid_origin.x + (CONFIG.FARM.columns * CONFIG.FARM.cell_size - CONFIG.FARM.gap) / 2,
+    CONFIG.FARM.grid_origin.y + (CONFIG.FARM.rows * CONFIG.FARM.cell_size - CONFIG.FARM.gap) / 2);
   for (const { object } of originals) {
+    if (object.sceneryBackground) continue;
     object.paused = true;
     if (!["grass_bg", "land_bg"].includes(object.layer)) object.hidden = true;
   }
   k.debug.timeScale = 1;
   const farm = new Map();
   farm.isDemonstration = true;
+  farm.demoEffects = [];
   const owned = [];
   for (let y = 0; y < CONFIG.FARM.rows; y++) for (let x = 0; x < CONFIG.FARM.columns; x++) {
     const soil = addSoilToGrid(x, y, SoilStates.INITIAL, farm);
@@ -125,13 +132,8 @@ export function startLiveDemonstration(onChange) {
       }
       case "pest": {
         plantAt(1, 1, CropStates.HARVESTABLE);
-        const pest = addBug(farm, { damage: 1, attack_interval: 2, move_interval: 60 });
+        const pest = addBug(farm, { damage: 1, attack_interval: 2, move_interval: 60, spawnAt: {x:1,y:1}, stationary:true });
         owned.push(pest);
-        // Let component startup finish before placing the scripted pest.
-        if (!await wait(0.1)) return;
-        pest.bug_move_timer?.cancel();
-        pest.gridPlace(1, 1);
-        pest.updateGridIndex(1, 1);
         if (!await wait(4)) return;
         if (!await action(robot, 1, "botKillBug")) return;
         break;
@@ -154,12 +156,14 @@ export function startLiveDemonstration(onChange) {
     disposed = true;
     controller.cancel(); waiting?.resolve(false); waiting = null;
     destroyFarmEvents(farm);
+    for (const effect of farm.demoEffects) if (effect.exists()) effect.destroy();
     for (const tile of farm.values()) tile.crop?.destroy();
     for (const object of owned.reverse()) if (object.exists()) object.destroy();
     for (const { object, hidden, paused } of originals) if (object.exists()) {
       object.hidden = hidden; object.paused = paused;
     }
     k.debug.timeScale = speed;
+    k.setCamPos(cameraPosition); k.setCamScale(cameraScale);
   }
   function advance() {
     next().catch(error => { console.error("Farm introduction failed", error); dispose(); onChange({ error: true, ready: true }); });

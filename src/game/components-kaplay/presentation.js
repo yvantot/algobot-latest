@@ -168,7 +168,7 @@ export function dropOrbs() {
       const orbs = [];
 
       for (let i = 0; i < count; i++) {
-        orbs.push(k.add([k.pos(), k.sprite(`${sprite}`), k.z(k.height()), k.animate(), k.opacity(), k.timer(), k.anchor("bot"), k.scale(0.3, 0.3)]));
+        orbs.push(k.add([k.pos(pos), k.sprite(`${sprite}`), k.z(k.height()), k.animate(), k.opacity(), k.timer(), k.anchor("bot"), k.scale(0.3, 0.3)]));
       }
 
       for (const orb of orbs) {
@@ -202,6 +202,7 @@ export function dropOrbs() {
           orb.wait(1, () => orb.destroy());
         });
       }
+      return orbs;
     },
   };
 }

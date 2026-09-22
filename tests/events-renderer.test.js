@@ -94,3 +94,10 @@ test("rain renderer interpolates drops between ticks and preserves cloud endpoin
   h.renderer.update(0);
   assert.equal(drop.pos.y, pausedY);
 });
+
+test("a single fire emits both smoke sprites in alternating puffs", () => {
+  const h = harness();
+  const fire = { key:"0-0", id:1 };
+  h.renderer.addSmoke(fire); h.renderer.addSmoke(fire);
+  assert.deepEqual([...h.renderer.smoke].map(p => p.view.sprite), ["icon_smoke_0","icon_smoke_1"]);
+});

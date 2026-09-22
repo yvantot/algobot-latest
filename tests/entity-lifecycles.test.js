@@ -23,6 +23,7 @@ function harness() {
   let now = 0;
   const roots = new Set();
   const timers = [];
+  const visualDrops = [];
   const rewards = { coins: 0, exp: 0, seeds: 0, spoiled: 0 };
   const vec2 = (x = 0, y = x) => typeof x === "object" ? { x: x.x, y: x.y } : { x, y };
   function make(components, parent = null) {
@@ -85,7 +86,7 @@ function harness() {
     PLAYER_DATA: { changeExp(value) { rewards.exp += value; } },
     DOCUMENT_DATA: { crops: {} }, SAY_DATA: { farm: { error: { no_plant: "No crop", no_bug: "No bug", water_initial: "Till first", water_watered: "Already watered", out_of_bounds: "Out of bounds" } } },
     lerpvec2: (a, b, progress) => vec2(a.x + (b.x - a.x) * progress, a.y + (b.y - a.y) * progress),
-    ysort: () => ({}), popupicon: () => ({ showIcon() {} }), dropOrbs: () => ({ dropOrbs() {} }),
+    ysort: () => ({}), popupicon: () => ({ showIcon() {} }), dropOrbs: () => ({ dropOrbs(object, count, sprite) { const orb = make([]); visualDrops.push({count,sprite,orb}); return [orb]; } }),
     effects: () => ({ effectsEnabled() {}, showEffects() {} }),
   });
   for (const name of ["grid", "soil", "freshness", "crop", "robot", "pest"]) {
@@ -117,12 +118,13 @@ function harness() {
       timer.fn();
     }
   }
-  return { context, make, k, farm, timers, roots, rewards, addSoil, plant, bot, advance };
+  return { context, make, k, farm, timers, roots, rewards, visualDrops, addSoil, plant, bot, advance };
 }
 
 test("live demonstration plants and harvests without changing player rewards", () => {
   const h = harness();
   h.farm.isDemonstration = true;
+  h.farm.demoEffects = [];
   h.addSoil();
   h.context.INVENTORY.crops.wheat = 0;
   const bot = h.bot(); h.advance(1);
@@ -135,6 +137,8 @@ test("live demonstration plants and harvests without changing player rewards", (
   h.advance(2);
   assert.equal(h.farm.get("0-0").crop, null);
   assert.deepEqual(h.rewards, { coins: 0, exp: 0, seeds: 0, spoiled: 0 });
+  assert.deepEqual(h.visualDrops.map(drop => drop.sprite), [OrbTypes.EXP, OrbTypes.COIN]);
+  assert.equal(h.farm.demoEffects.length, 2, "demo owns the transient reward visuals");
 });
 
 test("protected practice allows crop growth but defers deterioration until released", () => {
@@ -496,4 +500,13 @@ test("directly rotted young crops get gas, while lethal fire leaves no gas or cr
   crop.damage(100, { source: "fire", noTrace: true });
   assert.ok(effects.every(effect => effect.removed));
   assert.equal(h.farm.get("0-0").crop, null);
+});
+
+test("scripted demonstration pest starts on its tile and never begins a wandering jump", () => {
+  const h=harness(); h.addSoil(); h.farm.isDemonstration=true;
+  const pest=h.make([h.context.gridpos(0,0),h.context.gridmove(),h.context.bug(h.farm,{spawnAt:{x:0,y:0},stationary:true})]);
+  h.advance(10);
+  assert.equal(pest.grid_x,0); assert.equal(pest.grid_y,0);
+  assert.equal(h.farm.get("0-0").bug,pest);
+  assert.equal(pest.animations.pos,undefined);
 });

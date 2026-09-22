@@ -15,9 +15,11 @@ function setup() {
   };
   const player = object({ hidden: true, paused: true });
   const visiblePlayer = object();
-  const k = { get: () => [...objects], debug: { timeScale: 0.7 }, dt: () => 1,
+  let cam = {x:400,y:250}, zoom = {x:.8,y:.8};
+  const k = { getCamPos:() => cam, getCamScale:() => zoom,
+    setCamPos:(x,y) => cam = typeof x === "object" ? x : {x,y}, setCamScale:z => zoom = typeof z === "object" ? z : {x:z,y:z}, get: () => [...objects], debug: { timeScale: 0.7 }, dt: () => 1,
     onUpdate(fn) { updates.push(fn); return { cancel() { updates.splice(updates.indexOf(fn), 1); } }; } };
-  const context = vm.createContext({ k, CONFIG: { FARM: { rows: 3, columns: 3 } },
+  const context = vm.createContext({ k, CONFIG: { FARM: { rows: 3, columns: 3, cell_size:76, gap:12, grid_origin:{x:0,y:0} } },
     CROP_DATA: { wheat: { reward: 3, exp: 3 } }, CropStates: {}, SoilStates: { INITIAL: 0 },
     INTRODUCTION_STORY, document: { hidden: false }, console,
     addSoilToGrid: () => object(),
@@ -56,6 +58,8 @@ test("skipping during a running chapter restores prior visibility, pause and spe
   assert.equal(h.visiblePlayer.hidden, false);
   assert.equal(h.visiblePlayer.paused, false);
   assert.equal(h.k.debug.timeScale, 0.7);
+  assert.deepEqual(h.k.getCamPos(), {x:400,y:250});
+  assert.deepEqual(h.k.getCamScale(), {x:.8,y:.8});
   assert.ok(h.objects.slice(2).every(obj => obj.removed));
   assert.equal(h.changes.length, 1, "canceled actions cannot update a closed introduction");
 });
