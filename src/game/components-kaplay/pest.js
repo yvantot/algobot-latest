@@ -76,7 +76,7 @@ export function bug(farm_grid_index, config = {}) {
           if (crop.crop_state === CropStates.HARVESTABLE) {
             const total_damage = this.bug_damage * crop.crop_resistance.bug;
             if (total_damage > 0) {
-              triggerDidYouKnow("bug_damage");
+              if (!farm_grid_index.isDemonstration) triggerDidYouKnow("bug_damage");
               crop.showIcon(IconTypes.TEARS, 0.5);
               crop.damage(this.bug_damage, { source: "bug" });
               this.animation.seek(0);
@@ -234,7 +234,7 @@ export function bug(farm_grid_index, config = {}) {
 }
 
 export function addBug(farm_grid_index, config = {}) {
-  triggerDidYouKnow("bugs");
+  if (!farm_grid_index.isDemonstration) triggerDidYouKnow("bugs");
   return k.add([
     k.pos(),
     k.sprite("bug"),

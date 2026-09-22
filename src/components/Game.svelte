@@ -15,6 +15,8 @@
   import ResearchTree from "./ResearchTree.svelte";
   import FarmPersonalize from "./FarmPersonalize.svelte";
   import HelpModal from "./HelpModal.svelte";
+  import FarmIntroduction from "./FarmIntroduction.svelte";
+  import { preferences } from "../game/utils/preferences.js";
   import OnboardingModal from "./OnboardingModal.svelte";
   import DidYouKnowPopup from "./DidYouKnowPopup.svelte";
   import UnlockFlyOverlay from "./UnlockFlyOverlay.svelte";
@@ -88,6 +90,7 @@
   let current_menu = $state(Menus.COMMAND);
   let current_editor = $state(Editors.BLOCK);
   let showOnboarding = $state(false);
+  let showIntroduction = $state(false);
   let showDDADashboard = $state(false);
   let showConfirmReturn = $state(false);
   let activeHint = $state("");
@@ -104,14 +107,15 @@
     showOnboarding = true;
     let participantId = `p_${crypto.randomUUID()}`;
     try {
-      showOnboarding = TUTORIAL.active;
+      showOnboarding = TUTORIAL.active && preferences.getItem("algobot_hide_onboarding") !== "true";
+      showIntroduction = TUTORIAL.active && !showOnboarding;
       participantId = localStorage.getItem("algobot_participant_id") || participantId;
       localStorage.setItem("algobot_participant_id", participantId);
     } catch {
       storageWarning = "Browser storage is unavailable. Export research data before closing this page.";
     }
     tutorialPolicy.protected = TUTORIAL.active;
-    ONBOARDING.isModalOpen = showOnboarding;
+    ONBOARDING.isModalOpen = showOnboarding || showIntroduction;
     const shouldRun = () => k.debug.timeScale > 0 && !ONBOARDING.isModalOpen && !document.hidden;
     configureFarmEvents(farm_grid_index, { shouldRun });
     const resumedStage = telemetry.currentStage;
@@ -164,7 +168,7 @@
   });
 
   $effect(() => {
-    ONBOARDING.isModalOpen = showOnboarding || QUEST_FEEDBACK.hazardsPending || !!QUEST_FEEDBACK.queue[0]?.milestone;
+    ONBOARDING.isModalOpen = showOnboarding || showIntroduction || QUEST_FEEDBACK.hazardsPending || !!QUEST_FEEDBACK.queue[0]?.milestone;
   });
 
   function toggleEditor() {
@@ -185,7 +189,7 @@
   }
 </script>
 
-<div class:cutscene={showOnboarding} class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
+<div class:cutscene={showIntroduction} class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
   {#if storageWarning}
     <div role="alert" class="fixed top-4 left-1/2 -translate-x-1/2 max-w-sm rounded-lg border-2 border-red-400 bg-white p-3 text-sm text-red-900 shadow-lg">{storageWarning}</div>
   {/if}
@@ -198,7 +202,8 @@
   <DDADashboard bind:visible={showDDADashboard} />
   <LevelReward />
   <FarmPersonalize />
-  <OnboardingModal bind:isOpen={showOnboarding} />
+  <OnboardingModal bind:isOpen={showOnboarding} onClose={() => showIntroduction = true} />
+  <FarmIntroduction bind:isOpen={showIntroduction} />
   <QuestFeedback />
   <TutorialTarget />
   <DidYouKnowPopup />
@@ -440,7 +445,6 @@
       <div class="flex gap-4 items-start" class:practice-layout={TUTORIAL.active}>
         <div class="inventory-slot"><Inventory /></div>
         <div class="quest-slot"><QuestHUD
-          onReplay={() => showOnboarding = true}
           onOpenQuestMenu={() => toggleMenu(Menus.QUEST)}
           onOpenBlockEditor={() => {
             current_menu = Menus.COMMAND;

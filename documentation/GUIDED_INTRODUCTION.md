@@ -1,6 +1,7 @@
 # Guided introduction
 
-The first-run experience uses a short visual demonstration followed by prepared
+The first-run experience retains the original three-slide onboarding, then offers
+a teacher-led live farm introduction followed by prepared
 movement, student-authored movement, wheat farming, and loop practice. Blocks are
 the default editor. Text coding opens after the hazard introduction.
 
@@ -10,10 +11,19 @@ the default editor. Text coding opens after the hazard introduction.
 - Quest state determines the active mission, prerequisites, and one-time rewards.
 - Successful movement reports its destination, executing block ID, and loop
   context. Placing a block or entering an empty loop does not award movement credit.
-- `OnboardingModal` runs the actual robot and crop components on a private demo farm
-  after the scene is ready. It moves, tills, plants, waters twice, and harvests.
-  Skip and replay dispose the demo and restore the paused player entities. Demo
-  planting and harvesting do not spend seeds or grant rewards/research credit.
+- `OnboardingModal` retains the original three illustrated slides, navigation and
+  hide-on-start preference. Its final button leads to `FarmIntroduction`.
+- `FarmIntroduction` runs eleven self-paced scenes with teacher dialogue and
+  highlighted example code: purpose, movement, planting, watering, earnings,
+  spoilage, multiple bots, rain, fire, pests and the first mission.
+- Each scene holds until Continue. Action timings are deliberately slower; demo
+  crop growth and spoilage use shortened, local durations. The farm pauses while
+  the learner reads. Entrance/exit curtains conceal scene setup and restoration.
+- `live-demonstration.js` owns a private farm and disposes its crops, bots, pests
+  and weather when skipped or finished. Player entities and simulation speed are
+  restored. No demo action spends seeds, awards player rewards, completes quests,
+  or records spoilage/event-response telemetry. Bot IDs are ordinary 0 and 1.
+- The mission HUD has no demonstration replay link.
 - Inventory has a reserved column beside the mission HUD. Mission panels use the
   Help & Game Guide gray/slate styling, with green accents. Rewards scale/slide
   in and out; completed missions leave before the new mission enters.
@@ -29,7 +39,7 @@ the default editor. Text coding opens after the hazard introduction.
 
 ## Verification
 
-- 120 automated tests pass, including growth under protection and real interpreter
+- 125 automated tests pass, including growth under protection and real interpreter
   loop-context propagation. Production build passes.
 - All 40 preserved research artifacts match the recorded baseline hashes.
 - Browser walkthrough at a 1366 x 900 viewport completed the demonstration,

@@ -180,7 +180,7 @@ export function botact(id, farm_grid_index) {
     botKillBug(callback = null, x = this.grid_x, y = this.grid_y) {
       const bug = farm_grid_index.get(`${y}-${x}`)?.bug;
       if (!bug || bug.is_dying) return this.rejectAction(SAY_DATA.farm.error.no_bug, callback);
-      if (bug.spawned_at) telemetry.recordEventResponse(Date.now() - bug.spawned_at);
+      if (!farm_grid_index.isDemonstration && bug.spawned_at) telemetry.recordEventResponse(Date.now() - bug.spawned_at);
       bug.bugDestroy();
       this.showIcon(IconTypes.SPARK, this.botact_duration);
       play_sfx("bot_kill");
@@ -201,7 +201,7 @@ export function botact(id, farm_grid_index) {
       if (!tile?.fire?.isBurning()) return false;
       const fire = tile.fire;
       const result = fire.extinguish("bot");
-      if (result && fire.spawned_at) telemetry.recordEventResponse(Date.now() - fire.spawned_at);
+      if (!farm_grid_index.isDemonstration && result && fire.spawned_at) telemetry.recordEventResponse(Date.now() - fire.spawned_at);
       return result;
     },
 

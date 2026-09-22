@@ -152,6 +152,31 @@ test("protected practice allows crop growth but defers deterioration until relea
   assert.equal(crop.crop_state, CropStates.DEAD);
 });
 
+test("only the cutscene's designated crop can spoil during protected practice", () => {
+  const h = harness(); h.addSoil();
+  h.context.tutorialPolicy.protected = true;
+  const crop = h.plant(CropTypes.WHEAT, CropStates.HARVESTABLE);
+  crop.demonstrateSpoilage = true;
+  h.advance(10);
+  assert.equal(crop.crop_state, CropStates.HARVESTABLE, "a player crop cannot bypass practice protection");
+  h.farm.isDemonstration = true;
+  h.advance(10);
+  assert.equal(crop.crop_state, CropStates.DEAD);
+  assert.equal(h.rewards.spoiled, 0, "cutscene spoilage must not become a research outcome");
+});
+
+test("cutscene fire and pest responses do not enter player telemetry", () => {
+  const h = harness(); h.addSoil(); h.farm.isDemonstration = true;
+  let responses = 0;
+  h.context.telemetry.recordEventResponse = () => responses++;
+  const bot = h.bot(); h.advance(1);
+  h.farm.get("0-0").fire = { spawned_at: 1, isBurning: () => true, extinguish: () => true };
+  assert.equal(bot.botExtinguish(), true); h.advance(1);
+  h.farm.get("0-0").bug = { spawned_at: 1, bugDestroy() {} };
+  assert.equal(bot.botKillBug(), true);
+  assert.equal(responses, 0);
+});
+
 test("empty watered soil drains visually in 0.25 seconds without storing a growth dose", () => {
   const h = harness(); const soil = h.addSoil();
   soil.water();
