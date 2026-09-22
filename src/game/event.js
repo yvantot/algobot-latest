@@ -1,3 +1,4 @@
+import { tutorialPolicy } from "./global/tutorial.js";
 import { addBug } from "./components-kaplay/components.js";
 import { triggerEventBanner } from "../components/global.svelte.js";
 import { dda } from "./ml/dda.js";
@@ -12,6 +13,7 @@ export { configureFarmEvents, destroyFarmEvents } from "./events/renderer.js";
 
 /** Spawn a pest event while preserving the existing DDA scaling. */
 export function spawnBugEvent(farmGridIndex, difficultyPoints = 100) {
+  if (tutorialPolicy.protected) return { applied: false, reason: "tutorial_protected" };
   const scaledPoints = Math.round(difficultyPoints * (dda.bugSpawnMultiplier ?? 1));
   const params = getDifficultyParams(scaledPoints);
   triggerEventBanner({
@@ -35,6 +37,7 @@ export function spawnBugEvent(farmGridIndex, difficultyPoints = 100) {
 
 /** Initial fires require at least two thirds of actual farm tiles to be planted. */
 export function spawnFireEvent(farmGridIndex, difficultyPoints = 100) {
+  if (tutorialPolicy.protected) return { applied: false, reason: "tutorial_protected" };
   const points = Math.round(difficultyPoints * (dda.fireSpawnMultiplier ?? 1));
   if (!canStartFireEvent(farmGridIndex)) {
     return { type: "fire", params: getDifficultyParams(points), fires: [], applied: false, reason: "insufficient_crops" };

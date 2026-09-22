@@ -10,23 +10,18 @@ export const QuestTypes = {
 
 export const QUEST_DATA = {
   // Tutorial Quests
-  "tut_0": {
-    type: QuestTypes.TUTORIAL,
-    title: "Welcome to AlgoBot",
-    description: "Make your bot say a greeting message.",
-    tip: 'In Bot category, use bot.say to make your bot speak.',
-    goal: 1,
-    rewards: { exp: 10, coins: 15 },
-    prereq: [],
+  "intro_run": {
+    type: QuestTypes.TUTORIAL, title: "Run your first command",
+    description: "Press Start to move your robot one tile.",
+    tip: "The movement block is ready. Press Start above the editor.",
+    goal: 1, rewards: { exp: 10, coins: 15 }, prereq: [],
   },
-  "tut_1": {
-    type: QuestTypes.TUTORIAL,
-    title: "Movement Basics",
-    description: "Move your bot across farm tiles 3 times.",
-    tip: 'In Bot category, use bot.right or bot.down to navigate tiles.',
-    goal: 3,
-    rewards: { exp: 15, coins: 20, unlocks: ["is_tilled", "is_planted", "rows", "columns"] },
-    prereq: ["tut_0"],
+  "intro_build": {
+    type: QuestTypes.TUTORIAL, title: "Give your robot a direction",
+    description: "Add a movement block from Bot, then press Start.",
+    tip: "Drag bot.down from Bot into the workspace and run it.",
+    goal: 1, rewards: { exp: 15, coins: 20, unlocks: ["is_tilled", "is_planted", "rows", "columns"] },
+    prereq: ["intro_run"],
   },
   "tut_2": {
     type: QuestTypes.TUTORIAL,
@@ -35,17 +30,17 @@ export const QUEST_DATA = {
     tip: 'In Farm category, sequence bot.till, bot.plant wheat, bot.water, and bot.harvest.',
     goal: 4,
     rewards: { exp: 30, coins: 30, unlocks: ["is_watered", "is_harvestable"] },
-    prereq: ["tut_1"],
+    prereq: ["intro_build"],
   },
 
   // CS Concept Quests
-  "cs_loop_0": {
+  "intro_loop": {
     type: QuestTypes.CS_CONCEPT,
     title: "Loop Automation",
-    description: "Execute a repeat loop to automate farm actions.",
+    description: "Make two successful robot moves inside a repeat loop.",
     tip: 'In Loops category, use repeat block or write for (var i = 0; i < 3; i++) to repeat actions.',
     concept: "for",
-    goal: 1,
+    goal: 2,
     rewards: { exp: 50, coins: 40, unlocks: ["buy_seed", "buy_row", "buy_column"] },
     prereq: ["tut_2"],
   },
@@ -57,7 +52,7 @@ export const QUEST_DATA = {
     concept: "if",
     goal: 1,
     rewards: { exp: 50, coins: 40, unlocks: ["jump", "is_dead"] },
-    prereq: ["cs_loop_0"],
+    prereq: ["intro_loop"],
   },
   "cs_grid_0": {
     type: QuestTypes.CS_CONCEPT,
@@ -113,7 +108,7 @@ export const QUEST_DATA = {
     tip: 'In Shop category, use shop.buy_seed or purchase seeds directly in the shop interface.',
     goal: 1,
     rewards: { exp: 40, coins: 25 },
-    prereq: ["cs_loop_0"],
+    prereq: ["intro_loop"],
   },
   "shop_land_0": {
     type: QuestTypes.SHOP,

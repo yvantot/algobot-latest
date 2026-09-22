@@ -107,7 +107,7 @@ export function createCommandAPI({
     bot[name] = command(name, "botJump", {
       category: "bot_movement", action: "move",
       args: () => [robot.grid_x + dx, robot.grid_y + dy],
-      after: () => quest("tut_1"),
+      after: () => quest("tut_1", 1, robot.executingLoop ? "loop" : "move"),
     });
   }
   for (const [name, method] of Object.entries({

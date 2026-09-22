@@ -1,3 +1,4 @@
+import { tutorialPolicy } from "../global/tutorial.js";
 import { k } from "../../lib/kaplay.js";
 import { CROP_DATA, CONFIG, INVENTORY, PLAYER_DATA } from "../global/global.js";
 import { CropStates, CropTypes, FreshnessStates, OrbTypes } from "../global/enum.js";
@@ -186,6 +187,7 @@ export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
       let seconds = k.dt();
       if (!Number.isFinite(seconds) || seconds <= 0) return;
       if (this.crop_state === CropStates.HARVESTABLE) {
+        if (tutorialPolicy.protected) return;
         this.spoilage_remaining = Math.max(0, this.spoilage_remaining - seconds);
         if (this.spoilage_remaining === 0) this.markDead();
         return;

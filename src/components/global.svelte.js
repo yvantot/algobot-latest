@@ -1,3 +1,4 @@
+import { activeQuest, movementQuest, INTRO_QUESTS, tutorialPolicy } from "../game/global/tutorial.js";
 import { AvatarTypes, ModalTypes } from "../game/global/enum.js";
 import { QUEST_DATA } from "../game/global/quests.js";
 import { PLAYER_DATA, INVENTORY, DOCUMENT_DATA, SHOP_DATA, CROP_DATA } from "../game/global/global.js";
@@ -28,6 +29,14 @@ export const Modals = $state({
 	[ModalTypes.SHOP]: false,
 });
 
+export const QUEST_FEEDBACK = $state({ queue: [], hazardsPending: false, revision: 0 });
+export const TUTORIAL = $state({ active: true, authored: false });
+export function currentQuest() { return activeQuest(QUEST_DATA, QUEST_STATE); }
+export function finishIntroduction() {
+  TUTORIAL.active = false; tutorialPolicy.protected = false;
+  QUEST_FEEDBACK.hazardsPending = false;
+}
+
 export const QUEST_STATE = $state({});
 // Initialize quest state
 for (const [key, data] of Object.entries(QUEST_DATA)) {
@@ -40,7 +49,7 @@ for (const [key, data] of Object.entries(QUEST_DATA)) {
 
 function questStage(key) {
 	if (key === "cs_if_0" || key === "cs_cleanup_0") return CS1_STAGES.CONDITIONAL;
-	if (key === "cs_loop_0" || key === "cs_grid_0") return CS1_STAGES.LOOPING;
+	if (key === "intro_loop" || key === "cs_grid_0") return CS1_STAGES.LOOPING;
 	return telemetry.currentStage;
 }
 
@@ -54,7 +63,11 @@ export function beginActiveQuest() {
 }
 
 export function trackQuest(key, amount = 1, action = null) {
-	if (!Number.isFinite(amount) || amount <= 0) return;
+	if (key === "tut_1") {
+    key = movementQuest(currentQuest(), { authored: TUTORIAL.authored, inLoop: action === "loop" });
+    if (!key) return;
+  }
+  if (!Number.isFinite(amount) || amount <= 0) return;
 	if (!QUEST_STATE[key] || QUEST_STATE[key].is_completed) return;
 
 	// Check if prereqs are met
@@ -81,6 +94,11 @@ export function trackQuest(key, amount = 1, action = null) {
 		QUEST_STATE[key].progress = QUEST_DATA[key].goal;
 		QUEST_STATE[key].is_completed = true;
 		if (telemetry.recordQuestComplete(key)) mlAgent.addQuestCompletionReward();
+    QUEST_FEEDBACK.revision++;
+    QUEST_FEEDBACK.queue.push({ key, title: QUEST_DATA[key].title, rewards: QUEST_DATA[key].rewards,
+      milestone: ["tut_2", "intro_loop"].includes(key) });
+    if (INTRO_QUESTS.includes(key)) claimQuest(key);
+    if (key === "intro_loop") QUEST_FEEDBACK.hazardsPending = true;
 	}
 
 	// Trigger async DDA update (non-blocking)

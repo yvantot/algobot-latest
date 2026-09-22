@@ -19,6 +19,7 @@ export function createCodeRunner({ states, InterpreterClass, telemetry, prepare,
     state.interval = null;
     state.interpreter = null;
     state.is_running = false;
+    if (state.robot) state.robot.executingLoop = false;
     if (state.runPending) {
       telemetry.recordCodeRun(success === true && (state.robot?.executionErrorCount || 0) === state.runErrorBaseline);
       state.runPending = false;
@@ -62,6 +63,8 @@ export function createCodeRunner({ states, InterpreterClass, telemetry, prepare,
         }
         if (++state.stepsWithoutYield > 100000) throw new Error("Too many steps without a bot action. Check your loop condition.");
         const before = interpreter.getStateStack().at(-1);
+        if (state.robot) state.robot.executingLoop = interpreter.getStateStack().some(frame =>
+          ["ForStatement", "ForInStatement", "WhileStatement", "DoWhileStatement"].includes(frame.node?.type));
         const result = interpreter.step();
         const after = interpreter.getStateStack().at(-1);
         const node = before?.node;
