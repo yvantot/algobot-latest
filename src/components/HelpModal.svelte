@@ -3,7 +3,7 @@
   import { createResizable } from "./interface.svelte.js";
   import { onMount } from "svelte";
 
-  let { onClose } = $props();
+  let { onClose, onShowIntroduction } = $props();
 
   const resize = createResizable();
 
@@ -197,6 +197,9 @@
   </div>
 
   <div class="flex flex-col gap-2 overflow-hidden text-sm flex-grow">
+    {#if onShowIntroduction}
+      <button onclick={onShowIntroduction} class="rounded-lg border-2 border-slate-400 bg-green-200 hover:bg-green-300 p-2 font-bold text-slate-700 cursor-pointer">Watch the farm introduction</button>
+    {/if}
     <!-- Tab Buttons -->
     <div class="flex flex-wrap gap-1 justify-center shrink-0">
       <button

@@ -132,8 +132,9 @@ export function triggerUnlockFly(unlocks, mouseEvent = null) {
 	}
 
 	// Command Editor icon target position (top-left bar)
-	const endX = 260;
-	const endY = 32;
+	const target = document.getElementById("command-menu-button")?.getBoundingClientRect();
+	const endX = target ? target.x + target.width / 2 : 260;
+	const endY = target ? target.y + target.height / 2 : 32;
 
 	unlocks.forEach((item, index) => {
 		const animId = Date.now() + "_" + index + "_" + Math.random();
@@ -144,13 +145,13 @@ export function triggerUnlockFly(unlocks, mouseEvent = null) {
 			startY,
 			endX,
 			endY,
-			delay: index * 180
+			delay: 1200 + index * 550
 		};
 		UNLOCK_ANIMATIONS.flyingItems.push(newItem);
 
 		setTimeout(() => {
 			UNLOCK_ANIMATIONS.flyingItems = UNLOCK_ANIMATIONS.flyingItems.filter((i) => i.id !== animId);
-		}, index * 180 + 1300);
+		}, 1200 + index * 550 + 3000);
 	});
 }
 

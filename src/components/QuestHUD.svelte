@@ -30,9 +30,9 @@
     offered = false;
     onOpenBlockEditor?.();
   }
-  function getInstruction() {
+  function getInstruction(missionKey = key) {
     const refresh = tick;
-    if (key !== "tut_2") return mission?.description;
+    if (missionKey !== "tut_2") return QUEST_DATA[missionKey]?.description;
     const actions = QUEST_STATE.tut_2.actions || [];
     if (!actions.includes("till")) return "Clear the previous blocks. Open Farm, add bot.till, then press Start.";
     if (!actions.includes("plant")) return "Replace bot.till with bot.plant wheat. Press Start on the same tile.";
@@ -65,15 +65,15 @@
   <div class="mission-stage">
   {#each [key] as missionKey (missionKey)}
   {@const mission = QUEST_DATA[missionKey]}
-  <div class="mission-content" in:fly={{y:18,duration:320,delay:180,easing:cubicOut}} out:fly={{y:-18,duration:180,easing:cubicIn}}>
+  <div class="mission-content" in:fly|global={{y:45,duration:650,delay:450,easing:cubicOut}} out:fly|global={{y:-40,duration:450,easing:cubicIn}}>
   {#if awaitingClaim}
     <h2>{QUEST_DATA[awaitingClaim].title}</h2><p>Complete! Collect your reward to continue.</p>
     <button class="primary" onclick={() => claimQuest(awaitingClaim)}>Collect reward</button>
   {:else if mission}
     <h2>{mission.title}</h2>
-    <p aria-live="polite">{getInstruction()}</p>
-    <progress value={QUEST_STATE[key]?.progress || 0} max={mission.goal}></progress>
-    <p class="count">{QUEST_STATE[key]?.progress || 0} / {mission.goal} successful {mission.goal === 1 ? "action" : "actions"}</p>
+    <p aria-live="polite">{getInstruction(missionKey)}</p>
+    <progress value={QUEST_STATE[missionKey]?.progress || 0} max={mission.goal}></progress>
+    <p class="count">{QUEST_STATE[missionKey]?.progress || 0} / {mission.goal} successful {mission.goal === 1 ? "action" : "actions"}</p>
     <button class="primary" onclick={onOpenBlockEditor}>Open blocks</button>
     <button onclick={showHint}>Show me the next step</button>
     {#if offered && hintLevel === 0}<p class="hint">Need a hand? Try “Show me the next step”.</p>{/if}

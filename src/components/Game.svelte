@@ -1,4 +1,6 @@
 <script>
+  import { createTransientNotice } from "./transient-notice.js";
+  import { fly } from "svelte/transition";
   import TutorialTarget from "./TutorialTarget.svelte";
   import QuestFeedback from "./QuestFeedback.svelte";
   import { tutorialPolicy } from "../game/global/tutorial.js";
@@ -102,6 +104,7 @@
   onMount(() => {
     let disposed = false;
     let saved = false;
+    const hintNotice = createTransientNotice(message => activeHint = message);
     let predictionTimer;
     let saveTimer;
     showOnboarding = true;
@@ -144,8 +147,7 @@
           mlAgent.updateAndPredict(telemetry.currentStage).then(() => {
             if (disposed) return;
             const nextHint = dda.activeHint || "";
-            if (nextHint && nextHint !== activeHint) telemetry.recordHintShown(nextHint);
-            activeHint = nextHint;
+            if (hintNotice.update(nextHint)) telemetry.recordHintShown(nextHint);
           }).catch(console.warn);
         }
       }, 5000);
@@ -153,6 +155,7 @@
 
     return () => {
       disposed = true;
+      hintNotice.dispose();
       clearInterval(predictionTimer);
       clearInterval(saveTimer);
       window.removeEventListener("beforeunload", saveSession);
@@ -194,7 +197,7 @@
     <div role="alert" class="fixed top-4 left-1/2 -translate-x-1/2 max-w-sm rounded-lg border-2 border-red-400 bg-white p-3 text-sm text-red-900 shadow-lg">{storageWarning}</div>
   {/if}
   {#if activeHint}
-    <div role="status" class="fixed bottom-4 left-1/2 -translate-x-1/2 max-w-sm rounded-lg border-2 border-amber-400 bg-amber-100 p-3 text-sm text-amber-950 shadow-lg">
+    <div role="status" in:fly={{y:30,duration:400}} out:fly={{y:30,duration:400}} class="fixed bottom-4 left-1/2 -translate-x-1/2 max-w-sm rounded-lg border-2 border-amber-400 bg-amber-100 p-3 text-sm text-amber-950 shadow-lg">
       {activeHint}
     </div>
   {/if}
@@ -309,6 +312,7 @@
           {#each menuButtons.filter(btn => !TUTORIAL.active || [Menus.COMMAND, Menus.QUEST].includes(btn.id)) as btn}
             <button
               class="cursor-pointer group relative"
+              id={btn.id === Menus.COMMAND ? "command-menu-button" : undefined}
               onclick={() => toggleMenu(btn.id)}
             >
               <img
@@ -521,7 +525,7 @@
       </div>
     {:else if current_menu === Menus.HELP}
       <div in:panelIn out:panelOut>
-        <HelpModal onClose={() => toggleMenu(Menus.NONE)} />
+        <HelpModal onClose={() => toggleMenu(Menus.NONE)} onShowIntroduction={() => { stopCodeRuns(robots_state, telemetry); current_menu = Menus.NONE; showIntroduction = true; }} />
       </div>
     {/if}
   </div>

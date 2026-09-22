@@ -67,3 +67,16 @@ visible cloud/rainfall, fresh-to-rotten wheat with green gas, extinguishing fire
 and removing a pest. The closing transition returned to 50 coins, 5 wheat seeds,
 Bot 0 and zero first-mission progress. The scripted pest's movement loop is stopped
 after component startup so it stays on the tile described by the teacher.
+
+### Reward presentation and replay
+
+Milestones and ordinary rewards use global Svelte transitions so nested branch
+changes animate both ways. Reward display lasts 5.8 seconds (milestones wait for
+Continue). Syntax badges hold before a 2.8-second flight and stay invisible during
+their staggered delay. The current quest leaves over 450 ms and the next enters
+over 650 ms. Help & Game Guide can replay the introduction; active code runs stop
+first. The DDA notice expires after 6.5 seconds and only reappears on a new message.
+
+`tests/ui/feedback.html` is a development-only browser fixture for ordinary rewards,
+milestones, quest changes, syntax flights and the transient notice. It is not a
+production entry point and does not call quest telemetry or claim player rewards.
