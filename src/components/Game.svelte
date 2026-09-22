@@ -1,4 +1,6 @@
 <script>
+  import { attachCameraControls } from "../game/camera-controls.js";
+  import { CAMERA, CONFIG } from "../game/global/global.js";
   import { createTransientNotice } from "./transient-notice.js";
   import { fly } from "svelte/transition";
   import TutorialTarget from "./TutorialTarget.svelte";
@@ -104,6 +106,9 @@
   onMount(() => {
     let disposed = false;
     let saved = false;
+    const detachCamera = attachCameraControls({canvas:document.getElementById("game"), engine:k, camera:CAMERA,
+      enabled:() => !ONBOARDING.isModalOpen && !showConfirmReturn && !Object.values(Modals).some(Boolean),
+      getZoom:() => camera_scale, setZoom:value => camera_scale=value});
     const hintNotice = createTransientNotice(message => activeHint = message);
     let predictionTimer;
     let saveTimer;
@@ -155,6 +160,7 @@
 
     return () => {
       disposed = true;
+      detachCamera();
       hintNotice.dispose();
       clearInterval(predictionTimer);
       clearInterval(saveTimer);
@@ -213,7 +219,7 @@
   <UnlockFlyOverlay />
   <EventBanner />
 
-  <div class="fixed bottom-2 left-2 flex gap-2">
+  <div class="fixed bottom-2 left-2 flex gap-2" title="Drag the farm to pan. Scroll over the farm to zoom.">
     <div class="flex flex-col items-center gap-2 text-white">
       <p
         class="text-center w-fit outline-2 outline-[#F2E0CF] font-bold text-sm bg-[#ab7440] rounded-lg p-2 px-8 border-b-4 border-[#7c552f]"
@@ -243,7 +249,7 @@
             alt="zoom in"
           />
         </button>
-        <button onclick={() => (camera_scale = 1)} class="cursor-pointer">
+        <button title="Center farm" aria-label="Center farm" onclick={() => { camera_scale = 1; CAMERA.x = CONFIG.FARM.grid_origin.x + (CONFIG.FARM.columns * CONFIG.FARM.cell_size - CONFIG.FARM.gap) / 2; CAMERA.y = CONFIG.FARM.grid_origin.y + (CONFIG.FARM.rows * CONFIG.FARM.cell_size - CONFIG.FARM.gap) / 2; k.setCamPos(CAMERA.x,CAMERA.y); }} class="cursor-pointer">
           <img
             class="hover:scale-110 transition-transform w-12 h-12"
             src="/sprites/icon_zoomdefault.png"

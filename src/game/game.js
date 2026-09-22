@@ -1,7 +1,7 @@
 import { robots } from "../components/global.svelte";
 import { k, initKaplay } from "../lib/kaplay.js";
 import { addFarmbot, addSoilToGrid } from "./components-kaplay/components.js";
-import { lerpvec2 } from "./utils/math.js";
+import { addScenery } from "./scenery.js";
 import { CAMERA, CONFIG, setGridOrigin, setCameraCenter } from "./global/global.js";
 import { getWeatherArtwork, WEATHER_SPRITE_NAMES } from "./events/artwork.js";
 
@@ -109,7 +109,7 @@ export function game() {
   k.loadSprite("exp", "/sprites/exp.png");
 
   // BG
-  k.loadSprite("bg_grass", "/sprites/bg_grass.png");
+
 
   // Events
   k.loadSprite("bug", "/sprites/bug_purple.png");
@@ -139,7 +139,8 @@ export function game() {
 
     // Grass background
     k.setBackground(farm.bg_grass);
-    k.add([k.pos(k.center()), k.sprite("bg_grass"), k.anchor("center"), k.layer("grass_bg")]);
+    addScenery();
+    k.setCamPos(CAMERA.x, CAMERA.y);
     createLandBackground()
 
     // Add tiles first, also add bots property
@@ -152,45 +153,6 @@ export function game() {
     // Then add the bots
     addFarmbot(robots.length, farm_grid_index, 0, 0);
 
-    let cam_accelerate = 1
-    const keys = {};
-
-    window.addEventListener("keydown", (e) => {
-      if (!k.isFocused()) return;
-      keys[e.key.toLowerCase()] = true;
-      cam_accelerate += 0.2
-      if (e.key === "Shift") cam_accelerate *= 2
-      cam_accelerate = Math.min(cam_accelerate, 10)
-    });
-
-    window.addEventListener("keyup", (e) => {
-      keys[e.key.toLowerCase()] = false;
-      if (!keys.a && !keys.d && !keys.w && !keys.s) cam_accelerate = 1
-    });
-
-    window.addEventListener("blur", () => {
-      Object.keys(keys).forEach(k => keys[k] = false);
-      if (!keys.a && !keys.d && !keys.w && !keys.s) cam_accelerate = 1
-    });
-
-    k.onMousePress(() => {
-      printFarmGridIndex()
-    })
-
-    k.onUpdate(() => {
-      // console.log("-------------")
-      // farm_grid_index.get(`0-0`).bots.forEach((bot) => console.log("Bots in 0-0: ", bot.bot_index))
-
-      const new_cam_pos = k.vec2(CAMERA.x, CAMERA.y)
-      if (keys.a) new_cam_pos.x -= 1 * cam_accelerate
-      if (keys.d) new_cam_pos.x += 1 * cam_accelerate
-      if (keys.w) new_cam_pos.y -= 1 * cam_accelerate
-      if (keys.s) new_cam_pos.y += 1 * cam_accelerate
-
-      CAMERA.x = new_cam_pos.x
-      CAMERA.y = new_cam_pos.y
-      k.setCamPos(new_cam_pos)
-    })
   });
 
   k.go("farm");
