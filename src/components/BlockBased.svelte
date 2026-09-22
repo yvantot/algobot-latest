@@ -17,6 +17,15 @@
 
   let blocklyDiv;
   let workspace;
+  export function targetName() { return `Bot ${selected_robot}`; }
+  export function insertExample(state) {
+    if (!workspace || robots_state[selected_robot]?.is_running) throw new Error("Stop this bot's program before inserting.");
+    const y=workspace.getTopBlocks(false).reduce((max,b)=>Math.max(max,b.getRelativeToSurfaceXY().y+b.getHeightWidth().height),0)+40;
+    Blockly.Events.setGroup(true);
+    try { Blockly.serialization.blocks.append({...structuredClone(state),x:30,y},workspace,{recordUndo:true}); }
+    finally { Blockly.Events.setGroup(false); }
+    workspace.scrollCenter();
+  }
   let tutorialCategory = $derived(currentQuest() === "tut_2" ? "Farm" : currentQuest() === "intro_loop" ? "Loops" : "Bot");
   function focusTutorialBlocks() {
     const toolbox = workspace?.getToolbox();
@@ -865,6 +874,8 @@
       renderer: "zelos",
       scrollbars: true,
     });
+    const observer = new ResizeObserver(() => { if (workspace && blocklyDiv.clientWidth) Blockly.svgResize(workspace); });
+    observer.observe(blocklyDiv);
 
     workspace.addChangeListener((event) => {
       if (currentQuest() === "intro_build" && event.type === Blockly.Events.BLOCK_CREATE && event.recordUndo) {
@@ -891,6 +902,7 @@
         workspace,
       );
     }
+    return () => observer.disconnect();
   });
 
   // Dynamically update toolbox whenever unlock version changes

@@ -30,7 +30,8 @@
   import GameDevTools from "./GameDevTools.svelte";
   import DDADashboard from "./DDADashboard.svelte";
   import { k } from "../lib/kaplay.js";
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, tick } from "svelte";
+  import DocumentationPreview from "./DocumentationPreview.svelte";
   import { telemetry } from "../game/ml/telemetry.js";
   import { eventScheduler } from "../game/ml/event-scheduler.js";
   import { mlAgent } from "../game/ml/agent.js";
@@ -93,6 +94,22 @@
 
   let current_menu = $state(Menus.COMMAND);
   let current_editor = $state(Editors.BLOCK);
+  let docOpen=$state(false), docLoaded=$state(false), showDocEditor=$state(false), docPreview=$state(null);
+  let blockEditor=$state(), textEditor=$state();
+  let previewOpener, previewFocusTimer;
+  async function closeDocPreview(){
+    docPreview=null;
+    await tick();
+    clearTimeout(previewFocusTimer);
+    previewFocusTimer=setTimeout(()=>{if(!docPreview&&docOpen)previewOpener?.focus();},350);
+  }
+  onDestroy(()=>clearTimeout(previewFocusTimer));
+  function closeDocumentation(){ docOpen=false; document.getElementById("documentation-menu-button")?.focus(); }
+  async function insertDocumentation(example, editor){
+    current_editor=editor==="text"?Editors.TEXT:Editors.BLOCK;
+    current_menu=Menus.COMMAND; showDocEditor=true; await tick();
+    if(editor==="text")textEditor.insertExample(example.code);else blockEditor.insertExample(example.block);
+  }
   let showOnboarding = $state(false);
   let showIntroduction = $state(false);
   let showDDADashboard = $state(false);
@@ -179,7 +196,7 @@
   });
 
   $effect(() => {
-    ONBOARDING.isModalOpen = showOnboarding || showIntroduction || QUEST_FEEDBACK.hazardsPending || !!QUEST_FEEDBACK.queue[0]?.milestone;
+    ONBOARDING.isModalOpen = showOnboarding || showIntroduction || !!docPreview || QUEST_FEEDBACK.hazardsPending || !!QUEST_FEEDBACK.queue[0]?.milestone;
   });
 
   function toggleEditor() {
@@ -193,6 +210,8 @@
   }
 
   function toggleMenu(menu) {
+    if(menu===Menus.DOCUMENT){docOpen=!docOpen;docLoaded=true;showDocEditor=false;current_menu=Menus.COMMAND;return;}
+    if(menu!==Menus.COMMAND)docOpen=false;
     if (menu === Menus.SHOP && current_menu !== Menus.SHOP) {
       triggerDidYouKnow("shop");
     }
@@ -200,7 +219,8 @@
   }
 </script>
 
-<div class:cutscene={showIntroduction} class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
+<svelte:window onkeydown={e=>{if(e.key==="Escape"&&!docPreview&&docOpen){e.preventDefault();closeDocumentation();}}}/>
+<div class:cutscene={showIntroduction||!!docPreview} class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
   {#if storageWarning}
     <div role="alert" class="fixed top-4 left-1/2 -translate-x-1/2 max-w-sm rounded-lg border-2 border-red-400 bg-white p-3 text-sm text-red-900 shadow-lg">{storageWarning}</div>
   {/if}
@@ -215,6 +235,7 @@
   <FarmPersonalize />
   <OnboardingModal bind:isOpen={showOnboarding} onClose={() => showIntroduction = true} />
   <FarmIntroduction bind:isOpen={showIntroduction} />
+  {#if docPreview}<DocumentationPreview name={docPreview} onClose={closeDocPreview}/>{/if}
   <QuestFeedback />
   <TutorialTarget />
   <DidYouKnowPopup />
@@ -317,10 +338,10 @@
       <div class="flex gap-4">
         <PlayerInfo />
         <div class="pt-2 flex items-center gap-1">
-          {#each menuButtons.filter(btn => !TUTORIAL.active || [Menus.COMMAND, Menus.QUEST].includes(btn.id)) as btn}
+          {#each menuButtons.filter(btn => !TUTORIAL.active || [Menus.COMMAND, Menus.DOCUMENT, Menus.QUEST].includes(btn.id)) as btn}
             <button
               class="cursor-pointer group relative"
-              id={btn.id === Menus.COMMAND ? "command-menu-button" : undefined}
+              id={btn.id === Menus.COMMAND ? "command-menu-button" : btn.id === Menus.DOCUMENT ? "documentation-menu-button" : undefined}
               onclick={() => toggleMenu(btn.id)}
             >
               <img
@@ -467,10 +488,11 @@
     </div>
   </div>
 
-  <div class="flex gap-2">
+  <div class="reference-layout flex gap-2" class:docs-open={docOpen} class:show-editor={showDocEditor}>
+    {#if docOpen}<button class="reference-switch" onclick={()=>showDocEditor=!showDocEditor}>{showDocEditor?"Back to reference":"Show editor"}</button>{/if}
     <!-- Command editor panel -->
-    {#if Menus.COMMAND === current_menu}
-      <div in:panelIn out:panelOut class="relative">
+    {#if Menus.COMMAND === current_menu || docOpen}
+      <div in:panelIn out:panelOut class="relative editor-pane">
         <button
           class="absolute top-2 left-2 z-10 bg-gray-300 border-2 border-gray-400"
           disabled={TUTORIAL.active}
@@ -507,19 +529,17 @@
           {/if}
         </button>
 
-        {#if current_editor === Editors.TEXT}
-          <TextBased />
-        {:else}
-          <BlockBased />
-        {/if}
+        <div class:hidden={current_editor!==Editors.TEXT}><TextBased bind:this={textEditor}/></div>
+        <div class:hidden={current_editor!==Editors.BLOCK}><BlockBased bind:this={blockEditor}/></div>
       </div>
     {/if}
 
-    {#if current_menu === Menus.DOCUMENT}
-      <div in:panelIn out:panelOut>
-        <Document />
+    {#if docLoaded}
+      <div class="doc-pane" class:doc-hidden={!docOpen} inert={!docOpen}>
+        <Document onClose={closeDocumentation} onInsert={insertDocumentation} targetName={editor=>(editor==="text"?textEditor:blockEditor)?.targetName()??"Bot 0"} onPreview={name=>{previewOpener=document.activeElement;stopCodeRuns(robots_state,telemetry);docPreview=name;}} />
       </div>
-    {:else if current_menu === Menus.QUEST}
+    {/if}
+    {#if current_menu === Menus.QUEST}
       <div in:panelIn out:panelOut>
         <Quest />
       </div>
@@ -596,6 +616,10 @@
 
   .cutscene > :global(*){visibility:hidden}
   .cutscene > :global(.live-cutscene){visibility:visible}
+  .reference-switch{display:none;color:#334155}.doc-pane{margin-top:90px;transition:opacity 220ms,transform 220ms,visibility 220ms;transform-origin:top right}.doc-hidden{position:absolute;visibility:hidden;pointer-events:none;opacity:0;transform:translateY(12px) scale(.98)}.hidden{display:none}
+  @media(prefers-reduced-motion:reduce){.doc-pane{transition:none}}
+  @starting-style{.doc-pane{opacity:0;transform:translateY(12px) scale(.98)}}
+  @media(max-width:1400px){.docs-open .editor-pane{display:none}.docs-open.show-editor .editor-pane{display:block}.docs-open.show-editor .doc-pane{display:none}.reference-switch{display:block;position:fixed;right:20px;bottom:12px;background:#bbf7d0;border:2px solid #64748b;z-index:70;padding:8px}.doc-pane{margin-top:110px}}
   .inventory-slot{width:112px;min-width:112px;flex-shrink:0}
   .quest-slot{width:300px;min-width:0}
   @media(max-width:1050px){

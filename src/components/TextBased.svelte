@@ -8,6 +8,13 @@
   import { telemetry } from "../game/ml/telemetry.js";
 
   import { onMount } from "svelte";
+  import { isolateHistory } from "@codemirror/commands";
+  export function targetName() { return `Bot ${selected_robot}`; }
+  export function insertExample(code) {
+    if (!view || robots_state[selected_robot]?.is_running) throw new Error("Stop this bot's program before inserting.");
+    const at=view.state.selection.main.head, insert=`\n${code}\n`;
+    view.dispatch({changes:{from:at,insert},selection:{anchor:at+insert.length},annotations:isolateHistory.of("full"),scrollIntoView:true});
+  }
   import { autocompletion } from "@codemirror/autocomplete";
   import { EditorView, basicSetup } from "codemirror";
   import { javascript } from "@codemirror/lang-javascript";

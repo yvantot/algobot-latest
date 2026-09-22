@@ -9,7 +9,8 @@ import { getFarmEventRuntime, destroyFarmEvents } from "../events/renderer.js";
 import { INTRODUCTION_STORY } from "./introduction-story.js";
 
 // The cutscene owns a separate farm; closing it restores the player's exact entities.
-export function startLiveDemonstration(onChange) {
+export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
+  const story = singleAction ? INTRODUCTION_STORY.filter(step => step.action === singleAction) : INTRODUCTION_STORY;
   let disposed = false;
   let running = false;
   let chapter = -1;
@@ -77,12 +78,17 @@ export function startLiveDemonstration(onChange) {
     return crop;
   }
   async function next() {
-    if (disposed || running || chapter >= INTRODUCTION_STORY.length - 1) return;
+    if (disposed || running || chapter >= story.length - 1) return;
     running = true; pause(false); chapter++;
-    const step = INTRODUCTION_STORY[chapter];
+    const step = story[chapter];
     onChange({ chapter, line: -1, ready: false });
     // Give the teacher's explanation a head start before anything moves.
     if (!await wait(2.5)) return;
+    if (singleAction && singleAction !== "move") {
+      if (!await action(robot, -1, "botJump", 1, singleAction === "fire" ? 1 : 0)) return;
+      if (singleAction === "water") plantAt(1,0);
+      if (singleAction === "harvest") plantAt(1,0,CropStates.HARVESTABLE);
+    }
     switch (step.action) {
       case "move":
         if (!await action(robot, 0, "botJump", 1, 0)) return;

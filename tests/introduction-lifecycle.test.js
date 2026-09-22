@@ -4,7 +4,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 import { INTRODUCTION_STORY } from "../src/game/global/introduction-story.js";
 
-function setup() {
+function setup(options) {
   const objects = [];
   const updates = [];
   const changes = [];
@@ -29,7 +29,7 @@ function setup() {
   const source = fs.readFileSync(new URL("../src/game/global/live-demonstration.js", import.meta.url), "utf8")
     .replace(/^import .*;\r?\n/gm, "").replace("export function", "function");
   vm.runInContext(source, context);
-  const controller = context.startLiveDemonstration(change => changes.push(change));
+  const controller = context.startLiveDemonstration(change => changes.push(change),options);
   async function tick(count) { for (let i = 0; i < count; i++) { for (const fn of [...updates]) fn(); await Promise.resolve(); } }
   return { objects, changes, controller, player, visiblePlayer, k, tick };
 }
@@ -45,6 +45,15 @@ test("introduction holds each chapter until the player continues", async () => {
   assert.deepEqual(h.changes.filter(x => x.chapter !== undefined).map(x => x.chapter), [0, 1]);
   assert.equal(h.changes.at(-1).ready, true);
   h.controller.dispose();
+});
+
+test("single command preview completes without advancing through the introduction",async()=>{
+ const h=setup({singleAction:"move"}); await h.tick(15);
+ assert.equal(h.changes.at(-1).ready,true);
+ h.controller.next(); await h.tick(10);
+ assert.equal(h.changes.filter(c=>c.chapter!==undefined).length,1);
+ h.controller.dispose(); assert.equal(h.visiblePlayer.hidden,false);
+ assert.deepEqual(h.k.getCamPos(),{x:400,y:250});
 });
 
 test("skipping during a running chapter restores prior visibility, pause and speed", async () => {

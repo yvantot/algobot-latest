@@ -1,151 +1,72 @@
 <script>
-  import {
-    DOCUMENT_DATA as data,
-    TYPE_COLORS,
-    CROP_DATA,
-  } from "../game/global/global.js";
-
-  import { CropTypes } from "../game/global/enum.js";
-  import { toTitleCase } from "../game/utils/string.js";
-  import { createResizable } from "./interface.svelte.js";
-
-  let current_menu = $state("syntax");
-
-  const resize = createResizable();
-
-  const cropStats = {
-    wheat: CROP_DATA[CropTypes.WHEAT],
-    corn: CROP_DATA[CropTypes.CORN],
-    rice: CROP_DATA[CropTypes.RICE],
-    potato: CROP_DATA[CropTypes.POTATO],
-    sugarcane: CROP_DATA[CropTypes.SUGARCANE],
-    tomato: CROP_DATA[CropTypes.TOMATO],
-  };
-
-  function toggleMenu(name) {
-    current_menu = name;
-  }
+ import { onMount } from "svelte";
+ import { slide } from "svelte/transition";
+ import { DOCUMENT_DATA,CROP_DATA } from "../game/global/global.js";
+ import { QUEST_DATA } from "../game/global/quests.js";
+ import { currentQuest,UNLOCK_VERSION,TUTORIAL } from "./global.svelte.js";
+ import { DOC_CATEGORIES,documentationEntries,filterDocumentation,insertionProblem,recommendedCommands } from "../game/global/documentation.js";
+ import DocumentationBlocks from "./DocumentationBlocks.svelte";
+ let {onClose,onInsert,targetName,onPreview}=$props();
+ let query=$state(""),category=$state("all"),availability=$state("all"),selected=$state(""),mode=$state("text"),recent=$state([]),message=$state("");
+ let width=$state(400),reduced=$state(false),search,timer;
+ const entries=$derived.by(()=>{UNLOCK_VERSION.count;return documentationEntries(DOCUMENT_DATA,QUEST_DATA);});
+ const results=$derived(filterDocumentation(entries,query,category,availability));
+ const filtering=$derived(!!query.trim()||category!=="all"||availability!=="all");
+ const recommended=$derived(recommendedCommands(QUEST_DATA[currentQuest()],entries));
+ const common=$derived(entries.filter(e=>["right","till","plant","water","harvest"].includes(e.name)&&e.category.startsWith("bot_")));
+ const recentEntries=$derived(recent.map(id=>entries.find(e=>e.id===id)).filter(Boolean));
+ onMount(()=>{reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;search?.focus();return()=>clearTimeout(timer);});
+ function notify(text){message=text;clearTimeout(timer);timer=setTimeout(()=>message="",3500);}
+ function open(entry){selected=selected===entry.id?"":entry.id;mode="text";if(selected)recent=[entry.id,...recent.filter(id=>id!==entry.id)].slice(0,5);}
+ async function copy(code){try{await navigator.clipboard.writeText(code);notify("Copied");}catch{notify("Copy failed. Select and copy the example text.");}}
+ async function insert(entry,editor){try{const reason=insertionProblem(entry,entries);if(reason)throw new Error(reason);if(editor==="text"&&TUTORIAL.active)throw new Error("Text coding unlocks after your first loop.");await onInsert(entry.example,editor);notify(`Inserted into ${targetName(editor)}. Undo in the editor to remove it.`);}catch(error){notify(error.message);}}
+ function reset(){query="";category="all";availability="all";}
+ function resize(node){let start;const move=e=>{if(start)width=Math.max(320,Math.min(540,start.width+start.x-e.clientX));};const stop=()=>start=null;const down=e=>{start={x:e.clientX,width};node.setPointerCapture(e.pointerId);};node.addEventListener("pointerdown",down);node.addEventListener("pointermove",move);node.addEventListener("pointerup",stop);node.addEventListener("pointercancel",stop);return{destroy(){node.removeEventListener("pointerdown",down);node.removeEventListener("pointermove",move);node.removeEventListener("pointerup",stop);node.removeEventListener("pointercancel",stop);}};}
 </script>
-
-<div
-  style="width: {resize.width}px;"
-  class="flex flex-col gap-2 h-[95vh] bg-gray-100 text-sm p-3 rounded-xl shadow-xl overflow-hidden text-slate-700 border-4 border-slate-500"
->
-  <div
-    role="separator"
-    class="resize-handle {resize.is_resizing ? 'resizing-active' : ''}"
-    onmousedown={resize.startResize}
-  ></div>
-  <div>
-    <h1 class="font-bold text-base text-center">Documentation</h1>
-    <p class="text-sm text-center px-2">
-      A handbook that provide all the concepts that you need
-    </p>
-  </div>
-  <div class="flex flex-col gap-2 overflow-hidden text-sm">
-    <div class="flex flex-wrap gap-1 justify-center">
-      {#each Object.keys(data) as name}
-        <button
-          class="rounded-lg p-1 px-2 bg-gray-300 font-semibold"
-          class:bg-green-300={current_menu === name}
-          onclick={() => toggleMenu(name)}>{toTitleCase(name)}</button
-        >
-      {/each}
-    </div>
-    <div class="flex flex-col gap-2 flex-grow overflow-y-scroll h-[85vh]">
-      {#each Object.keys(data[current_menu]) as name}
-        {@const val = data[current_menu][name]}
-        {@const stats = cropStats[name]}
-
-        <div
-          class="flex flex-col border-2 border-slate-400 rounded-lg p-2 gap-2"
-        >
-          <div class="flex gap-2 items-center justify-between">
-            <p class="font-bold" style="font-family: 'Courier Prime'">{name}</p>
-            <p
-              class="font-bold p-1 px-2 text-sm bg-[#262b36] rounded scale-90"
-              style={"color:" + TYPE_COLORS[val.type]}
-            >
-              {val.type}
-            </p>
-          </div>
-
-          {#if current_menu === "crops" || current_menu === "events"}
-            <img class="w-10 h-10 object-contain" src={val.icon} alt={name} />
-          {/if}
-
-          <p>{val.definition}</p>
-
-          {#if val.arguments}
-            <div
-              class="bg-yellow-200 p-2 rounded-lg border-2 border-yellow-400 flex flex-col gap-2"
-            >
-              <p class="text-yellow-800 font-bold">Function Arguments</p>
-              <pre
-                class="overflow-x-auto code p-2 bg-gray-100 rounded-lg">{val.arguments}</pre>
-            </div>
-          {/if}
-          {#if val.example}
-            <div
-              class="bg-blue-200 p-2 rounded-lg border-2 border-blue-400 flex flex-col gap-2"
-            >
-              <p class="text-blue-800 font-bold">Example</p>
-              <pre
-                class="overflow-x-auto code p-2 bg-gray-100 rounded-lg">{val.example}</pre>
-            </div>
-          {/if}
-
-          {#if val.note != null}
-            <div class="bg-green-200 p-2 rounded-lg border-2 border-green-400">
-              <p class="text-green-800 font-bold">Remember!</p>
-              <p>{val.note}</p>
-            </div>
-          {/if}
-
-          {#if current_menu === "crops"}
-            <!-- Stats -->
-            <div class="border-2 border-blue-400 bg-blue-100 rounded-lg p-2">
-              <p class="font-bold mb-1 text-blue-800">Stats</p>
-
-              <div class="grid grid-cols-2 gap-1">
-                <p><b>❤️ Health:</b> {stats.health}</p>
-                <p><b>⏱ Duration:</b> {stats.duration}s</p>
-                <p><b>💰 Reward:</b> {stats.reward}</p>
-                <p><b>⭐ EXP:</b> {stats.exp}</p>
-                <p><b>🥀 Spoilage:</b> {stats.spoilage_time}s</p>
-                <p>
-                  <b>🌱 Seed Drop:</b>
-                  {(stats.seed_drop_chance * 100).toFixed(0)}%
-                </p>
-              </div>
-            </div>
-
-            <!-- Strength -->
-            <div class="bg-green-100 border-2 border-green-300 rounded-lg p-2">
-              <p class="font-bold text-green-800">Strength</p>
-              <p>{val.strength}</p>
-            </div>
-
-            <!-- Weakness -->
-            <div class="bg-red-100 border-2 border-red-300 rounded-lg p-2">
-              <p class="font-bold text-red-800">Weakness</p>
-              <p>{val.weakness}</p>
-            </div>
-          {/if}
-
-          <div
-            class="flex justify-between text-sm text-slate-500 pt-1 border-t border-slate-300"
-          >
-            <span
-              class="font-bold {val.is_unlocked
-                ? 'text-green-700'
-                : 'text-red-700'}"
-              >{val.is_unlocked ? "✓ Unlocked" : "🔒 Locked"}</span
-            >
-            {#if val.tier !== undefined}<span>Tier {val.tier}</span>{/if}
-          </div>
-        </div>
-      {/each}
-    </div>
-  </div>
-</div>
+{#snippet cards(items)}
+ {#each items as entry (entry.id)}
+  <article class:chosen={selected===entry.id} class:locked={!entry.unlocked}>
+   <div class="entry-title">{#if entry.icon}<img src={entry.icon} alt=""/>{/if}<h3>{entry.fullName}</h3><span>{entry.unlocked?"Unlocked":"Locked"}</span></div>
+   <p>{entry.summary}</p>
+   {#if entry.code}<pre><code>{entry.code.split("\n").slice(0,3).join("\n")}{entry.code.split("\n").length>3?"\n…":""}</code></pre>{/if}
+   {#if !entry.unlocked}<p class="requirement">{entry.requirement?`Complete: ${entry.requirement}`:"Not yet unlocked."}</p>{/if}
+   <button aria-expanded={selected===entry.id} onclick={()=>open(entry)}>{selected===entry.id?"Hide details":"Details"}</button>
+   {#if selected===entry.id}<div class="details" transition:slide={{duration:reduced?0:200}}>
+    {#if entry.code}
+     <div class="actions"><button aria-pressed={mode==="text"} onclick={()=>mode="text"}>Text</button><button aria-pressed={mode==="blocks"} disabled={!entry.example?.block} onclick={()=>mode="blocks"}>Blockly</button></div>
+     {#if mode==="blocks"&&entry.example?.block}{#key entry.id}<DocumentationBlocks block={entry.example.block}/>{/key}{:else}<pre role="region" aria-label="Text example" tabindex="0"><code>{entry.code}</code></pre>{/if}
+     {#if !entry.example?.block}<p class="small">This reference has no insertion example.</p>{/if}
+     <button onclick={()=>copy(entry.code)}>Copy code</button>
+     <p class="small">Blockly: {targetName("blocks")} · Text: {targetName("text")}</p>
+     <div class="actions"><button class="primary" disabled={!!insertionProblem(entry,entries)} onclick={()=>insert(entry,"blocks")}>Insert into Blockly</button><button disabled={!!insertionProblem(entry,entries)||TUTORIAL.active} onclick={()=>insert(entry,"text")}>Insert into text</button></div>
+     {#if insertionProblem(entry,entries)}<p class="small">{insertionProblem(entry,entries)}</p>{/if}
+     {#if TUTORIAL.active}<p class="small">Text coding unlocks after your first loop.</p>{/if}
+    {/if}
+    {#if entry.arguments}<h4>Arguments</h4><pre>{entry.arguments}</pre>{/if}
+    {#if entry.note}<h4>Remember</h4><p>{entry.note}</p>{/if}
+    {#if entry.category==="crops"&&CROP_DATA[entry.name]}{@const stats=CROP_DATA[entry.name]}<p>Health: {stats.health} · Coins: {stats.reward} · EXP: {stats.exp}<br/>Growth: {stats.duration}s · Spoilage: {stats.spoilage_time}s</p>{#if entry.strength}<p><strong>Strength:</strong> {entry.strength}</p>{/if}{#if entry.weakness}<p><strong>Weakness:</strong> {entry.weakness}</p>{/if}{/if}
+    {#if ["bot_movement/right","bot_farm_actions/plant","bot_farm_actions/water","bot_farm_actions/harvest","bot_farm_actions/extinguish"].includes(entry.id)}<button onclick={()=>onPreview(entry.name)}>Watch example</button>{/if}
+   </div>{/if}
+  </article>
+ {/each}
+{/snippet}
+<section class="documentation" style:width="{width}px" aria-label="Documentation">
+ <button class="resize" aria-label="Resize documentation" use:resize onkeydown={e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();width=Math.max(320,Math.min(540,width+(e.key==="ArrowLeft"?20:-20)));}}}></button>
+ <header><img src="/sprites/bot_teacher.png" alt="Bot Teacher"/><h1>Documentation</h1><button aria-label="Close documentation" onclick={onClose}>✕</button></header>
+ <div class="search"><input bind:this={search} bind:value={query} aria-label="Search command names" placeholder="Search commands…"/><button onclick={()=>query=""} aria-label="Clear search">Clear</button></div>
+ <div class="filters"><label>Category<select bind:value={category}><option value="all">All categories</option>{#each Object.entries(DOC_CATEGORIES) as [id,label]}<option value={id}>{label}</option>{/each}</select></label><label>Availability<select bind:value={availability}><option value="all">All</option><option value="unlocked">Unlocked</option><option value="locked">Locked</option></select></label></div>
+ {#if message}<p class="feedback" role="status">{message}</p>{/if}
+ <div class="results">
+  {#if filtering}<div class="results-title"><h2>{results.length} results</h2><button onclick={reset}>Clear filters</button></div>{@render cards(results)}{#if !results.length}<p>No commands match “{query}” with these filters.</p>{/if}
+  {:else}
+   {#if recommended.length}<h2>For your current mission</h2><p class="small">{QUEST_DATA[currentQuest()]?.title}</p>{@render cards(recommended)}{/if}
+   <h2>Common commands</h2>{@render cards(common.filter(e=>!recommended.some(r=>r.id===e.id)))}
+   {#if recentEntries.length}<h2>Recently viewed</h2><div class="actions">{#each recentEntries as entry}<button onclick={()=>{category=entry.category;query=entry.fullName;selected=entry.id;}}>{entry.fullName}</button>{/each}</div>{/if}
+   <h2>Browse categories</h2><div class="actions">{#each Object.entries(DOC_CATEGORIES) as [id,label]}<button onclick={()=>category=id}>{label}</button>{/each}</div>
+  {/if}
+ </div>
+</section>
+<style>
+ pre,code{user-select:text;font-family:"Courier Prime",monospace}
+ .documentation{position:relative;display:flex;flex-direction:column;gap:10px;height:min(78vh,850px);max-width:calc(100vw - 24px);padding:12px;background:#f3f4f6;border:4px solid #64748b;border-radius:12px;color:#334155;box-shadow:0 8px 20px #0003;font-size:13px}header{display:flex;align-items:center;gap:10px;border-bottom:2px solid #94a3b8;padding-bottom:10px}header img{width:40px;image-rendering:pixelated}header h1{flex:1;font-size:16px;font-weight:700}.search,.filters,.actions,.results-title{display:flex;gap:8px}.actions{flex-wrap:wrap}.search input{min-width:0;flex:1}.filters label{flex:1;min-width:0;font-size:12px}.filters select{display:block;width:100%;margin-top:4px}input,select,button{font:inherit;border:2px solid #94a3b8;border-radius:6px;padding:8px;background:#fff}button{cursor:pointer;background:#e5e7eb;font-weight:600}button:disabled{cursor:not-allowed;color:#475569;background:#e5e7eb}button.primary,button[aria-pressed=true]{background:#bbf7d0}button:focus-visible,input:focus-visible,select:focus-visible,pre:focus-visible{outline:3px solid #16a34a;outline-offset:3px}.results{overflow:auto;min-height:0;padding:2px 4px 4px 2px}.results-title{align-items:center;justify-content:space-between}h2{font-size:14px;font-weight:700;margin:12px 0 8px}article{padding:10px;border:2px solid #cbd5e1;border-radius:8px;background:#fff;margin:8px 0}article.chosen{background:#f0fdf4;border-color:#4ade80}article.locked{background:#e5e7eb}.entry-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.entry-title img{width:32px;height:32px;object-fit:contain;image-rendering:pixelated}h3{font-family:"Courier Prime",monospace;font-size:15px;font-weight:700;overflow-wrap:anywhere;flex:1}.entry-title span,.small{font-size:12px;color:#475569}p{line-height:1.45;margin:8px 0}pre{font-family:"Courier Prime",monospace;background:#f3f4f6;border:1px solid #cbd5e1;border-radius:6px;padding:8px;overflow:auto;font-size:13px;margin:8px 0}h4{font-weight:bold;margin-top:10px}.details{margin-top:10px}.requirement{font-size:12px;font-weight:600}.feedback{background:#dcfce7;padding:8px;border-radius:6px;margin:0}.resize{position:absolute;left:-7px;top:60px;bottom:20px;width:8px;padding:0;border:0;background:transparent;cursor:ew-resize;touch-action:none}@media(max-width:1100px){.documentation{height:60vh;width:min(400px,calc(100vw - 24px))!important}.resize{display:none}}
+</style>
