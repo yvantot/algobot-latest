@@ -502,3 +502,10 @@ test("cloud pops in and holds before travel, then shrinks only after departure",
   assert.equal(cloudPosition(cloud,0,{x:300,y:200}).x,0);
   assert.ok(cloudAppearance(cloud).opacity<1);
 });
+
+
+test("cloud travel keeps a constant height without vertical jiggle",()=>{
+ for(const phase of ["entering","raining","leaving"])for(let age=0;age<6;age+=.1){
+  assert.equal(cloudPosition({phase,phaseAge:age,travelDuration:5,exitDuration:4},0,{x:300,y:200}).y,100);
+ }
+});

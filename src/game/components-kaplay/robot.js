@@ -225,7 +225,7 @@ export function botact(id, farm_grid_index) {
 
     botPlant(type, callback = null, x = this.grid_x, y = this.grid_y) {
       if (!CROP_DATA[type]) return this.rejectAction("Unknown crop type.", callback);
-      if (DOCUMENT_DATA.crops[type] && !DOCUMENT_DATA.crops[type].is_unlocked) return this.rejectAction(SAY_DATA.farm.error.crop_locked, callback);
+      if (!farm_grid_index.isDemonstration && DOCUMENT_DATA.crops[type] && !DOCUMENT_DATA.crops[type].is_unlocked) return this.rejectAction(SAY_DATA.farm.error.crop_locked, callback);
       const tile = farm_grid_index.get(`${y}-${x}`);
       if (!tile?.soil) return this.rejectAction(SAY_DATA.farm.error.out_of_bounds, callback);
       if (tile.crop) return this.rejectAction(SAY_DATA.farm.error.plant_planted, callback);

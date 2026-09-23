@@ -125,7 +125,7 @@ export const INTRODUCTION_STORY = [
   {
     "action": "expand",
     "title": "Give your farm more room",
-    "text": "Coins can buy a new row and a new column. More tiles mean more room to grow crops. Use Shop or these blocks.",
+    "text": "You added a row and a column! More tiles give you more room to grow. The same commands are available in Shop.",
     "code": [
       "shop.buy_row();",
       "shop.buy_column();"
@@ -134,7 +134,7 @@ export const INTRODUCTION_STORY = [
   {
     "action": "upgrade",
     "title": "Help your bots work faster",
-    "text": "An upgrade makes a bot move or work faster. Spend coins in Shop when you are ready.",
+    "text": "You made the bot faster! Its loop reads rows and columns, so it visits every tile even after the farm grows.",
     "code": [
       "shop.upgrade_bot_move(0);",
       "shop.upgrade_bot_action(0);"
@@ -143,28 +143,54 @@ export const INTRODUCTION_STORY = [
   {
     "action": "workflow",
     "title": "A farm that works together",
-    "text": "Bot 0 plants and waters. Bot 1 checks and harvests. They repeat their jobs and use bot.say to show what they are doing. You can build a farm like this, one mission at a time!",
+    "text": "Four bots share a bigger farm! Two grow wheat and potatoes while two harvest mixed crops. Small jobs become a busy team. Build toward this one step at a time.",
     "code": [],
     "programs": [
       {
         "bot": 0,
         "role": "Grower",
-        "repeat": 3,
+        "repeat": 6,
         "code": [
           "bot.say(\"Planting!\");",
           "bot.till();",
           "bot.plant(\"wheat\");",
           "bot.water();",
-          "bot.wait(3);",
+          "bot.wait(0.7);",
           "bot.water();",
-          "bot.wait(3);",
+          "bot.wait(0.7);",
           "bot.right();"
         ]
       },
       {
         "bot": 1,
         "role": "Harvester",
-        "repeat": 3,
+        "repeat": 6,
+        "checkHarvest": true,
+        "code": [
+          "bot.say(\"Checking crops!\");",
+          "bot.harvest();",
+          "bot.right();"
+        ]
+      },
+      {
+        "bot": 2,
+        "role": "Potato grower",
+        "repeat": 6,
+        "code": [
+          "bot.say(\"Planting!\");",
+          "bot.till();",
+          "bot.plant(\"potato\");",
+          "bot.water();",
+          "bot.wait(0.7);",
+          "bot.water();",
+          "bot.wait(0.7);",
+          "bot.right();"
+        ]
+      },
+      {
+        "bot": 3,
+        "role": "Second harvester",
+        "repeat": 6,
         "checkHarvest": true,
         "code": [
           "bot.say(\"Checking crops!\");",

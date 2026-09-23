@@ -61,7 +61,7 @@
 </script>
 
 <aside aria-label="Current mission" class="mission">
-  <div class="heading"><img src="/sprites/icon_quest.png" alt="" /><span>{TUTORIAL.active ? "PROTECTED PRACTICE" : "YOUR NEXT MISSION"}</span><button onclick={onOpenQuestMenu}>Mission path</button></div>
+  <div class="heading"><img src="/sprites/icon_quest.png" alt="" /><span>{TUTORIAL.active ? "PRACTICE" : "YOUR NEXT MISSION"}</span><button onclick={onOpenQuestMenu}>Mission path</button></div>
   <div class="mission-stage">
   {#each [key] as missionKey (missionKey)}
   {@const mission = QUEST_DATA[missionKey]}

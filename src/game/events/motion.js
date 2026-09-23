@@ -28,11 +28,7 @@ export function cloudPosition(cloud, outside, center, remainder = 0) {
     : cloud.phase === "leaving"
       ? timedLerp(center.x, outside, elapsed, cloud.exitDuration - DISAPPEAR, t => t)
       : center.x;
-  const duration = cloud.phase === "entering" ? cloud.travelDuration - APPEAR - HOLD : cloud.exitDuration - DISAPPEAR;
-  const travel = cloud.phase === "entering" ? elapsed - APPEAR - HOLD : elapsed;
-  const t = Math.max(0, Math.min(1, travel / duration));
-  const lift = cloud.phase === "raining" ? 0 : Math.sin(t * Math.PI) * 22;
-  return { x, y: center.y - 100 - lift };
+  return { x, y: center.y - 100 };
 }
 
 export function cloudAppearance(cloud, remainder = 0) {

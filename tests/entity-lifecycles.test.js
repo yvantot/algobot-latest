@@ -1,3 +1,4 @@
+import { addLandBackground } from "../src/game/land-background.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -40,7 +41,7 @@ function harness() {
         timers.push(timer);
         return timer;
       },
-      loop(delay, fn) { return this.wait(delay, fn); },
+      loop(delay, fn) { const timer=this.wait(delay, fn);timer.repeat=delay;return timer; },
       exists() { return !this.removed; },
       update() { for (const fn of hooks.update) if (!this.removed) fn.call(this); },
       destroy() {
@@ -70,6 +71,7 @@ function harness() {
     rand: (a, b) => (a + b) / 2,
     readd(object) { roots.delete(object); roots.add(object); },
     easings: {}, WHITE: "white", RED: "red", GREEN: "green", YELLOW: "yellow",
+    rect:(width,height)=>({width,height}),color:color=>({color}),
     pos: (x, y) => ({ pos: vec2(x, y) }), sprite: (sprite, options = {}) => ({ sprite, frame: options.frame ?? 0 }),
     circle: radius => ({ radius }), mask: mask => ({ mask }), opacity: (opacity = 1) => ({ opacity }),
     scale: (x = 1, y = x) => ({ scale: vec2(x, y) }), z: (z = 0) => ({ z }),
@@ -115,7 +117,7 @@ function harness() {
     // Newly scheduled timers start on this simulated frame, like engine waits.
     for (const timer of [...timers]) {
       if (timer.canceled || timer.owner.removed || timer.at > now) continue;
-      timer.canceled = true;
+      if(timer.repeat)timer.at=now+timer.repeat;else timer.canceled = true;
       timer.fn();
     }
   }
@@ -517,6 +519,7 @@ test("every demonstration chapter completes with real crop, robot and event acti
   Object.assign(h.context.CONFIG.FARM,{rows:3,columns:3,gap:6});
   h.context.tutorialPolicy.protected=true;
   Object.assign(h.k,{get:()=>[...h.roots],debug:{timeScale:1},getCamPos:()=>({x:0,y:0}),getCamScale:()=>({x:1,y:1}),setCamPos(){},setCamScale(){},onUpdate(fn){const owner=h.make([{update:fn}]);return {cancel:()=>owner.destroy()};}});
+  h.context.addLandBackground=addLandBackground;
   h.context.document={hidden:false}; h.context.INTRODUCTION_STORY=INTRODUCTION_STORY;
   h.context.addFarmbot=(id,grid,x,y)=>h.make([{display_obj:{},setDisplayColor(){},sayText(){},showIcon(){}},h.context.gridpos(x,y),h.context.gridmove(),h.context.botact(id,grid)]);
   h.context.getFarmEventRuntime=grid=>{
@@ -530,7 +533,7 @@ test("every demonstration chapter completes with real crop, robot and event acti
   vm.runInContext(source,h.context);
   const controller=h.context.startLiveDemonstration(change=>changes.push(change));
   for(let chapter=0;chapter<INTRODUCTION_STORY.length;chapter++){
-    for(let frame=0;frame<1800&&!changes.at(-1)?.ready;frame++){h.advance(.05);await Promise.resolve();await Promise.resolve();}
+    for(let frame=0;frame<1800&&!changes.at(-1)?.ready;frame++){if(changes.at(-1)?.purchase)controller.purchase(changes.at(-1).purchase.id);h.advance(.05);await Promise.resolve();await Promise.resolve();}
     assert.equal(changes.at(-1)?.error,undefined,INTRODUCTION_STORY[chapter].action+" failed");
     assert.equal(changes.at(-1)?.ready,true,INTRODUCTION_STORY[chapter].action+" stalled");
     if(chapter<INTRODUCTION_STORY.length-1)controller.next();

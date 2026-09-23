@@ -1,3 +1,4 @@
+import { addLandBackground } from "./land-background.js";
 import { robots } from "../components/global.svelte";
 import { k, initKaplay } from "../lib/kaplay.js";
 import { addFarmbot, addSoilToGrid } from "./components-kaplay/components.js";
@@ -14,24 +15,7 @@ export function createLandBackground() {
   bg_land?.destroy();
   bg_land_shadow?.destroy();
 
-  const farm = CONFIG.FARM;
-  const new_height = farm.rows * farm.tile_size + (farm.rows - 1) * farm.gap
-  const new_width = farm.columns * farm.tile_size + (farm.columns - 1) * farm.gap
-  bg_land_shadow = k.add([
-    k.pos(farm.grid_origin.x - 25, farm.grid_origin.y - 10),
-    k.rect(new_width + 50, new_height + 50, { radius: 30 }),
-    k.color("#896338"),
-    k.anchor("topleft"),
-    k.layer("land_bg"),
-  ]);
-
-  bg_land = k.add([
-    k.pos(farm.grid_origin.x - 25, farm.grid_origin.y - 25),
-    k.rect(new_width + 50, new_height + 50, { radius: 30 }),
-    k.color(farm.bg_soil),
-    k.anchor("topleft"),
-    k.layer("land_bg"),
-  ]);
+  [bg_land_shadow, bg_land] = addLandBackground(k, CONFIG.FARM);
 }
 
 

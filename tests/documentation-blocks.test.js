@@ -18,3 +18,20 @@ test("insertable Blockly examples generate behavior equivalent to their text",()
   try{Blockly.serialization.blocks.append(example.block,workspace);const generated=javascriptGenerator.workspaceToCode(workspace);assert.deepEqual(trace(generated),trace(example.code),`${category}/${name}`);}finally{workspace.dispose();}
  }
 });
+
+
+test("demonstration loops visit every tile and never step beyond the final column",()=>{
+ const component=fs.readFileSync(new URL("../src/components/DemonstrationBlocks.svelte",import.meta.url),"utf8");
+ const start=component.indexOf("  $effect(() => {");
+ const effect=component.slice(start,component.indexOf("\n  $effect",start+1)).replace("$effect(() => {","(()=>{").replace(/\);\s*$/," )();");
+ for(const dynamicGrid of [true,false]){
+  const workspace=new Blockly.Workspace();
+  try{
+   vm.runInNewContext(effect,{workspace,Blockly:{...Blockly,svgResize(){}},commandExample,structuredClone,ids:new Map(),crops:new Map(),code:["bot.harvest();","bot.right();"],repeat:dynamicGrid?0:6,checkHarvest:true,dynamicGrid});
+   const generated=javascriptGenerator.workspaceToCode(workspace),calls=[];
+   vm.runInNewContext(generated,{bot:{jump:(x,y)=>calls.push([x,y]),is_harvestable:()=>true,harvest:()=>calls.push("harvest"),right:()=>calls.push("right")},rows:()=>4,columns:()=>5,highlightBlock(){}},{timeout:1000});
+   if(dynamicGrid){assert.equal(calls.length,20);assert.deepEqual(calls[0],[0,0]);assert.deepEqual(calls.at(-1),[4,3]);}
+   else {assert.equal(calls.filter(x=>x==="harvest").length,6);assert.equal(calls.filter(x=>x==="right").length,5);}
+  }finally{workspace.dispose();}
+ }
+});

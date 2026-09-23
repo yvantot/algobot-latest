@@ -22,6 +22,7 @@ function setup(options) {
   const context = vm.createContext({ k, CONFIG: { FARM: { rows: 3, columns: 3, cell_size:76, gap:12, grid_origin:{x:0,y:0} } },
     CROP_DATA: { wheat: { reward: 3, exp: 3 } }, CropStates: {}, SoilStates: { INITIAL: 0 },
     INTRODUCTION_STORY, document: { hidden: false }, console,
+    addLandBackground: () => [object(),object()],
     addSoilToGrid: () => object({setSoilState() {}}),
     addFarmbot: () => object({ is_available: true, botJump(x, y, done) { done(true); } }),
     destroyFarmEvents() {},
@@ -75,9 +76,17 @@ test("skipping during a running chapter restores prior visibility, pause and spe
 
 test("demo expansion owns new soil and restores the real camera when closed", async () => {
   const h=setup({singleAction:"expand"});
-  await h.tick(30);
+  await h.tick(5);
+  assert.equal(h.changes.at(-1).purchase.id,"row");
+  assert.equal(h.controller.purchase("column"),false);
+  assert.equal(h.controller.purchase("row"),true);
+  assert.equal(h.controller.purchase("row"),false);
+  await h.tick(5);
+  assert.equal(h.changes.at(-1).purchase.id,"column");
+  h.controller.purchase("column");
+  await h.tick(10);
   assert.equal(h.changes.at(-1).ready,true);
-  assert.equal(h.objects.length,19,"two original objects, sixteen demo tiles and one bot");
+  assert.equal(h.objects.filter(object=>object.exists()).length,21,"two originals, two background layers, sixteen tiles and one bot");
   h.controller.dispose();
   assert.ok(h.objects.slice(2).every(object=>object.removed));
   assert.deepEqual(h.k.getCamPos(),{x:400,y:250});

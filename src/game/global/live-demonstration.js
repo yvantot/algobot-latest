@@ -7,6 +7,7 @@ import { addBug } from "../components-kaplay/pest.js";
 import { addCrop } from "../components-kaplay/crop.js";
 import { getFarmEventRuntime, destroyFarmEvents } from "../events/renderer.js";
 import { INTRODUCTION_STORY } from "./introduction-story.js";
+import { addLandBackground } from "../land-background.js";
 
 // The cutscene owns a separate farm; closing it restores the player's exact entities.
 export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
@@ -28,7 +29,7 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
   for (const { object } of originals) {
     if (object.sceneryBackground) continue;
     object.paused = true;
-    if (!["grass_bg", "land_bg"].includes(object.layer)) object.hidden = true;
+    if (object.layer !== "grass_bg") object.hidden = true;
   }
   k.debug.timeScale = 1;
   const farm = new Map();
@@ -36,6 +37,13 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
   farm.demoBounds = {...demoSize};
   farm.demoEffects = [];
   const owned = [];
+  let ground = [];
+  function refreshGround() {
+    for (const object of ground) object.destroy();
+    ground = addLandBackground(k, {...CONFIG.FARM, ...farm.demoBounds});
+    owned.push(...ground);
+  }
+  refreshGround();
   for (let y = 0; y < farm.demoBounds.rows; y++) for (let x = 0; x < farm.demoBounds.columns; x++) {
     const soil = addSoilToGrid(x, y, SoilStates.INITIAL, farm);
     owned.push(soil);
@@ -74,11 +82,11 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
       else resolve(!disposed);
     }); });
   }
-  function plantAt(x, y, state = CropStates.YOUNG) {
+  function plantAt(x, y, state = CropStates.YOUNG, type = "wheat") {
     const tile = farm.get(`${y}-${x}`);
     tile.crop?.destroy();
     tile.soil.setSoilState(SoilStates.READY);
-    const crop = addCrop(farm, "wheat", x, y, state);
+    const crop = addCrop(farm, type, x, y, state);
     crop.crop_grow_duration = 3;
     tile.crop = crop;
     return crop;
@@ -105,6 +113,22 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
       const soil=addSoilToGrid(x,y,SoilStates.INITIAL,farm);
       owned.push(soil); farm.set(y+"-"+x,{soil,crop:null,bots:[]});
     }
+    refreshGround();
+  }
+  let purchaseRequest = null;
+  function requestPurchase(id, label) {
+    return new Promise(resolve => {
+      purchaseRequest = {id, resolve};
+      onChange({purchase: {id, label}});
+    });
+  }
+  function purchase(id) {
+    if (disposed || purchaseRequest?.id !== id) return false;
+    const request = purchaseRequest;
+    purchaseRequest = null;
+    onChange({purchase: null});
+    request.resolve(true);
+    return true;
   }
   async function next() {
     if (disposed || running || chapter >= story.length - 1) return;
@@ -177,7 +201,7 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
       case "pest_loss": {
         fillFarm(CropStates.HARVESTABLE);
         for(let y=0;y<farm.demoBounds.rows;y++) for(let x=0;x<farm.demoBounds.columns;x++) {
-          const pest=addBug(farm,{damage:100,attack_interval:1.5,spawnAt:{x,y},stationary:true});
+          const pest=addBug(farm,{damage:farm.get(y+"-"+x).crop.damageToKill("bug")/5,attack_interval:1.3+x*.1,spawnAt:{x,y},stationary:true});
           owned.push(pest);
         }
         if (!await until(()=>[...farm.values()].every(tile=>!tile.crop || tile.crop.crop_state===CropStates.DEAD))) return;
@@ -203,8 +227,10 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
       }
       case "expand": {
         clearCrops();
+        if(!await requestPurchase("row", "Buy a row"))return;
         onChange({line:0,bot:0}); expand("rows");
         if(!await wait(2)) return;
+        if(!await requestPurchase("column", "Buy a column"))return;
         onChange({line:1,bot:0}); expand("columns");
         k.setCamScale(.85);
         k.setCamPos(CONFIG.FARM.grid_origin.x+(farm.demoBounds.columns*CONFIG.FARM.cell_size-CONFIG.FARM.gap)/2,CONFIG.FARM.grid_origin.y+(farm.demoBounds.rows*CONFIG.FARM.cell_size-CONFIG.FARM.gap)/2);
@@ -212,45 +238,63 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
         break;
       }
       case "upgrade": {
-        onChange({line:0,bot:0}); robot.sayText("Faster moves!"); robot.botmove_duration=.55;
+        if(!await requestPurchase("move", "Upgrade movement"))return;
+        onChange({line:0,bot:0}); robot.sayText("Faster moves!"); robot.botmove_duration=.18;
         if(!await action(robot,0,"botJump",0,0)) return;
         if(!await action(robot,0,"botJump",1,0)) return;
-        onChange({line:1,bot:0}); robot.sayText("Faster work!"); robot.botact_duration=.45;
+        if(!await requestPurchase("action", "Upgrade actions"))return;
+        onChange({line:1,bot:0}); robot.sayText("Faster work!"); robot.botact_duration=.15;
         if(!await action(robot,1,"botTill")) return;
+        onChange({traversing:true});
+        robot.sayText("Visiting every tile!");
+        const rows=farm.demoBounds.rows, columns=farm.demoBounds.columns;
+        for(let row=0;row<rows;row++)for(let column=0;column<columns;column++) {
+          if(!await action(robot,2,"botJump",column,row))return;
+        }
+        onChange({traversing:false});
         break;
       }
       case "workflow": {
-        fillFarm(CropStates.HARVESTABLE);
-        for(let x=0;x<3;x++) { const tile=farm.get("0-"+x);tile.crop.destroy();tile.soil.setSoilState(SoilStates.INITIAL); }
-        if(!helper) helper=addBot(1,0,1);
-        helper.botmove_duration=.55;helper.botact_duration=.5;
-        await Promise.all([action(robot,-1,"botJump",0,0),action(helper,-1,"botJump",0,1)]);
+        while(farm.demoBounds.rows<6)expand("rows");
+        while(farm.demoBounds.columns<6)expand("columns");
+        clearCrops();
+        const types=["wheat","corn","rice","potato","tomato","sugarcane"];
+        for(let y=0;y<6;y++)for(let x=0;x<6;x++)plantAt(x,y,CropStates.HARVESTABLE,types[(x+y)%types.length]);
+        for(const row of [0,3])for(let x=0;x<6;x++){
+          const tile=farm.get(row+"-"+x);tile.crop.destroy();tile.soil.setSoilState(SoilStates.INITIAL);
+        }
+        if(!helper)helper=addBot(1,0,1);
+        const team=[robot,helper,addBot(2,0,3),addBot(3,0,4)];
+        for(const bot of team){bot.botmove_duration=.16;bot.botact_duration=.16;}
+        k.setCamScale(.8);
+        k.setCamPos(CONFIG.FARM.grid_origin.x+(6*CONFIG.FARM.cell_size-CONFIG.FARM.gap)/2,CONFIG.FARM.grid_origin.y+(6*CONFIG.FARM.cell_size-CONFIG.FARM.gap)/2);
+        await Promise.all(team.map((bot,id)=>action(bot,-1,"botJump",0,[0,1,3,4][id])));
         if(disposed)return;
-        async function grow() {
-          for(let x=0;x<3;x++) {
-            robot.sayText("Planting!");onChange({bot:0,line:0});
-            if(!await action(robot,1,"botTill"))return;
-            if(!await action(robot,2,"botPlant","wheat"))return;
-            farm.get("0-"+x).crop.crop_grow_duration=3;
-            if(!await action(robot,3,"botWater"))return;
-            if(!await action(robot,4,"botWait",3))return;
-            if(!await action(robot,5,"botWater"))return;
-            if(!await action(robot,6,"botWait",3))return;
-            if(!await action(robot,7,"botJump",x+1,0))return;
+        async function grow(bot,row,type) {
+          bot.sayText("Planting "+type+"!");
+          for(let x=0;x<6;x++) {
+            if(!await action(bot,1,"botTill"))return;
+            if(!await action(bot,2,"botPlant",type))return;
+            farm.get(row+"-"+x).crop.crop_grow_duration=.6;
+            if(!await action(bot,3,"botWater"))return;
+            if(!await action(bot,4,"botWait",.7))return;
+            if(!await action(bot,5,"botWater"))return;
+            if(!await action(bot,6,"botWait",.7))return;
+            if(x<5&&!await action(bot,7,"botJump",x+1,row))return;
           }
-          robot.sayText("New crops ready!");
+          bot.sayText("Fresh crops ready!");
         }
-        async function harvest() {
-          for(let x=0;x<3;x++) {
-            helper.sayText("Checking crops!");onChange({bot:1,line:0});
-            if(farm.get("1-"+x).crop?.crop_state===CropStates.HARVESTABLE) {
-              if(!await action(helper,1,"botHarvest"))return;
+        async function harvest(bot,row) {
+          for(let x=0;x<6;x++) {
+            bot.sayText("Harvesting!");onChange({bot:bot.bot_index,line:0});
+            if(farm.get(row+"-"+x).crop?.crop_state===CropStates.HARVESTABLE){
+              if(!await action(bot,1,"botHarvest"))return;
             }
-            if(!await action(helper,2,"botJump",x+1,1))return;
+            if(x<5&&!await action(bot,2,"botJump",x+1,row))return;
           }
-          helper.sayText("Harvest done!");
+          bot.sayText("Harvest done!");
         }
-        await Promise.all([grow(),harvest()]);
+        await Promise.all([grow(robot,0,"wheat"),harvest(helper,1),grow(team[2],3,"potato"),harvest(team[3],4)]);
         if(disposed)return;
         break;
       }
@@ -262,6 +306,7 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
   function dispose() {
     if (disposed) return;
     disposed = true;
+    purchaseRequest?.resolve(false); purchaseRequest=null;
     controller.cancel();
     for (const pending of waiting) pending.resolve(false);
     waiting.clear();
@@ -281,5 +326,5 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
     next().catch(error => { console.error("Farm introduction failed", error); dispose(); onChange({ error: true, ready: true }); });
   }
   advance();
-  return { next: advance, dispose };
+  return { next: advance, dispose, purchase };
 }
