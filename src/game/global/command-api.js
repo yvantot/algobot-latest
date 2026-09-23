@@ -19,6 +19,7 @@ export function createCommandAPI({
   const quest = (key, amount = 1, action = null) => observe(onQuestEvent, key, amount, action);
   const speak = message => robot.sayText?.(message);
   let lastFarmSize = null;
+  let lastHarvestCheck = null;
 
   function reportError(error) {
     const message = `Command error: ${error?.message || String(error)}`;
@@ -45,11 +46,12 @@ export function createCommandAPI({
       const callback = typeof values.at(-1) === "function" ? values.pop() : () => {};
       let settled = false;
       let context;
-      const finish = value => {
+      const finish = (value, failed = false) => {
         if (settled) return;
         settled = true;
         // Sensors always return booleans; no missing/null sensor can be truthy.
         const result = check ? !!value : value ?? false;
+        if (name === "is_harvestable") lastHarvestCheck = !failed && typeof value === "boolean" ? value : null;
         if (result) observe(after, result, context, values);
         // A disposed editor's continuation must not create an unhandled Promise
         // rejection after an otherwise completed robot action.
@@ -58,10 +60,10 @@ export function createCommandAPI({
       const fail = error => {
         if (settled) return;
         reportError(error);
-        finish(false);
+        finish(false, true);
       };
       try {
-        if (!unlocked(category, name)) return finish(false);
+        if (!unlocked(category, name)) return finish(false, true);
         if (check) record("recordCheckBeforeAction");
         else {
           if (action) record("recordBotAction", action);
@@ -81,7 +83,9 @@ export function createCommandAPI({
       const result = speak(text);
       if(String(text ?? "").trim()) quest("intro_say");
       if(lastFarmSize !== null && text === lastFarmSize) quest("cs_grid_0");
+      if(lastHarvestCheck !== null && text === lastHarvestCheck) quest("cs_check_0");
       lastFarmSize = null;
+      lastHarvestCheck = null;
       return result;
     }),
     wait: command("wait", "botWait", { action: null, after: () => quest("cs_wait_0") }),

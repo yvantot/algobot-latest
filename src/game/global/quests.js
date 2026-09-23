@@ -56,6 +56,15 @@ export const QUEST_DATA = {
     rewards: { exp: 50, coins: 40, unlocks: ["buy_seed", "buy_row", "buy_column"] },
     prereq: ["tut_2"],
   },
+  "cs_check_0": {
+    type: QuestTypes.CS_CONCEPT,
+    title: "Ask if the crop is ready",
+    description: "Use bot.say to show the result of bot.is_harvestable.",
+    tip: 'Add bot.say from Bot. Remove its text block and put bot.is_harvestable from Check in its place. Press Start. true means ready to harvest; false means not ready (or no crop). In text: bot.say(bot.is_harvestable());',
+    goal: 1,
+    rewards: { exp: 20, coins: 15 },
+    prereq: ["intro_loop"],
+  },
   "cs_if_0": {
     type: QuestTypes.CS_CONCEPT,
     title: "Check before you harvest",
@@ -64,7 +73,7 @@ export const QUEST_DATA = {
     concept: "if",
     goal: 1,
     rewards: { exp: 50, coins: 40, unlocks: ["jump", "is_dead"] },
-    prereq: ["intro_loop"],
+    prereq: ["cs_check_0"],
   },
   "cs_grid_0": {
     type: QuestTypes.CS_CONCEPT,

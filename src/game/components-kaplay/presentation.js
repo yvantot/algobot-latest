@@ -82,7 +82,7 @@ export function saytext(offset_x, offset_y, opt = { size: 14, height: 80, durati
       const text_width = Math.max(80, String(say_text).length * (this.say_size / 1.5));
       const rand_pos = k.vec2(pos.x, pos.y - this.say_stack * 20);
       const text = k.add([
-        k.text(say_text, {
+        k.text(String(say_text), {
           size: this.say_size,
           width: text_width,
           align: "center",

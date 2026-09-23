@@ -241,3 +241,30 @@ test("farm size lesson requires displaying the size, not just reading it", () =>
   assert.equal(h.run(), true);
   assert.equal(h.log.quests.filter(([key])=>key==="cs_grid_0").length,1);
 });
+
+test("harvest check lesson displays both boolean results after the sensor finishes", () => {
+  for (const value of [false, true]) {
+    let complete;
+    const h = harness('bot.say(bot.is_harvestable());', {
+      isHarvestable(callback) { complete = callback; },
+    });
+    assert.equal(h.run(), false);
+    assert.deepEqual(h.log.output, []);
+    assert.deepEqual(h.log.quests, []);
+    complete(value);
+    assert.equal(h.run(), true);
+    assert.deepEqual(h.log.output, [value]);
+    assert.equal(h.log.quests.filter(([key]) => key === "cs_check_0").length, 1);
+  }
+});
+
+test("harvest check lesson needs a displayed sensor result, including no credit on errors", () => {
+  for (const source of ['bot.say(false);', 'bot.is_harvestable();', 'bot.is_harvestable(); bot.say("false");']) {
+    const h = harness(source, { isHarvestable: callback => callback(false) });
+    assert.equal(h.run(), true);
+    assert.equal(h.log.quests.some(([key]) => key === "cs_check_0"), false);
+  }
+  const h = harness('bot.say(bot.is_harvestable());', { isHarvestable() { throw new Error("unavailable"); } });
+  assert.equal(h.run(), true);
+  assert.equal(h.log.quests.some(([key]) => key === "cs_check_0"), false);
+});
