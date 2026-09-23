@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { CropStates, SoilStates } from "../src/game/global/enum.js";
 import { getDifficultyParams } from "../src/game/events/difficulty.js";
 import { FarmEventSimulation, canStartFireEvent, fireSettings, rainSettings } from "../src/game/events/simulation.js";
-import { RAIN_TIMING, cloudPosition, dropPosition } from "../src/game/events/motion.js";
+import { RAIN_TIMING, cloudPosition, cloudAppearance, dropPosition } from "../src/game/events/motion.js";
 
 function makeFarm(rows = 3, columns = 3, planted = rows * columns) {
   const grid = new Map();
@@ -456,16 +456,16 @@ test("eased cloud motion stays continuous across arrival and departure", () => {
   const position = () => cloudPosition(cloud, 0, target, sim.accumulator);
   assert.equal(position().x, 0);
   sim.update(cloud.travelDuration / 4);
-  assert.ok(position().x > 0 && position().x < 75, "sine ease accelerates gently");
+  assert.ok(position().x > 75 && position().x < 300, "cubic-out movement starts quickly after the entrance beat");
   sim.update(cloud.travelDuration * 3 / 4);
   assert.equal(cloud.phase, "raining");
   assert.equal(position().x, 300);
   sim.update(cloud.rainDuration);
   assert.equal(cloud.phase, "leaving");
   assert.equal(cloud.progress, 0, "departure must not retain arrival's 100% progress");
-  assert.equal(position().x, 300, "no teleport to the outside edge on the transition frame");
+  assert.ok(Math.abs(position().x - 300) < 1e-8, "no teleport on the transition frame");
   sim.update(0.05);
-  assert.ok(position().x < 300 && position().x > 299);
+  assert.ok(position().x < 300 && position().x > 290);
   sim.update(cloud.exitDuration - 0.05);
   assert.equal(position().x, 0);
   assert.equal(sim.clouds.size, 0);
@@ -489,4 +489,16 @@ test("clouds and falling drops animate between fixed ticks and stop with game ti
   sim.update(0);
   assert.deepEqual(dropPosition(drop, center, sim.accumulator), paused);
   assert.equal(dropPosition({ ...drop, age: drop.duration }, center).y, center.y);
+});
+
+test("cloud pops in and holds before travel, then shrinks only after departure", () => {
+  const cloud={phase:"entering",phaseAge:.3,travelDuration:5,exitDuration:4};
+  assert.equal(cloudPosition(cloud,0,{x:300,y:200}).x,0);
+  assert.ok(cloudAppearance(cloud).scale>1,"entrance overshoots for a bounce");
+  cloud.phaseAge=.55;
+  assert.equal(cloudPosition(cloud,0,{x:300,y:200}).x,0);
+  assert.equal(cloudAppearance(cloud).scale,1);
+  cloud.phase="leaving";cloud.phaseAge=3.8;
+  assert.equal(cloudPosition(cloud,0,{x:300,y:200}).x,0);
+  assert.ok(cloudAppearance(cloud).opacity<1);
 });
