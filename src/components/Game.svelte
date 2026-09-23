@@ -359,7 +359,7 @@
                   class="w-48 bg-gray-100 text-slate-700 border-2 border-slate-500 rounded-lg p-2.5 text-center relative shadow-2xl"
                 >
                   <p
-                    class="font-bold text-slate-800 text-[11px] border-b border-slate-300 pb-0.5 mb-1 font-mono uppercase tracking-wide"
+                    class="font-bold text-slate-800 text-[13px] border-b border-slate-300 pb-0.5 mb-1 font-mono uppercase tracking-wide"
                   >
                     {btn.title}
                   </p>
@@ -408,7 +408,7 @@
                 class="w-48 bg-gray-100 text-slate-700 border-2 border-slate-500 rounded-lg p-2.5 text-center relative shadow-2xl"
               >
                 <p
-                  class="font-bold text-slate-800 text-[11px] border-b border-slate-300 pb-0.5 mb-1 font-mono uppercase tracking-wide"
+                  class="font-bold text-slate-800 text-[13px] border-b border-slate-300 pb-0.5 mb-1 font-mono uppercase tracking-wide"
                 >
                   Help & Guide
                 </p>
@@ -454,7 +454,7 @@
                   class="w-48 bg-gray-100 text-slate-700 border-2 border-slate-500 rounded-lg p-2.5 text-center relative shadow-2xl"
                 >
                   <p
-                    class="font-bold text-slate-800 text-[11px] border-b border-slate-300 pb-0.5 mb-1 font-mono uppercase tracking-wide"
+                    class="font-bold text-slate-800 text-[13px] border-b border-slate-300 pb-0.5 mb-1 font-mono uppercase tracking-wide"
                   >
                     Start Menu
                   </p>

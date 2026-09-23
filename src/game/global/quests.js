@@ -11,34 +11,46 @@ export const QuestTypes = {
 export const QUEST_DATA = {
   // Tutorial Quests
   "intro_run": {
-    type: QuestTypes.TUTORIAL, title: "Run your first command",
-    description: "Press Start to move your robot one tile.",
-    tip: "The movement block is ready. Press Start above the editor.",
+    type: QuestTypes.TUTORIAL, title: "Add your first block",
+    description: "Drag bot.right from Bot into the work area, then press Start.",
+    tip: "You choose the block. The robot follows it when you press Start.",
     goal: 1, rewards: { exp: 10, coins: 15 }, prereq: [],
   },
   "intro_build": {
     type: QuestTypes.TUTORIAL, title: "Give your robot a direction",
-    description: "Clear the prepared block. Add a movement block from Bot, then press Start.",
+    description: "Remove bot.right. Add bot.down from Bot, then press Start.",
     tip: "Drag bot.down from Bot into the workspace and run it.",
     goal: 1, rewards: { exp: 15, coins: 20, unlocks: ["is_tilled", "is_planted", "rows", "columns"] },
     prereq: ["intro_run"],
+  },
+  "intro_say": {
+    type: QuestTypes.TUTORIAL, title: "Say hello",
+    description: "Add bot.say, type a short message, then press Start.",
+    tip: "Click the text inside bot.say and type Hello! Your robot will show it.",
+    goal: 1, rewards: { exp: 15, coins: 10 }, prereq: ["intro_build"],
+  },
+  "intro_sequence": {
+    type: QuestTypes.TUTORIAL, title: "Two blocks, one trip",
+    description: "Connect bot.left and bot.right. Run them to go left, then back.",
+    tip: "Snap the blocks together. Your robot follows them from top to bottom. Start away from the left edge.",
+    goal: 2, rewards: { exp: 20, coins: 15 }, prereq: ["intro_say"],
   },
   "tut_2": {
     type: QuestTypes.TUTORIAL,
     title: "First Steps in Farming",
     description: "Till, plant, water, and harvest wheat.",
-    tip: 'In Farm category, sequence bot.till, bot.plant wheat, bot.water, and bot.harvest.',
+    tip: 'Open Farm. Till, plant wheat, then water. Water again when the soil dries. Harvest when the wheat is ready.',
     goal: 4,
     rewards: { exp: 30, coins: 30, unlocks: ["is_watered", "is_harvestable"] },
-    prereq: ["intro_build"],
+    prereq: ["intro_sequence"],
   },
 
   // CS Concept Quests
   "intro_loop": {
     type: QuestTypes.CS_CONCEPT,
-    title: "Loop Automation",
-    description: "Make two successful robot moves inside a repeat loop.",
-    tip: 'In Loops category, use repeat block or write for (var i = 0; i < 3; i++) to repeat actions.',
+    title: "Do the trip twice",
+    description: "Repeat your left-and-right trip twice.",
+    tip: 'Open Loops. Set repeat to 2 and put bot.left then bot.right inside. A loop repeats the blocks inside it.',
     concept: "for",
     goal: 2,
     rewards: { exp: 50, coins: 40, unlocks: ["buy_seed", "buy_row", "buy_column"] },
@@ -46,8 +58,8 @@ export const QUEST_DATA = {
   },
   "cs_if_0": {
     type: QuestTypes.CS_CONCEPT,
-    title: "Conditional Crop Inspection",
-    description: "Inspect crop state using an if conditional check.",
+    title: "Check before you harvest",
+    description: "Use if to harvest only when a crop is ready.",
     tip: 'In Logic category, use if statement with bot.is_harvestable from Check category to harvest ready crops.',
     concept: "if",
     goal: 1,
@@ -56,16 +68,16 @@ export const QUEST_DATA = {
   },
   "cs_grid_0": {
     type: QuestTypes.CS_CONCEPT,
-    title: "Dynamic Grid Boundary Traversal",
-    description: "Use rows and columns functions to determine farm grid dimensions.",
-    tip: 'In Math category, use rows and columns in loop bounds so your code adapts when land expands.',
+    title: "Tell us about your farm",
+    description: "Use bot.say to show how many rows your farm has.",
+    tip: 'Put rows from Math inside bot.say from Bot. Press Start to see the number. In text: bot.say(rows());',
     goal: 1,
     rewards: { exp: 60, coins: 50, unlocks: ["upgrade_bot_action", "upgrade_bot_move", "upgrade_bot_check", "bot"] },
     prereq: ["cs_if_0"],
   },
   "cs_jump_0": {
     type: QuestTypes.CS_CONCEPT,
-    title: "Targeted Tile Navigation",
+    title: "Jump to a tile",
     description: "Jump directly to specific tile coordinates.",
     tip: 'In Bot category, use bot.jump to teleport directly to any valid grid coordinate.',
     goal: 1,
@@ -74,7 +86,7 @@ export const QUEST_DATA = {
   },
   "cs_cleanup_0": {
     type: QuestTypes.CS_CONCEPT,
-    title: "Wasted Crop Clearing",
+    title: "Clear a spoiled crop",
     description: "Inspect for withered plants and clear them.",
     tip: 'In Check category, use bot.is_dead inside an if statement, then call bot.destroy from Farm category.',
     goal: 1,
@@ -83,7 +95,7 @@ export const QUEST_DATA = {
   },
   "cs_wait_0": {
     type: QuestTypes.CS_CONCEPT,
-    title: "Growth Cycle Timing",
+    title: "Wait a moment",
     description: "Pause bot execution while crops develop.",
     tip: 'In Bot category, use bot.wait to pause execution while waiting for crop growth.',
     goal: 1,
@@ -92,7 +104,7 @@ export const QUEST_DATA = {
   },
   "cs_random_0": {
     type: QuestTypes.CS_CONCEPT,
-    title: "Adaptive Farming Decisions",
+    title: "Try a random number",
     description: "Generate random numbers for non deterministic farm logic.",
     tip: 'In Math category, use randint or randfloat to create dynamic decision thresholds.',
     goal: 1,
@@ -103,7 +115,7 @@ export const QUEST_DATA = {
   // Dedicated Shop Quests
   "shop_seed_0": {
     type: QuestTypes.SHOP,
-    title: "Seed Procurement",
+    title: "Buy more seeds",
     description: "Purchase seed packs from the shop.",
     tip: 'In Shop category, use shop.buy_seed or purchase seeds directly in the shop interface.',
     goal: 1,
@@ -112,7 +124,7 @@ export const QUEST_DATA = {
   },
   "shop_land_0": {
     type: QuestTypes.SHOP,
-    title: "Farmland Expansion",
+    title: "Make your farm bigger",
     description: "Expand farm size by buying a row or column.",
     tip: 'In Shop category, use shop.buy_row or shop.buy_column to increase grid capacity for larger loops.',
     goal: 1,
@@ -121,7 +133,7 @@ export const QUEST_DATA = {
   },
   "shop_upgrade_0": {
     type: QuestTypes.SHOP,
-    title: "Robot Performance Tuning",
+    title: "Speed up your robot",
     description: "Purchase a speed upgrade for your bot.",
     tip: 'In Shop category, use shop.upgrade_bot_action or shop.upgrade_bot_move to execute algorithms faster.',
     goal: 1,

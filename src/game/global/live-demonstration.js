@@ -82,8 +82,8 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
     running = true; pause(false); chapter++;
     const step = story[chapter];
     onChange({ chapter, line: -1, ready: false });
-    // Give the teacher's explanation a head start before anything moves.
-    if (!await wait(2.5)) return;
+    // Leave a short beat to notice the blocks before the action starts.
+    if (!await wait(0.8)) return;
     if (singleAction && singleAction !== "move") {
       if (!await action(robot, -1, "botJump", 1, singleAction === "fire" ? 1 : 0)) return;
       if (singleAction === "water") plantAt(1,0);

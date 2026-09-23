@@ -30,7 +30,7 @@ export const Modals = $state({
 });
 
 export const QUEST_FEEDBACK = $state({ queue: [], hazardsPending: false, revision: 0 });
-export const TUTORIAL = $state({ active: true, authoredBlocks: [] });
+export const TUTORIAL = $state({ active: true, authoredBlocks: [], sequenceBlocks: [] });
 export function currentQuest() { return activeQuest(QUEST_DATA, QUEST_STATE); }
 export function finishIntroduction() {
   TUTORIAL.active = false; tutorialPolicy.protected = false;
@@ -49,7 +49,8 @@ for (const [key, data] of Object.entries(QUEST_DATA)) {
 
 function questStage(key) {
 	if (key === "cs_if_0" || key === "cs_cleanup_0") return CS1_STAGES.CONDITIONAL;
-	if (key === "intro_loop" || key === "cs_grid_0") return CS1_STAGES.LOOPING;
+	if (key === "cs_grid_0") return CS1_STAGES.SEQUENTIAL;
+	if (key === "intro_loop") return CS1_STAGES.LOOPING;
 	return telemetry.currentStage;
 }
 
@@ -64,8 +65,13 @@ export function beginActiveQuest() {
 
 export function trackQuest(key, amount = 1, action = null) {
 	if (key === "tut_1") {
-    key = movementQuest(currentQuest(), { authored: TUTORIAL.authoredBlocks.includes(action?.blockId), inLoop: action?.inLoop === true, x: action?.x, y: action?.y });
+    key = movementQuest(currentQuest(), { authored: TUTORIAL.authoredBlocks.includes(action?.blockId), sequence: TUTORIAL.sequenceBlocks.includes(action?.blockId), inLoop: action?.inLoop === true, x: action?.x, y: action?.y });
     if (!key) return;
+  }
+  if(key === "intro_sequence") {
+    const seen = QUEST_STATE[key].blocks || [];
+    if(seen.includes(action?.blockId)) return;
+    QUEST_STATE[key].blocks = [...seen, action?.blockId];
   }
   if (!Number.isFinite(amount) || amount <= 0) return;
 	if (!QUEST_STATE[key] || QUEST_STATE[key].is_completed) return;

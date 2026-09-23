@@ -12,42 +12,42 @@
   const SLIDES = [
     {
       title: "Welcome to AlgoBot!",
-      subtitle: "An Algorithmic Farming Edutainment System",
+      subtitle: "Build blocks. Grow your farm.",
       description:
-        "Learn fundamental programming concepts by coding autonomous robots to manage, plant, water, and harvest your farm!",
+        "Tell your robot what to do with blocks. Learn to plant, water, and harvest as you play.",
       image: "/sprites/art_intro_0.png",
       fallbackText: "Introduction",
       highlights: [
         "Write real code (or use drag-and-drop blocks)",
-        "Automate tasks across your entire farm grid",
-        "Master loops, conditions, and variables",
+        "Give your robot a list of jobs",
+        "Learn one new idea at a time",
       ],
     },
     {
-      title: "The Farming Lifecycle",
+      title: "Grow your first crop",
       subtitle: "Till -> Plant -> Water -> Harvest",
       description:
-        "Every crop needs proper care to grow successfully. Follow the essential farming steps:",
+        "Help your crops grow in this order:",
       image: "/sprites/art_intro_1.png",
       fallbackText: "Farming Cycle",
       highlights: [
         "Till soil first using bot.till()",
         'Plant seeds with bot.plant("wheat")',
         "Water soil with bot.water() to start growth",
-        "Harvest mature crops with bot.harvest() for Coins & EXP",
+        "Harvest ready crops with bot.harvest() for coins and EXP",
       ],
     },
     {
-      title: "Quests & Algorithmic Automation",
-      subtitle: "Complete Quests to Unlock Power-Ups",
+      title: "Learn through missions",
+      subtitle: "Finish missions to unlock more",
       description:
-        "Expand your programming toolkit as you complete quest milestones and build an automated farming empire!",
+        "Each mission teaches a small step. Try it, watch your robot, then try the next one.",
       image: "/sprites/art_intro_2.png",
       fallbackText: "Automation & Quests",
       highlights: [
-        "Unlock loops (for, while) to automate repetitive rows",
-        "Use conditional statements (if, else) to react to crop states",
-        "Unlock higher-tier crops & extra helper robots in the Shop",
+        "Use loops to repeat a job",
+        "Use if to check before doing a job",
+        "Unlock new crops and more robot helpers",
       ],
     },
   ];

@@ -110,7 +110,7 @@ test("omitted async arguments still deliver their callback and cannot freeze exe
   });
   assert.equal(h.run(), true);
   assert.deepEqual(h.log.output, ["done"]);
-  assert.equal(h.log.quests.filter(([key]) => key !== "tut_0").length, 0);
+  assert.equal(h.log.quests.filter(([key]) => key !== "intro_say").length, 0);
 });
 
 test("sync throws and unavailable methods report one error each and release interpreter", () => {
@@ -234,4 +234,10 @@ test("an observer or continuation disposed during completion does not cause an u
   }));
   while (interpreter.step()) { /* synchronous fixture */ }
   assert.equal(h.log.output.at(-1), "done");
+});
+
+test("farm size lesson requires displaying the size, not just reading it", () => {
+  const h = harness('rows(); bot.say("Hello!"); bot.say(rows());', {}, {farmSize:()=>({rows:3,columns:3})});
+  assert.equal(h.run(), true);
+  assert.equal(h.log.quests.filter(([key])=>key==="cs_grid_0").length,1);
 });

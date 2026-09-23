@@ -18,6 +18,7 @@ export function createCommandAPI({
   const record = (method, ...args) => observe(telemetry[method]?.bind(telemetry), ...args);
   const quest = (key, amount = 1, action = null) => observe(onQuestEvent, key, amount, action);
   const speak = message => robot.sayText?.(message);
+  let lastFarmSize = null;
 
   function reportError(error) {
     const message = `Command error: ${error?.message || String(error)}`;
@@ -78,7 +79,9 @@ export function createCommandAPI({
     say: native("bot_farm_actions", "say", text => {
       record("recordInterpreterStep");
       const result = speak(text);
-      quest("tut_0");
+      if(String(text ?? "").trim()) quest("intro_say");
+      if(lastFarmSize !== null && text === lastFarmSize) quest("cs_grid_0");
+      lastFarmSize = null;
       return result;
     }),
     wait: command("wait", "botWait", { action: null, after: () => quest("cs_wait_0") }),
@@ -132,8 +135,8 @@ export function createCommandAPI({
   return {
     bot,
     globals: {
-      columns: native("globals", "columns", () => { quest("cs_grid_0"); return farmSize().columns; }, 0),
-      rows: native("globals", "rows", () => { quest("cs_grid_0"); return farmSize().rows; }, 0),
+      columns: native("globals", "columns", () => lastFarmSize = farmSize().columns, 0),
+      rows: native("globals", "rows", () => lastFarmSize = farmSize().rows, 0),
       randint: native("globals", "randint", (lower, upper) => bounds(lower, upper, true), 0),
       randfloat: native("globals", "randfloat", (lower, upper) => bounds(lower, upper, false), 0),
     },

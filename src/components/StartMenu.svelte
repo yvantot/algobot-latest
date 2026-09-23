@@ -114,7 +114,7 @@
           >
             <div>
               <p class="font-bold text-slate-800">Graphics Resolution</p>
-              <p class="text-slate-600 text-[11px]">
+              <p class="text-slate-600 text-[13px]">
                 KAPLAY Canvas pixelDensity
               </p>
             </div>
@@ -144,7 +144,7 @@
               >
                 Sound & Audio Categories
               </p>
-              <p class="text-slate-600 text-[11px]">
+              <p class="text-slate-600 text-[13px]">
                 Adjust volume sliders for master, music, ambiance, and SFX
               </p>
             </div>

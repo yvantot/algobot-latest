@@ -14,22 +14,22 @@
   const SLIDES = [
     {
       title: "1. Welcome to AlgoBot",
-      subtitle: "An Algorithmic Farming Edutainment System",
+      subtitle: "Build blocks. Grow your farm.",
       description:
-        "Learn fundamental programming concepts by coding autonomous robots to manage, plant, water, and harvest your farm!",
+        "Tell your robot what to do with blocks. Learn to plant, water, and harvest as you play.",
       image: "/sprites/art_intro_0.png",
       fallbackText: "Introduction",
       highlights: [
         "Write JavaScript text commands or use drag-and-drop code blocks",
-        "Automate repetitive tasks across your entire farm grid",
-        "Master loops, conditions, functions, and variables",
+        "Give your robot a list of jobs",
+        "Learn one new idea at a time",
       ],
     },
     {
       title: "2. The Farming Lifecycle",
       subtitle: "Till -> Plant -> Water -> Harvest",
       description:
-        "Every crop requires care. Automate each phase with bot functions:",
+        "Help your crops grow in this order:",
       image: "/sprites/art_intro_1.png",
       fallbackText: "Farming Cycle",
       highlights: [

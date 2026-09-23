@@ -132,7 +132,7 @@
 
         dom.innerHTML = `
 		  <div class="overflow-hidden flex flex-col bg-[#39404f] border-2 border-slate-400 rounded-lg p-2 gap-2 text-sm text-white">
-			${!keyword[word].is_unlocked ? '<div class="bg-red-800 border border-red-500 text-white font-bold p-1 text-[11px] rounded text-center">🔒 LOCKED (Unlock via Quest)</div>' : ""}
+			${!keyword[word].is_unlocked ? '<div class="bg-red-800 border border-red-500 text-white font-bold p-1 text-[13px] rounded text-center">🔒 LOCKED (Unlock via Quest)</div>' : ""}
 			<div class="flex gap-2 items-center justify-between">
 			  <p class="font-bold" style="font-family: 'Courier Prime'">${keyword[word].name}</p>
 			  <p class="font-bold p-1 px-2 text-sm bg-[#262b36] rounded scale-90" style=${"color:" + TYPE_COLORS[keyword[word].type]}>${keyword[word].type}</p>

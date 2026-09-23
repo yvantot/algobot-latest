@@ -15,7 +15,8 @@
 
   const resize = createResizable();
 
-  let blocklyDiv;
+  let blocklyDiv = $state();
+  let hasFirstBlock = $state(false);
   let workspace;
   export function targetName() { return `Bot ${selected_robot}`; }
   export function insertExample(state) {
@@ -714,7 +715,7 @@
 
     for (const cat of rawCategories) {
       const mission = currentQuest();
-      const allowed = mission === "intro_run" || mission === "intro_build"
+      const allowed = mission === "intro_run" ? ["bot_right"] : mission === "intro_say" ? ["bot_say", "text"] : mission === "intro_build" || mission === "intro_sequence"
         ? ["bot_left", "bot_right", "bot_up", "bot_down"]
         : mission === "tut_2" ? ["bot_left", "bot_right", "bot_up", "bot_down", "bot_till", "bot_plant", "bot_water", "bot_harvest"]
         : mission === "intro_loop" ? ["bot_left", "bot_right", "bot_up", "bot_down", "controls_repeat_ext", "math_number"] : null;
@@ -748,7 +749,7 @@
     };
   }
 
-  const START_XML = `<xml><block type="bot_right" x="30" y="30"></block></xml>`;
+  const START_XML = `<xml></xml>`;
 
   $effect(() => {
     robots.forEach((bot, index) => {
@@ -878,10 +879,15 @@
     observer.observe(blocklyDiv);
 
     workspace.addChangeListener((event) => {
-      if (currentQuest() === "intro_build" && event.type === Blockly.Events.BLOCK_CREATE && event.recordUndo) {
+      if (["intro_run", "intro_build"].includes(currentQuest()) && event.type === Blockly.Events.BLOCK_CREATE && event.recordUndo) {
         const created = (event.ids || []).some(id => ["bot_left", "bot_right", "bot_up", "bot_down"].includes(workspace.getBlockById(id)?.type));
         if (created) TUTORIAL.authoredBlocks.push(...(event.ids || []));
       }
+      const movement = ["bot_left", "bot_right", "bot_up", "bot_down"];
+      const blocks = workspace.getAllBlocks(false);
+      hasFirstBlock = blocks.some(block => block.type === "bot_right" && TUTORIAL.authoredBlocks.includes(block.id));
+      TUTORIAL.sequenceBlocks = blocks.filter(block => movement.includes(block.type) &&
+        (movement.includes(block.getNextBlock()?.type) || movement.includes(block.getPreviousBlock()?.type))).map(block => block.id);
       if (robots_state[selected_robot]) {
         robots_state[selected_robot].block_code =
           javascriptGenerator.workspaceToCode(workspace);
@@ -928,13 +934,14 @@
     if (
       startBtnRef &&
       is_command_ready &&
-      !ONBOARDING.startClicked &&
+      currentQuest() === "intro_run" &&
       !ONBOARDING.isModalOpen
     ) {
-      const _ = resize.width; // reposition on panel resize
+      const _ = resize.width;
+      const target = hasFirstBlock ? startBtnRef : blocklyDiv;
       const updatePosition = () => {
-        if (!startBtnRef) return;
-        const rect = startBtnRef.getBoundingClientRect();
+        if (!target) return;
+        const rect = target.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return;
         spotlightRect = {
           left: rect.left - 8,
@@ -947,8 +954,8 @@
       };
 
       updatePosition();
-      const timer = setTimeout(updatePosition, 100);
-      return () => clearTimeout(timer);
+      const timer = setInterval(updatePosition, 150);
+      return () => clearInterval(timer);
     } else {
       spotlightRect = null;
     }
@@ -1063,16 +1070,21 @@
 </div>
 
 {#if spotlightRect}
+  <div class="tutorial-blocker" style="inset:0 0 auto 0;height:{Math.max(0,spotlightRect.top)}px"></div>
+  <div class="tutorial-blocker" style="top:{spotlightRect.top+spotlightRect.height}px;inset-inline:0;bottom:0"></div>
+  <div class="tutorial-blocker" style="left:0;top:{spotlightRect.top}px;width:{Math.max(0,spotlightRect.left)}px;height:{spotlightRect.height}px"></div>
+  <div class="tutorial-blocker" style="left:{spotlightRect.left+spotlightRect.width}px;right:0;top:{spotlightRect.top}px;height:{spotlightRect.height}px"></div>
   <div class="spotlight-hole" style="left: {spotlightRect.left}px; top: {spotlightRect.top}px; width: {spotlightRect.width}px; height: {spotlightRect.height}px;"></div>
   <div class="spotlight-label" style="left: {spotlightRect.labelLeft}px; top: {spotlightRect.labelTop}px;">
     <div class="spotlight-bounce-wrapper">
-      <div class="spotlight-label-bubble">👆 Click <strong>▶ Start</strong> to run your code!</div>
+      <div class="spotlight-label-bubble">{hasFirstBlock ? "Press Start to move your robot." : "Open Bot. Drag bot.right into the work area."}</div>
       <div class="spotlight-label-arrow"></div>
     </div>
   </div>
 {/if}
 
 <style>
+  .tutorial-blocker{position:fixed;z-index:9989;pointer-events:auto;touch-action:none}
   :global(.blocklyMainBackground) {
     fill: #ffffff !important;
   }
@@ -1092,7 +1104,7 @@
   }
   :global(.blocklyTreeLabel) {
     font-family: ui-sans-serif, system-ui, sans-serif !important;
-    font-size: 12.5px !important;
+    font-size: 14px !important;
     font-weight: 600 !important;
     color: #334155 !important;
   }

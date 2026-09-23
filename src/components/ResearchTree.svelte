@@ -126,12 +126,12 @@
         >
           <h2 class="font-bold text-sm text-slate-800 flex items-center gap-2">
             <span
-              class="bg-slate-800 text-amber-400 px-2 py-0.5 rounded text-[11px] font-bold"
+              class="bg-slate-800 text-amber-400 px-2 py-0.5 rounded text-[13px] font-bold"
               >Tier {tier}</span
             >
             <span>{tierTitles[tier] ?? `Tier ${tier} Unlocks`}</span>
           </h2>
-          <span class="text-[11px] text-slate-500 font-bold">
+          <span class="text-[13px] text-slate-500 font-bold">
             {unlockedCount(tier)} / {items.length} Unlocked
           </span>
         </div>
@@ -155,7 +155,7 @@
                   />
                 {:else}
                   <div
-                    class="w-7 h-7 bg-slate-700 text-white flex items-center justify-center font-bold rounded text-[11px]"
+                    class="w-7 h-7 bg-slate-700 text-white flex items-center justify-center font-bold rounded text-[13px]"
                   >
                     {item.name.charAt(0).toUpperCase()}
                   </div>
