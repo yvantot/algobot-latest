@@ -972,13 +972,10 @@
 
 <div
   style="width: {resize.width}px;"
-  class="tutorial-editor relative text-slate-700 h-[95vh] bottom-4 flex flex-col w-[30vw] bg-gray-100 border-4 border-slate-500 rounded-xl shadow-xl overflow-hidden text-sm z-50"
+  class="command-panel relative text-slate-700 h-[95vh] flex flex-col w-[30vw] bg-gray-100 border-4 border-slate-500 rounded-xl shadow-xl overflow-hidden text-sm"
 >
-  <div
-    role="separator"
-    class="resize-handle {resize.is_resizing ? 'resizing-active' : ''}"
-    onmousedown={resize.startResize}
-  ></div>
+  <button type="button" class="command-resize" class:resizing-active={resize.is_resizing}
+    aria-label="Resize Bot Command" onpointerdown={resize.startResize} onkeydown={resize.resizeKey}></button>
   <div class="py-2 border-b-2 border-slate-400">
     <h1 class="text-center font-bold text-base">Bot Command</h1>
   </div>
@@ -1123,4 +1120,6 @@
   :global(.blocklyFlyoutScrollbar) {
     display: none !important;
   }
+
+.command-resize{position:absolute;left:0;top:44px;bottom:0;width:12px;z-index:100;padding:0;border:0;border-radius:0;background:transparent;cursor:ew-resize;touch-action:none}.command-resize:hover,.command-resize.resizing-active,.command-resize:focus-visible{background:#94a3b880}.command-resize:focus-visible{outline:2px solid #16a34a;outline-offset:-2px}
 </style>

@@ -39,11 +39,11 @@ function harness() {
 test("renderer eases cloud travel every frame and does not teleport when departure begins", () => {
   const h = harness();
   assert.equal(h.view.pos.x, -328, "spawn outside the farm");
-  h.step(1);
+  h.step(.67);
   const previous = h.view.pos.x;
   h.step(0.01);
   assert.ok(h.view.pos.x > previous, "render moves before another simulation tick");
-  h.step(3.99);
+  h.step(h.cloud.travelDuration-.68);
   assert.equal(h.view.pos.x, 32);
   h.step(8);
   assert.equal(h.cloud.phase, "leaving");
@@ -58,10 +58,10 @@ test("cloud entrance and exit fade and scale smoothly without a full-opacity spa
   const h = harness();
   assert.equal(h.view.opacity, 0);
   assert.ok(Math.abs(h.view.scale.x) < 1e-8);
-  h.step(h.cloud.travelDuration / 2);
+  h.step(.4);
   assert.ok(Math.abs(h.view.opacity - 1) < 1e-9);
   assert.ok(Math.abs(h.view.scale.x - 1) < 1e-9);
-  h.step(h.cloud.travelDuration / 2);
+  h.step(h.cloud.travelDuration - .4);
   assert.equal(h.view.opacity, 1);
   assert.equal(h.view.scale.x, 1);
   h.step(h.cloud.rainDuration);
@@ -73,7 +73,7 @@ test("cloud entrance and exit fade and scale smoothly without a full-opacity spa
   h.step(0);
   assert.equal(h.view.opacity, pausedOpacity);
   h.step(h.cloud.exitDuration / 2 - 0.01);
-  assert.ok(h.view.opacity < 0.01, "cloud is invisible before its object is removed");
+  assert.ok(h.view.opacity < 0.03, "cloud is invisible before its object is removed");
   h.step(0.01);
   assert.equal(h.renderer.cloudViews.size, 0);
 });

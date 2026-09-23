@@ -494,9 +494,9 @@
     {#if docOpen}<button class="reference-switch" onclick={()=>showDocEditor=!showDocEditor}>{showDocEditor?"Back to reference":"Show editor"}</button>{/if}
     <!-- Command editor panel -->
     {#if Menus.COMMAND === current_menu || docOpen}
-      <div in:panelIn out:panelOut class="relative editor-pane">
+      <div in:panelIn out:panelOut class="relative editor-pane z-50">
         <button
-          class="absolute top-2 left-2 z-10 bg-gray-300 border-2 border-gray-400"
+          class="absolute top-2 left-4 z-[110] bg-gray-300 border-2 border-gray-400"
           disabled={TUTORIAL.active}
           title={TUTORIAL.active ? "Text coding unlocks after your first loop" : "Switch editor"}
           aria-label={current_editor === Editors.BLOCK ? "Switch to text editor" : "Switch to block editor"}
@@ -631,7 +631,8 @@
   @media(max-width:900px){
     .quest-slot{position:fixed;left:144px;top:108px;width:230px;z-index:60}
     .quest-slot :global(.mission){max-height:35vh;overflow:auto}
-    :global(.tutorial-editor){position:fixed;top:auto!important;bottom:12px;right:12px;height:48vh!important;max-width:calc(100vw - 24px)}
+    .editor-pane{position:fixed;bottom:12px;right:12px}
+    .editor-pane :global(.command-panel){height:48vh;max-width:calc(100vw - 24px)}
   }
   @media(max-width:480px){
     .quest-slot{left:132px;right:12px;width:auto}

@@ -1,7 +1,7 @@
 // All durations use game seconds, so pause and game speed affect visuals and
 // impacts together. Render between fixed simulation ticks using the remainder.
 export const RAIN_TIMING = Object.freeze({
-  travelDuration: 5,
+  travelDuration: 0.75,
   rainDuration: 8,
   exitDuration: 4,
   dropInterval: 0.8,

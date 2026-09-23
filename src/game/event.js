@@ -5,7 +5,6 @@ import { dda } from "./ml/dda.js";
 import { getDifficultyParams } from "./events/difficulty.js";
 import { canStartFireEvent } from "./events/simulation.js";
 import { getFarmEventRuntime } from "./events/renderer.js";
-import { getWeatherArtwork } from "./events/artwork.js";
 
 export { getDifficultyParams } from "./events/difficulty.js";
 export { canStartFireEvent } from "./events/simulation.js";
@@ -47,7 +46,7 @@ export function spawnFireEvent(farmGridIndex, difficultyPoints = 100) {
   if (!result.applied) return result;
   runtime.renderer.update(0);
   triggerEventBanner({
-    icon: getWeatherArtwork("icon_fire_2"),
+    icon: "/sprites/icon_fire.png",
     title: "Farm Fire",
     subtitle: `${result.fires.length} ${result.fires.length === 1 ? "fire has" : "fires have"} started! Water or extinguish burning tiles before the flames spread.`,
     difficultyPoints: result.params.pts,
@@ -64,7 +63,7 @@ export function spawnRainEvent(farmGridIndex, difficultyPoints = 100) {
   if (!result.applied) return result;
   runtime.renderer.update(0);
   triggerEventBanner({
-    icon: getWeatherArtwork("icon_cloud"),
+    icon: "/sprites/icon_rain.png",
     title: "Nourishing Rain",
     subtitle: `${result.clouds.length} rain ${result.clouds.length === 1 ? "cloud is" : "clouds are"} approaching your farm. Raindrops water soil and put out fires.`,
     difficultyPoints: result.params.pts,

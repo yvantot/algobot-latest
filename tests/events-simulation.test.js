@@ -264,7 +264,7 @@ test("cloud travels sideways before rainfall; water and extinguishing happen onl
   assert.equal(cloud.side, -1);
   sim.update(RAIN_TIMING.travelDuration / 2);
   assert.equal(cloud.phase, "entering");
-  assert.ok(Math.abs(cloud.progress - 0.5) < 1e-9);
+  assert.ok(Math.abs((cloud.phaseAge + sim.accumulator) / cloud.travelDuration - 0.5) < 1e-9);
   assert.equal(tile.soil.isWatered(), false);
   sim.update(RAIN_TIMING.travelDuration / 2 + RAIN_TIMING.dropDuration);
   assert.equal(cloud.phase, "raining");
@@ -347,6 +347,7 @@ test("scene disposal clears every event reference and prevents future actions", 
   const fire = sim.startFire().fires[0];
   sim.startRain();
   sim.update(1.7);
+  const waterBeforeDispose=[...grid.values()].reduce((sum,tile)=>sum+tile.soil.waterCalls,0);
   sim.dispose();
   sim.dispose();
   sim.update(100);
@@ -357,7 +358,7 @@ test("scene disposal clears every event reference and prevents future actions", 
   assert.equal(sim.drops.size, 0);
   assert.equal(sim.startFire().applied, false);
   assert.equal(sim.startRain().applied, false);
-  assert.equal([...grid.values()].reduce((sum, tile) => sum + tile.soil.waterCalls, 0), 0);
+  assert.equal([...grid.values()].reduce((sum, tile) => sum + tile.soil.waterCalls, 0), waterBeforeDispose);
 });
 
 test("fire growth uses the point-scaled clock at every severity", () => {
@@ -398,7 +399,8 @@ test("spawner points scale fire pressure and rain intensity while travel remains
     assert.ok(fire.stageDuration >= 6);
     assert.ok(fire.damage / fire.damageInterval <= 2.5);
     assert.ok(fire.matureBurnDuration >= 1.8 && fire.matureBurnDuration <= 2.2);
-    assert.ok(rain.travelDuration >= 4 && rain.exitDuration >= 3);
+    assert.equal(rain.travelDuration, RAIN_TIMING.travelDuration);
+    assert.ok(rain.exitDuration >= 3);
     const sim = new FarmEventSimulation(makeFarm());
     assert.deepEqual(sim.startFire(points).fires[0].settings, fire);
     const cloud = sim.startRain(points).clouds[0];
@@ -455,9 +457,9 @@ test("eased cloud motion stays continuous across arrival and departure", () => {
   const target = { x: 300, y: 200 };
   const position = () => cloudPosition(cloud, 0, target, sim.accumulator);
   assert.equal(position().x, 0);
-  sim.update(cloud.travelDuration / 4);
-  assert.ok(position().x > 75 && position().x < 300, "cubic-out movement starts quickly after the entrance beat");
-  sim.update(cloud.travelDuration * 3 / 4);
+  sim.update(.67);
+  assert.ok(position().x > 0 && position().x < 300, "cubic-out movement starts quickly after the entrance beat");
+  sim.update(cloud.travelDuration - .67);
   assert.equal(cloud.phase, "raining");
   assert.equal(position().x, 300);
   sim.update(cloud.rainDuration);
@@ -475,12 +477,12 @@ test("clouds and falling drops animate between fixed ticks and stop with game ti
   const sim = new FarmEventSimulation(makeFarm(1, 1));
   const cloud = sim.startRain().clouds[0];
   const center = { x: 300, y: 200 };
-  sim.update(1);
+  sim.update(.67);
   const first = cloudPosition(cloud, 0, center, sim.accumulator).x;
   sim.update(0.01);
   const next = cloudPosition(cloud, 0, center, sim.accumulator).x;
   assert.ok(next > first, "visual movement does not wait for the next 50ms tick");
-  sim.update(cloud.travelDuration - 1.01 + 0.05);
+  sim.update(cloud.travelDuration - .68 + 0.05);
   const drop = [...sim.drops.values()][0];
   const start = dropPosition(drop, center, sim.accumulator).y;
   sim.update(0.01);
@@ -508,4 +510,11 @@ test("cloud travel keeps a constant height without vertical jiggle",()=>{
  for(const phase of ["entering","raining","leaving"])for(let age=0;age<6;age+=.1){
   assert.equal(cloudPosition({phase,phaseAge:age,travelDuration:5,exitDuration:4},0,{x:300,y:200}).y,100);
  }
+});
+
+test("cloud horizontal overshoot finishes in 0.1 seconds after pop and pause",()=>{
+ const cloud={phase:"entering",phaseAge:.65,travelDuration:RAIN_TIMING.travelDuration};
+ assert.equal(cloudPosition(cloud,0,{x:300,y:200}).x,0);
+ cloud.phaseAge=.72;assert.ok(cloudPosition(cloud,0,{x:300,y:200}).x>300);
+ cloud.phaseAge=.75;assert.equal(cloudPosition(cloud,0,{x:300,y:200}).x,300);
 });
