@@ -90,7 +90,7 @@ export const QUEST_DATA = {
     description: "Inspect for withered plants and clear them.",
     tip: 'In Check category, use bot.is_dead inside an if statement, then call bot.destroy from Farm category.',
     goal: 1,
-    rewards: { exp: 100, coins: 90, unlocks: ["wait"] },
+    rewards: { exp: 100, coins: 90 },
     prereq: ["cs_if_0"],
   },
   "cs_wait_0": {

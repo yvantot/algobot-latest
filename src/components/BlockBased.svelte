@@ -719,7 +719,7 @@
         ? ["bot_left", "bot_right", "bot_up", "bot_down"]
         : mission === "tut_2" ? ["bot_left", "bot_right", "bot_up", "bot_down", "bot_till", "bot_plant", "bot_water", "bot_harvest"]
         : mission === "intro_loop" ? ["bot_left", "bot_right", "bot_up", "bot_down", "controls_repeat_ext", "math_number"] : null;
-      const filteredContents = cat.contents.filter(item => isBlockUnlocked(item.type) && (!allowed || allowed.includes(item.type)));
+      const filteredContents = cat.contents.filter(item => isBlockUnlocked(item.type) && (!allowed || allowed.includes(item.type) || ["bot_wait", "math_number"].includes(item.type)));
       if (filteredContents.length > 0) {
         finalCategories.push({ ...cat, contents: filteredContents });
       }

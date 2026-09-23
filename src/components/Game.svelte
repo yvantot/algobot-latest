@@ -129,11 +129,13 @@
     const hintNotice = createTransientNotice(message => activeHint = message);
     let predictionTimer;
     let saveTimer;
-    showOnboarding = true;
+    showOnboarding = false;
     let participantId = `p_${crypto.randomUUID()}`;
     try {
-      showOnboarding = TUTORIAL.active && preferences.getItem("algobot_hide_onboarding") !== "true";
-      showIntroduction = TUTORIAL.active && !showOnboarding;
+      const returning = preferences.getItem("algobot_visited") === "true";
+      showIntroduction = !returning;
+      showOnboarding = returning && preferences.getItem("algobot_hide_onboarding") !== "true";
+      preferences.setItem("algobot_visited", "true");
       participantId = localStorage.getItem("algobot_participant_id") || participantId;
       localStorage.setItem("algobot_participant_id", participantId);
     } catch {
@@ -233,7 +235,7 @@
   <DDADashboard bind:visible={showDDADashboard} />
   <LevelReward />
   <FarmPersonalize />
-  <OnboardingModal bind:isOpen={showOnboarding} onClose={() => showIntroduction = true} />
+  <OnboardingModal bind:isOpen={showOnboarding} onClose={() => showOnboarding = false} />
   <FarmIntroduction bind:isOpen={showIntroduction} />
   {#if docPreview}<DocumentationPreview name={docPreview} onClose={closeDocPreview}/>{/if}
   <QuestFeedback />

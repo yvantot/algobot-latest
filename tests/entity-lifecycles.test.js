@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import { registerHooks } from "node:module";
+import { INTRODUCTION_STORY } from "../src/game/global/introduction-story.js";
 import { FarmEventSimulation, fireSettings } from "../src/game/events/simulation.js";
 import { getDifficultyParams } from "../src/game/events/difficulty.js";
 import { CropStates, CropTypes, FreshnessStates, SoilStates, IconTypes, OrbTypes } from "../src/game/global/enum.js";
@@ -509,4 +510,34 @@ test("scripted demonstration pest starts on its tile and never begins a wanderin
   assert.equal(pest.grid_x,0); assert.equal(pest.grid_y,0);
   assert.equal(h.farm.get("0-0").bug,pest);
   assert.equal(pest.animations.pos,undefined);
+});
+
+test("every demonstration chapter completes with real crop, robot and event actions", async () => {
+  const h=harness(), changes=[], runtimes=new Map();
+  Object.assign(h.context.CONFIG.FARM,{rows:3,columns:3,gap:6});
+  h.context.tutorialPolicy.protected=true;
+  Object.assign(h.k,{get:()=>[...h.roots],debug:{timeScale:1},getCamPos:()=>({x:0,y:0}),getCamScale:()=>({x:1,y:1}),setCamPos(){},setCamScale(){},onUpdate(fn){const owner=h.make([{update:fn}]);return {cancel:()=>owner.destroy()};}});
+  h.context.document={hidden:false}; h.context.INTRODUCTION_STORY=INTRODUCTION_STORY;
+  h.context.addFarmbot=(id,grid,x,y)=>h.make([{display_obj:{},setDisplayColor(){},sayText(){},showIcon(){}},h.context.gridpos(x,y),h.context.gridmove(),h.context.botact(id,grid)]);
+  h.context.getFarmEventRuntime=grid=>{
+    if(runtimes.has(grid))return runtimes.get(grid);
+    const simulation=new FarmEventSimulation(grid,{random:()=>0});
+    const owner=h.make([{update(){simulation.update(h.k.dt());},destroy(){simulation.dispose();runtimes.delete(grid);}}]);
+    const runtime={owner,simulation};runtimes.set(grid,runtime);return runtime;
+  };
+  h.context.destroyFarmEvents=grid=>runtimes.get(grid)?.owner.destroy();
+  const source=fs.readFileSync(new URL("../src/game/global/live-demonstration.js",import.meta.url),"utf8").replace(/^import .*;\r?\n/gm,"").replace("export function","function");
+  vm.runInContext(source,h.context);
+  const controller=h.context.startLiveDemonstration(change=>changes.push(change));
+  for(let chapter=0;chapter<INTRODUCTION_STORY.length;chapter++){
+    for(let frame=0;frame<1800&&!changes.at(-1)?.ready;frame++){h.advance(.05);await Promise.resolve();await Promise.resolve();}
+    assert.equal(changes.at(-1)?.error,undefined,INTRODUCTION_STORY[chapter].action+" failed");
+    assert.equal(changes.at(-1)?.ready,true,INTRODUCTION_STORY[chapter].action+" stalled");
+    if(chapter<INTRODUCTION_STORY.length-1)controller.next();
+  }
+  controller.dispose();
+  assert.deepEqual(h.rewards,{coins:0,exp:0,seeds:0,spoiled:0});
+  assert.equal(runtimes.size,0);
+  assert.equal(h.context.CONFIG.FARM.rows,3);
+  assert.equal(h.context.CONFIG.FARM.columns,3);
 });

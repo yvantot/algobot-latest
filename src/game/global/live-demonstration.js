@@ -14,15 +14,17 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
   let disposed = false;
   let running = false;
   let chapter = -1;
-  let waiting = null;
+  const waiting = new Set();
+  const actions = new Set();
   let elapsed = 0;
   const originals = k.get().map(object => ({ object, hidden: object.hidden, paused: object.paused }));
+  const demoSize = {rows:3,columns:3};
   const speed = k.debug.timeScale;
   const cameraPosition = k.getCamPos();
   const cameraScale = k.getCamScale();
   k.setCamScale(1);
-  k.setCamPos(CONFIG.FARM.grid_origin.x + (CONFIG.FARM.columns * CONFIG.FARM.cell_size - CONFIG.FARM.gap) / 2,
-    CONFIG.FARM.grid_origin.y + (CONFIG.FARM.rows * CONFIG.FARM.cell_size - CONFIG.FARM.gap) / 2);
+  k.setCamPos(CONFIG.FARM.grid_origin.x + (demoSize.columns * CONFIG.FARM.cell_size - CONFIG.FARM.gap) / 2,
+    CONFIG.FARM.grid_origin.y + (demoSize.rows * CONFIG.FARM.cell_size - CONFIG.FARM.gap) / 2);
   for (const { object } of originals) {
     if (object.sceneryBackground) continue;
     object.paused = true;
@@ -31,9 +33,10 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
   k.debug.timeScale = 1;
   const farm = new Map();
   farm.isDemonstration = true;
+  farm.demoBounds = {...demoSize};
   farm.demoEffects = [];
   const owned = [];
-  for (let y = 0; y < CONFIG.FARM.rows; y++) for (let x = 0; x < CONFIG.FARM.columns; x++) {
+  for (let y = 0; y < farm.demoBounds.rows; y++) for (let x = 0; x < farm.demoBounds.columns; x++) {
     const soil = addSoilToGrid(x, y, SoilStates.INITIAL, farm);
     owned.push(soil);
     farm.set(`${y}-${x}`, { soil, crop: null, bots: [] });
@@ -53,20 +56,23 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
   const controller = k.onUpdate(() => {
     if (!running || document.hidden) return;
     elapsed += k.dt();
-    if (waiting?.ready()) { const resume = waiting.resolve; waiting = null; resume(true); }
+    for (const pending of [...waiting]) if (pending.ready()) { waiting.delete(pending); pending.resolve(true); }
   });
   function until(ready) {
     if (disposed) return Promise.resolve(false);
-    return new Promise(resolve => { waiting = { ready, resolve }; });
+    return new Promise(resolve => { waiting.add({ ready, resolve }); });
   }
   function wait(seconds) { const end = elapsed + seconds; return until(() => elapsed >= end); }
   function action(bot, line, method, ...args) {
     if (disposed) return Promise.resolve(false);
-    onChange({ line });
-    return new Promise((resolve, reject) => bot[method](...args, result => {
+    onChange({ line, bot: bot.bot_index ?? 0 });
+    return new Promise((resolve, reject) => {
+      actions.add(resolve);
+      bot[method](...args, result => {
+      actions.delete(resolve);
       if (!disposed && !result) reject(new Error(`Introduction action failed: ${method}`));
       else resolve(!disposed);
-    }));
+    }); });
   }
   function plantAt(x, y, state = CropStates.YOUNG) {
     const tile = farm.get(`${y}-${x}`);
@@ -76,6 +82,29 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
     crop.crop_grow_duration = 3;
     tile.crop = crop;
     return crop;
+  }
+  let helper;
+  function eventRuntime() {
+    const runtime = getFarmEventRuntime(farm);
+    if (!owned.includes(runtime.owner)) owned.push(runtime.owner);
+    return runtime;
+  }
+  function clearCrops() {
+    destroyFarmEvents(farm);
+    for (const tile of farm.values()) { tile.bug?.destroy(); tile.crop?.destroy(); tile.soil?.setSoilState(SoilStates.INITIAL); }
+  }
+  function fillFarm(state = CropStates.YOUNG) {
+    clearCrops();
+    for (let y=0;y<farm.demoBounds.rows;y++) for(let x=0;x<farm.demoBounds.columns;x++) plantAt(x,y,state);
+  }
+  function expand(axis) {
+    const index = farm.demoBounds[axis]++;
+    const count = axis === "rows" ? farm.demoBounds.columns : farm.demoBounds.rows;
+    for(let i=0;i<count;i++) {
+      const x=axis === "rows" ? i : index, y=axis === "rows" ? index : i;
+      const soil=addSoilToGrid(x,y,SoilStates.INITIAL,farm);
+      owned.push(soil); farm.set(y+"-"+x,{soil,crop:null,bots:[]});
+    }
   }
   async function next() {
     if (disposed || running || chapter >= story.length - 1) return;
@@ -101,9 +130,10 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
         break;
       case "water":
         if (!await action(robot, 0, "botWater")) return;
+        if (!await action(robot, 1, "botWait", 3)) return;
         if (!await until(() => !farm.get("0-1").soil.isWatered())) return;
-        if (!await wait(1.5)) return;
         if (!await action(robot, 2, "botWater")) return;
+        if (!await action(robot, 3, "botWait", 3)) return;
         if (!await until(() => farm.get("0-1").crop?.crop_state === CropStates.HARVESTABLE)) return;
         break;
       case "harvest":
@@ -120,23 +150,41 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
         break;
       }
       case "bots": {
-        const helper = addBot(1, 0, 1);
+        helper = addBot(1, 0, 1);
         if (!await until(() => helper.is_available)) return;
-        if (!await action(robot, 1, "botJump", 1, 1)) return;
-        if (!await action(robot, 2, "botTill")) return;
-        if (!await action(helper, 4, "botJump", 1, 1)) return;
-        if (!await action(helper, 5, "botJump", 2, 1)) return;
-        if (!await action(helper, 6, "botTill")) return;
+        if (!await action(robot, 0, "botJump", 1, 1)) return;
+        if (!await action(robot, 1, "botTill")) return;
+        if (!await action(helper, 0, "botJump", 1, 1)) return;
+        if (!await action(helper, 1, "botJump", 2, 1)) return;
+        if (!await action(helper, 2, "botTill")) return;
         break;
       }
       case "rain": {
         plantAt(1, 1); plantAt(2, 1);
-        const runtime = getFarmEventRuntime(farm); owned.push(runtime.owner);
+        const runtime = eventRuntime();
         runtime.simulation.startRain(100);
         if (!await until(() => runtime.simulation.clouds.size === 0 && runtime.simulation.drops.size === 0)) return;
         break;
       }
+      case "fire_loss": {
+        fillFarm();
+        const runtime=eventRuntime();
+        const fire=runtime.simulation.ignite("1-1");
+        Object.assign(fire.settings,{stageDuration:2,spreadChance:1,spreadInterval:.3});
+        if (!await until(()=>[...farm.values()].every(tile=>!tile.crop))) return;
+        break;
+      }
+      case "pest_loss": {
+        fillFarm(CropStates.HARVESTABLE);
+        for(let y=0;y<farm.demoBounds.rows;y++) for(let x=0;x<farm.demoBounds.columns;x++) {
+          const pest=addBug(farm,{damage:100,attack_interval:1.5,spawnAt:{x,y},stationary:true});
+          owned.push(pest);
+        }
+        if (!await until(()=>[...farm.values()].every(tile=>!tile.crop || tile.crop.crop_state===CropStates.DEAD))) return;
+        break;
+      }
       case "pest": {
+        clearCrops();
         plantAt(1, 1, CropStates.HARVESTABLE);
         const pest = addBug(farm, { damage: 1, attack_interval: 2, move_interval: 60, spawnAt: {x:1,y:1}, stationary:true });
         owned.push(pest);
@@ -145,11 +193,65 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
         break;
       }
       case "fire": {
-        for (let y = 0; y < CONFIG.FARM.rows; y++) for (let x = 0; x < CONFIG.FARM.columns; x++) plantAt(x, y);
-        const runtime = getFarmEventRuntime(farm);
+        clearCrops();
+        for (let y = 0; y < farm.demoBounds.rows; y++) for (let x = 0; x < farm.demoBounds.columns; x++) plantAt(x, y);
+        const runtime = eventRuntime();
         runtime.simulation.ignite("1-1");
         if (!await wait(5)) return;
         if (!await action(robot, 1, "botExtinguish")) return;
+        break;
+      }
+      case "expand": {
+        clearCrops();
+        onChange({line:0,bot:0}); expand("rows");
+        if(!await wait(2)) return;
+        onChange({line:1,bot:0}); expand("columns");
+        k.setCamScale(.85);
+        k.setCamPos(CONFIG.FARM.grid_origin.x+(farm.demoBounds.columns*CONFIG.FARM.cell_size-CONFIG.FARM.gap)/2,CONFIG.FARM.grid_origin.y+(farm.demoBounds.rows*CONFIG.FARM.cell_size-CONFIG.FARM.gap)/2);
+        if(!await wait(2)) return;
+        break;
+      }
+      case "upgrade": {
+        onChange({line:0,bot:0}); robot.sayText("Faster moves!"); robot.botmove_duration=.55;
+        if(!await action(robot,0,"botJump",0,0)) return;
+        if(!await action(robot,0,"botJump",1,0)) return;
+        onChange({line:1,bot:0}); robot.sayText("Faster work!"); robot.botact_duration=.45;
+        if(!await action(robot,1,"botTill")) return;
+        break;
+      }
+      case "workflow": {
+        fillFarm(CropStates.HARVESTABLE);
+        for(let x=0;x<3;x++) { const tile=farm.get("0-"+x);tile.crop.destroy();tile.soil.setSoilState(SoilStates.INITIAL); }
+        if(!helper) helper=addBot(1,0,1);
+        helper.botmove_duration=.55;helper.botact_duration=.5;
+        await Promise.all([action(robot,-1,"botJump",0,0),action(helper,-1,"botJump",0,1)]);
+        if(disposed)return;
+        async function grow() {
+          for(let x=0;x<3;x++) {
+            robot.sayText("Planting!");onChange({bot:0,line:0});
+            if(!await action(robot,1,"botTill"))return;
+            if(!await action(robot,2,"botPlant","wheat"))return;
+            farm.get("0-"+x).crop.crop_grow_duration=3;
+            if(!await action(robot,3,"botWater"))return;
+            if(!await action(robot,4,"botWait",3))return;
+            if(!await action(robot,5,"botWater"))return;
+            if(!await action(robot,6,"botWait",3))return;
+            if(!await action(robot,7,"botJump",x+1,0))return;
+          }
+          robot.sayText("New crops ready!");
+        }
+        async function harvest() {
+          for(let x=0;x<3;x++) {
+            helper.sayText("Checking crops!");onChange({bot:1,line:0});
+            if(farm.get("1-"+x).crop?.crop_state===CropStates.HARVESTABLE) {
+              if(!await action(helper,1,"botHarvest"))return;
+            }
+            if(!await action(helper,2,"botJump",x+1,1))return;
+          }
+          helper.sayText("Harvest done!");
+        }
+        await Promise.all([grow(),harvest()]);
+        if(disposed)return;
         break;
       }
     }
@@ -160,7 +262,11 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
   function dispose() {
     if (disposed) return;
     disposed = true;
-    controller.cancel(); waiting?.resolve(false); waiting = null;
+    controller.cancel();
+    for (const pending of waiting) pending.resolve(false);
+    waiting.clear();
+    for (const resolve of actions) resolve(false);
+    actions.clear();
     destroyFarmEvents(farm);
     for (const effect of farm.demoEffects) if (effect.exists()) effect.destroy();
     for (const tile of farm.values()) tile.crop?.destroy();

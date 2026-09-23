@@ -101,7 +101,7 @@
         <button
           onclick={handleClose}
           class="text-slate-500 hover:text-slate-800 text-lg font-bold px-2 py-0.5 rounded cursor-pointer"
-          aria-label="Continue to farm introduction">✕</button
+          aria-label="Close onboarding">✕</button
         >
       </div>
 

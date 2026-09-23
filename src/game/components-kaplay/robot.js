@@ -140,7 +140,7 @@ export function botact(id, farm_grid_index) {
     },
 
     isWithinBounds(x, y) {
-      return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < CONFIG.FARM.columns && y < CONFIG.FARM.rows;
+      return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < (farm_grid_index.demoBounds?.columns ?? CONFIG.FARM.columns) && y < (farm_grid_index.demoBounds?.rows ?? CONFIG.FARM.rows);
     },
 
     removeBotFromGrid() {

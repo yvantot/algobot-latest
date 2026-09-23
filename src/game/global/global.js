@@ -831,9 +831,9 @@ export const DOCUMENT_DATA = {
       arguments: `bot.wait(amount: Number)`,
       definition: "Make the bot wait in seconds before taking any action.",
       example: `bot.wait(10)`,
-      note: "Be careful setting this too high! It'll make your bot standby doing nothing.",
+      note: "Wait pauses this bot for a number of seconds. Crops keep growing while it waits.",
       is_unlocked: true,
-      tier: 4,
+      tier: 0,
     },
     destroy: {
       type: "function",

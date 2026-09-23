@@ -1,7 +1,8 @@
 <script>
   import { onMount } from "svelte";
   import * as Blockly from "blockly";
-  let { code, line = -1 } = $props();
+  import { commandExample } from "../game/global/documentation.js";
+  let { code, line = -1, repeat = 0, checkHarvest = false } = $props();
   let host, workspace = $state();
   const ids = new Map();
   onMount(() => {
@@ -14,18 +15,26 @@
   $effect(() => {
     if (!workspace) return;
     workspace.clear(); ids.clear();
-    let previous;
+    let root, previous;
     code.forEach((command, index) => {
-      if (command.startsWith("//")) { if (command.includes("Bot")) previous = null; return; }
-      const name = command.match(/bot\.(\w+)/)?.[1];
-      if (!name || !Blockly.Blocks[`bot_${name}`]) return;
-      const block = workspace.newBlock(`bot_${name}`);
-      if (name === "plant") block.setFieldValue("wheat", "TYPE");
-      block.initSvg(); block.render();
-      if (previous) previous.nextConnection.connect(block.previousConnection);
-      else block.moveBy(15, 15 + (index > 2 ? 100 : 0));
-      previous = block; ids.set(index, block.id);
+      const match=command.match(/(bot|shop)\.(\w+)/);
+      if(!match)return;
+      const [,owner,name]=match;
+      const category=owner==="shop"?"shop":["right","left","up","down"].includes(name)?"bot_movement":"bot_farm_actions";
+      const example=commandExample(category,name);
+      if(!example?.block)return;
+      const state=structuredClone(example.block);
+      state.id=Blockly.utils.idGenerator.genUid(); ids.set(index,state.id);
+      if(name==="wait")state.inputs.AMOUNT.shadow.fields.NUM=Number(command.match(/\((\d+)/)?.[1] ?? 3);
+      if(name==="say")state.inputs.TEXT.shadow.fields.TEXT=command.match(/"([^"]*)"/)?.[1] ?? "Hello!";
+      const node=checkHarvest&&name==="harvest"?{type:"controls_if",inputs:{IF0:{block:{type:"bot_is_harvestable"}},DO0:{block:state}}}:state;
+      if(previous)previous.next={block:node};else root=node;
+      previous=node;
     });
+    if(root){
+      if(repeat)root={type:"controls_repeat_ext",inputs:{TIMES:{shadow:{type:"math_number",fields:{NUM:repeat}}},DO:{block:root}}};
+      Blockly.serialization.blocks.append({...root,x:15,y:15},workspace);
+    }
     Blockly.svgResize(workspace);
   });
   $effect(() => { if (workspace) workspace.highlightBlock(ids.get(line) ?? null); });
