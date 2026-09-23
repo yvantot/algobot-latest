@@ -203,10 +203,7 @@ export const INTRODUCTION_STORY = [
   {
     "title": "Your first little program",
     "text": "Your turn! Follow one mission at a time. Your first lessons are safe from fire, pests and spoiled crops. Have fun!",
-    "code": [
-      "bot.right();",
-      "// Your first mission starts with this one block"
-    ],
+    "code": [],
     "action": "finish"
   }
 ];

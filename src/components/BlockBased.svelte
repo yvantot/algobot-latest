@@ -972,7 +972,7 @@
 
 <div
   style="width: {resize.width}px;"
-  class="tutorial-editor text-slate-700 h-[95vh] bottom-4 flex flex-col w-[30vw] bg-gray-100 border-4 border-slate-500 rounded-xl shadow-xl overflow-hidden text-sm z-50"
+  class="tutorial-editor relative text-slate-700 h-[95vh] bottom-4 flex flex-col w-[30vw] bg-gray-100 border-4 border-slate-500 rounded-xl shadow-xl overflow-hidden text-sm z-50"
 >
   <div
     role="separator"

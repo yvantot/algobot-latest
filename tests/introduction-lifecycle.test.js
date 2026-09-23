@@ -8,6 +8,7 @@ function setup(options) {
   const objects = [];
   const updates = [];
   const changes = [];
+  const moves = [];
   const object = (fields = {}) => {
     const obj = { paused: false, hidden: false, removed: false, ...fields,
       exists() { return !this.removed; }, destroy() { this.removed = true; } };
@@ -24,7 +25,7 @@ function setup(options) {
     INTRODUCTION_STORY, document: { hidden: false }, console,
     addLandBackground: () => [object(),object()],
     addSoilToGrid: () => object({setSoilState() {}}),
-    addFarmbot: () => object({ is_available: true, botJump(x, y, done) { done(true); } }),
+    addFarmbot: () => object({ is_available: true, botJump(x, y, done) { moves.push([x,y]);done(true); } }),
     destroyFarmEvents() {},
   });
   const source = fs.readFileSync(new URL("../src/game/global/live-demonstration.js", import.meta.url), "utf8")
@@ -32,7 +33,7 @@ function setup(options) {
   vm.runInContext(source, context);
   const controller = context.startLiveDemonstration(change => changes.push(change),options);
   async function tick(count) { for (let i = 0; i < count; i++) { for (const fn of [...updates]) fn(); await Promise.resolve(); } }
-  return { objects, changes, controller, player, visiblePlayer, k, tick };
+  return { moves, objects, changes, controller, player, visiblePlayer, k, tick };
 }
 
 test("introduction holds each chapter until the player continues", async () => {
@@ -77,12 +78,12 @@ test("skipping during a running chapter restores prior visibility, pause and spe
 test("demo expansion owns new soil and restores the real camera when closed", async () => {
   const h=setup({singleAction:"expand"});
   await h.tick(5);
-  assert.equal(h.changes.at(-1).purchase.id,"row");
+  assert.equal(h.changes.findLast(change=>change.purchase).purchase.id,"row");
   assert.equal(h.controller.purchase("column"),false);
   assert.equal(h.controller.purchase("row"),true);
   assert.equal(h.controller.purchase("row"),false);
   await h.tick(5);
-  assert.equal(h.changes.at(-1).purchase.id,"column");
+  assert.equal(h.changes.findLast(change=>change.purchase).purchase.id,"column");
   h.controller.purchase("column");
   await h.tick(10);
   assert.equal(h.changes.at(-1).ready,true);
@@ -101,4 +102,16 @@ test("closing during farm expansion cancels pending work before more tiles are a
   await h.tick(40);
   assert.equal(h.objects.length,count);
   assert.ok(h.objects.slice(2).every(object=>object.removed));
+});
+
+
+test("expansion keeps traversing while purchases wait and visits newly added tiles",async()=>{
+ const h=setup({singleAction:"expand"});
+ try{
+  await h.tick(60);const before=h.moves.length;await h.tick(60);assert.ok(h.moves.length>before);
+  assert.ok(h.moves.every(([x,y])=>x<3&&y<3));
+  h.controller.purchase("row");await h.tick(60);assert.ok(h.moves.some(([,y])=>y===3));
+  h.controller.purchase("column");await h.tick(100);assert.ok(h.moves.some(([x])=>x===3));
+  assert.equal(h.changes.at(-1).ready,true);
+ }finally{h.controller.dispose();}
 });

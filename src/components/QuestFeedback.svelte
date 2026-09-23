@@ -3,7 +3,7 @@
   import { fade } from "svelte/transition";
   import { rewardMotion } from "./quest-motion.js";
   import { dialogFocus } from "./dialog-focus.js";
-  import { QUEST_FEEDBACK, finishIntroduction, robots } from "./global.svelte.js";
+  import { QUEST_FEEDBACK, finishIntroduction } from "./global.svelte.js";
   import { play_sfx } from "../game/utils/sound.js";
   import { eventScheduler } from "../game/ml/event-scheduler.js";
   let panel = $state(null);
@@ -26,7 +26,6 @@
     if (!item) return;
     const key = item.key;
     play_sfx("collect");
-    robots[0]?.sayText?.("Mission complete!");
     const flight = setTimeout(rewardFlights, 1700);
     if (item.milestone) return () => { clearTimeout(flight); flying = []; };
     const timer = setTimeout(() => {

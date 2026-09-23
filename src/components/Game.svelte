@@ -79,8 +79,8 @@
     },
     {
       id: Menus.RESEARCH,
-      title: "Research Tree",
-      description: "Unlock new technologies, algorithms, and bot abilities.",
+      title: "Learning Progress",
+      description: "Review practiced skills and choose what to learn next.",
       icon: "/sprites/icon_skilltree.png",
       alt: "research tree",
     },
@@ -95,6 +95,7 @@
 
   let current_menu = $state(Menus.COMMAND);
   let current_editor = $state(Editors.BLOCK);
+  let docQuery=$state("");
   let docOpen=$state(false), docLoaded=$state(false), showDocEditor=$state(false), docPreview=$state(null);
   let blockEditor=$state(), textEditor=$state();
   let previewOpener, previewFocusTimer;
@@ -339,7 +340,7 @@
       <div class="flex gap-4">
         <PlayerInfo />
         <div class="pt-2 flex items-center gap-1">
-          {#each menuButtons.filter(btn => !TUTORIAL.active || [Menus.COMMAND, Menus.DOCUMENT, Menus.QUEST].includes(btn.id)) as btn}
+          {#each menuButtons.filter(btn => !TUTORIAL.active || [Menus.COMMAND, Menus.DOCUMENT, Menus.QUEST, Menus.RESEARCH].includes(btn.id)) as btn}
             <button
               class="cursor-pointer group relative"
               id={btn.id === Menus.COMMAND ? "command-menu-button" : btn.id === Menus.DOCUMENT ? "documentation-menu-button" : undefined}
@@ -537,7 +538,7 @@
 
     {#if docLoaded}
       <div class="doc-pane" class:doc-hidden={!docOpen} inert={!docOpen}>
-        <Document onClose={closeDocumentation} onInsert={insertDocumentation} targetName={editor=>(editor==="text"?textEditor:blockEditor)?.targetName()??"Bot 0"} onPreview={name=>{previewOpener=document.activeElement;stopCodeRuns(robots_state,telemetry);docPreview=name;}} />
+        <Document bind:query={docQuery} onClose={closeDocumentation} onInsert={insertDocumentation} targetName={editor=>(editor==="text"?textEditor:blockEditor)?.targetName()??"Bot 0"} onPreview={name=>{previewOpener=document.activeElement;stopCodeRuns(robots_state,telemetry);docPreview=name;}} />
       </div>
     {/if}
     {#if current_menu === Menus.QUEST}
@@ -550,7 +551,7 @@
       </div>
     {:else if current_menu === Menus.RESEARCH}
       <div in:panelIn out:panelOut>
-        <ResearchTree />
+        <ResearchTree onClose={()=>toggleMenu(Menus.NONE)} onPractice={()=>toggleMenu(Menus.QUEST)} onReference={query=>{docQuery=query;docOpen=true;docLoaded=true;current_menu=Menus.COMMAND;}} onPreview={name=>{previewOpener=document.activeElement;stopCodeRuns(robots_state,telemetry);docPreview=name;}} />
       </div>
     {:else if current_menu === Menus.HELP}
       <div in:panelIn out:panelOut>

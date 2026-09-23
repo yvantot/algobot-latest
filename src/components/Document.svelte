@@ -1,4 +1,5 @@
 <script>
+ import { DOCUMENTATION_PREVIEWS } from "../game/global/documentation-previews.js";
  import { onMount } from "svelte";
  import { slide } from "svelte/transition";
  import { DOCUMENT_DATA,CROP_DATA } from "../game/global/global.js";
@@ -6,8 +7,8 @@
  import { currentQuest,UNLOCK_VERSION,TUTORIAL } from "./global.svelte.js";
  import { DOC_CATEGORIES,documentationEntries,filterDocumentation,insertionProblem,recommendedCommands } from "../game/global/documentation.js";
  import DocumentationBlocks from "./DocumentationBlocks.svelte";
- let {onClose,onInsert,targetName,onPreview}=$props();
- let query=$state(""),category=$state("all"),availability=$state("all"),selected=$state(""),mode=$state("text"),recent=$state([]),message=$state("");
+ let {onClose,onInsert,targetName,onPreview,query=$bindable("")}=$props();
+ let category=$state("all"),availability=$state("all"),selected=$state(""),mode=$state("text"),recent=$state([]),message=$state("");
  let width=$state(400),reduced=$state(false),search,timer;
  const entries=$derived.by(()=>{UNLOCK_VERSION.count;return documentationEntries(DOCUMENT_DATA,QUEST_DATA);});
  const results=$derived(filterDocumentation(entries,query,category,availability));
@@ -30,6 +31,7 @@
    <p>{entry.summary}</p>
    {#if entry.code}<pre><code>{entry.code.split("\n").slice(0,3).join("\n")}{entry.code.split("\n").length>3?"\n…":""}</code></pre>{/if}
    {#if !entry.unlocked}<p class="requirement">{entry.requirement?`Complete: ${entry.requirement}`:"Not yet unlocked."}</p>{/if}
+   {#if DOCUMENTATION_PREVIEWS[entry.id]}<button class="primary" onclick={()=>onPreview(DOCUMENTATION_PREVIEWS[entry.id])}>Watch example</button>{/if}
    <button aria-expanded={selected===entry.id} onclick={()=>open(entry)}>{selected===entry.id?"Hide details":"Details"}</button>
    {#if selected===entry.id}<div class="details" transition:slide={{duration:reduced?0:200}}>
     {#if entry.code}
@@ -45,7 +47,6 @@
     {#if entry.arguments}<h4>Arguments</h4><pre>{entry.arguments}</pre>{/if}
     {#if entry.note}<h4>Remember</h4><p>{entry.note}</p>{/if}
     {#if entry.category==="crops"&&CROP_DATA[entry.name]}{@const stats=CROP_DATA[entry.name]}<p>Health: {stats.health} · Coins: {stats.reward} · EXP: {stats.exp}<br/>Growth: {stats.duration}s · Spoilage: {stats.spoilage_time}s</p>{#if entry.strength}<p><strong>Strength:</strong> {entry.strength}</p>{/if}{#if entry.weakness}<p><strong>Weakness:</strong> {entry.weakness}</p>{/if}{/if}
-    {#if ["bot_movement/right","bot_farm_actions/plant","bot_farm_actions/water","bot_farm_actions/harvest","bot_farm_actions/extinguish"].includes(entry.id)}<button onclick={()=>onPreview(entry.name)}>Watch example</button>{/if}
    </div>{/if}
   </article>
  {/each}

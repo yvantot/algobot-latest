@@ -130,6 +130,26 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
     request.resolve(true);
     return true;
   }
+  function startTraversal(work = false) {
+    let stop = false;
+    onChange({traversing:true, working:work});
+    const task = (async()=>{
+      do {
+        for(let row=0;row<farm.demoBounds.rows;row++)for(let column=0;column<farm.demoBounds.columns;column++) {
+          if(!await action(robot,2,"botJump",column,row))return;
+          if(work){
+            const soil=farm.get(row+"-"+column).soil;
+            soil.setSoilState(SoilStates.INITIAL);
+            if(!await action(robot,3,"botTill"))return;
+          }
+        }
+        if(!await wait(.01))return;
+      } while(!stop && !disposed);
+    })();
+    let failure;
+    const settled=task.catch(error=>{failure=error;});
+    return {async stopAfterLap(){stop=true;await settled;if(failure)throw failure;}};
+  }
   async function next() {
     if (disposed || running || chapter >= story.length - 1) return;
     running = true; pause(false); chapter++;
@@ -138,7 +158,7 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
     // Leave a short beat to notice the blocks before the action starts.
     if (!await wait(0.8)) return;
     if (singleAction && singleAction !== "move") {
-      if (!await action(robot, -1, "botJump", 1, singleAction === "fire" ? 1 : 0)) return;
+      if (!await action(robot, -1, "botJump", 1, ["fire","pest"].includes(singleAction) ? 1 : 0)) return;
       if (singleAction === "water") plantAt(1,0);
       if (singleAction === "harvest") plantAt(1,0,CropStates.HARVESTABLE);
     }
@@ -227,31 +247,31 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
       }
       case "expand": {
         clearCrops();
+        const traversal = startTraversal();
+        if(!await wait(2))return;
         if(!await requestPurchase("row", "Buy a row"))return;
-        onChange({line:0,bot:0}); expand("rows");
-        if(!await wait(2)) return;
+        expand("rows");
+        if(!await wait(2))return;
         if(!await requestPurchase("column", "Buy a column"))return;
-        onChange({line:1,bot:0}); expand("columns");
+        expand("columns");
         k.setCamScale(.85);
         k.setCamPos(CONFIG.FARM.grid_origin.x+(farm.demoBounds.columns*CONFIG.FARM.cell_size-CONFIG.FARM.gap)/2,CONFIG.FARM.grid_origin.y+(farm.demoBounds.rows*CONFIG.FARM.cell_size-CONFIG.FARM.gap)/2);
-        if(!await wait(2)) return;
+        await traversal.stopAfterLap();
+        if(disposed)return;
         break;
       }
       case "upgrade": {
+        const traversal = startTraversal(true);
+        if(!await wait(2))return;
         if(!await requestPurchase("move", "Upgrade movement"))return;
-        onChange({line:0,bot:0}); robot.sayText("Faster moves!"); robot.botmove_duration=.18;
-        if(!await action(robot,0,"botJump",0,0)) return;
-        if(!await action(robot,0,"botJump",1,0)) return;
+        robot.botmove_duration=.18;
+        robot.sayText("Faster moves!");
+        if(!await wait(2))return;
         if(!await requestPurchase("action", "Upgrade actions"))return;
-        onChange({line:1,bot:0}); robot.sayText("Faster work!"); robot.botact_duration=.15;
-        if(!await action(robot,1,"botTill")) return;
-        onChange({traversing:true});
-        robot.sayText("Visiting every tile!");
-        const rows=farm.demoBounds.rows, columns=farm.demoBounds.columns;
-        for(let row=0;row<rows;row++)for(let column=0;column<columns;column++) {
-          if(!await action(robot,2,"botJump",column,row))return;
-        }
-        onChange({traversing:false});
+        robot.botact_duration=.15;
+        robot.sayText("Faster work!");
+        await traversal.stopAfterLap();
+        if(disposed)return;
         break;
       }
       case "workflow": {

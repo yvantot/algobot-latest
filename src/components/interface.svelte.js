@@ -1,3 +1,4 @@
+import { onDestroy } from "svelte";
 import { backOut, cubicIn } from "svelte/easing";
 
 export function createResizable(initial_width = 400) {
@@ -6,27 +7,33 @@ export function createResizable(initial_width = 400) {
 
 	let width = $state(initial_width);
 	let is_resizing = $state(false);
+	let startX = 0, startWidth = initial_width;
 
 	function handleMouseMove(e) {
 		if (!is_resizing) return;
-		const new_width = window.innerWidth - e.clientX;
-		if (new_width > MIN_WIDTH && new_width < window.innerWidth * MAX_RATIO) {
-			width = new_width;
-		}
+		const new_width = startWidth + startX - e.clientX;
+		width = Math.max(MIN_WIDTH, Math.min(window.innerWidth * MAX_RATIO, new_width));
 	}
 
 	function stopResize() {
 		is_resizing = false;
 		window.removeEventListener("mousemove", handleMouseMove);
 		window.removeEventListener("mouseup", stopResize);
+		window.removeEventListener("blur", stopResize);
 	}
 
 	function startResize(e) {
+		if (e.button !== 0) return;
+		e.preventDefault();
+		startX = e.clientX;
+		startWidth = e.currentTarget.parentElement.getBoundingClientRect().width;
 		is_resizing = true;
 		window.addEventListener("mousemove", handleMouseMove);
 		window.addEventListener("mouseup", stopResize);
+		window.addEventListener("blur", stopResize);
 	}
 
+	onDestroy(stopResize);
 	return {
 		get width() { return width; },
 		get is_resizing() { return is_resizing; },

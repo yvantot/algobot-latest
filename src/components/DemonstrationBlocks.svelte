@@ -2,14 +2,14 @@
   import { onMount } from "svelte";
   import * as Blockly from "blockly";
   import { commandExample } from "../game/global/documentation.js";
-  let { code, line = -1, repeat = 0, checkHarvest = false, dynamicGrid = false } = $props();
+  let { code, line = -1, repeat = 0, checkHarvest = false, dynamicGrid = false, working = false, fit = false } = $props();
   let host, workspace = $state();
   const ids = new Map();
   const crops = new Map();
   onMount(() => {
     workspace = Blockly.inject(host, { readOnly: true, renderer: "zelos", scrollbars: true,
-      zoom: { startScale: 1 }, sounds: false });
-    const observer = new ResizeObserver(() => Blockly.svgResize(workspace));
+      zoom: { startScale: 1, minScale: .2, maxScale: 1 }, sounds: false });
+    const observer = new ResizeObserver(() => { Blockly.svgResize(workspace); if(fit)workspace.zoomToFit(); });
     observer.observe(host);
     return () => { observer.disconnect(); workspace.dispose(); };
   });
@@ -42,6 +42,7 @@
       const limit=name=>({block:{type:"math_arithmetic",fields:{OP:"MINUS"},inputs:{A:{block:{type:"global_"+name}},B:number(1)}}});
       const jump={type:"bot_jump",id:Blockly.utils.idGenerator.genUid(),inputs:{X:variable(column),Y:variable(row)}};
       ids.set(2,jump.id);
+      if(working){const till={type:"bot_till",id:Blockly.utils.idGenerator.genUid()};ids.set(3,till.id);jump.next={block:till};}
       const columnLoop={type:"controls_for",fields:{VAR:{id:column}},inputs:{FROM:number(0),TO:limit("columns"),BY:number(1),DO:{block:jump}}};
       root={type:"controls_for",fields:{VAR:{id:row}},inputs:{FROM:number(0),TO:limit("rows"),BY:number(1),DO:{block:columnLoop}}};
     }
@@ -54,6 +55,7 @@
       }
     }
     Blockly.svgResize(workspace);
+    if(fit)workspace.zoomToFit();
   });
   $effect(() => { if (workspace) workspace.highlightBlock(ids.get(line) ?? null); });
 </script>

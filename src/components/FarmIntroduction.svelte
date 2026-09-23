@@ -14,7 +14,7 @@
   let botLines = $state({});
   let programs = $derived(step.programs ?? [{bot:0,code:step.code}]);
   let ready = $state(false);
-  let purchase=$state(null), traversing=$state(false);
+  let purchase=$state(null), traversing=$state(false), working=$state(false);
   let coins = $state(0);
   let exp = $state(0);
   let rewardVisible = $state(false);
@@ -40,6 +40,7 @@
         if (update.ready !== undefined) ready = update.ready;
         if (update.purchase !== undefined) purchase = update.purchase;
         if (update.traversing) traversing = true;
+        if (update.working !== undefined) working = update.working;
         if (update.coins !== undefined) { coins = update.coins; rewardVisible = true; clearTimeout(rewardTimer); rewardTimer = setTimeout(() => rewardVisible = false, 3800); }
         if (update.exp !== undefined) exp = update.exp;
         if (update.error) error = true;
@@ -63,7 +64,7 @@
     <header><span>Meet your farm · {chapter + 1} / {INTRODUCTION_STORY.length}</span><button onclick={close} disabled={closing}>Skip introduction</button></header>
     <div class="programs">
     {#each programs.filter(program=>program.code.some(command=>!command.startsWith("//"))) as program,index (step.action+program.bot)}
-      <DemoProgramPanel {program} {index} count={programs.length} reduced={reducedMotion} line={ready?-1:(botLines[program.bot]??-1)} dynamicGrid={traversing}/>
+      <DemoProgramPanel {program} {index} count={programs.length} reduced={reducedMotion} line={ready?-1:(botLines[program.bot]??-1)} dynamicGrid={traversing} {working}/>
     {/each}
     </div>
     {#if rewardVisible}<div class="earnings" in:fly={{y:24,duration:450}} out:fly={{y:-24,duration:450}} role="status"><img src="/sprites/icon_coin.png" alt=""/>+{coins} coins · +{exp} EXP</div>{/if}
