@@ -38,7 +38,7 @@ function harness() {
 
 test("renderer eases cloud travel every frame and does not teleport when departure begins", () => {
   const h = harness();
-  assert.equal(h.view.pos.x, -148, "spawn outside the farm");
+  assert.equal(h.view.pos.x, -328, "spawn outside the farm");
   h.step(1);
   const previous = h.view.pos.x;
   h.step(0.01);
@@ -49,7 +49,7 @@ test("renderer eases cloud travel every frame and does not teleport when departu
   assert.equal(h.cloud.phase, "leaving");
   assert.ok(Math.abs(h.view.pos.x - 32) < 1e-8, "exit starts at the resting position");
   h.step(0.01);
-  assert.ok(h.view.pos.x < 32 && h.view.pos.x > 31, "continuous linear departure");
+  assert.ok(h.view.pos.x < 32 && h.view.pos.x > 30, "continuous linear departure");
   h.step(4);
   assert.equal(h.renderer.cloudViews.size, 0);
 });

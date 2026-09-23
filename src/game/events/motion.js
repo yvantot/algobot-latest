@@ -16,17 +16,23 @@ const APPEAR = 0.4, HOLD = 0.25, DISAPPEAR = 0.4;
 
 export function timedLerp(from, to, elapsed, duration, easing = easeInOutSine) {
   const t = Math.max(0, Math.min(1, elapsed / duration));
+  if(t===0)return from;
+  if(t===1)return to;
   return from + (to - from) * easing(t);
 }
 
 export function cloudPosition(cloud, outside, center, remainder = 0) {
   const elapsed = cloud.phaseAge + remainder;
   const x = cloud.phase === "entering"
-    ? timedLerp(outside, center.x, elapsed - APPEAR - HOLD, cloud.travelDuration - APPEAR - HOLD, easeOutCubic)
+    ? timedLerp(outside, center.x, elapsed - APPEAR - HOLD, cloud.travelDuration - APPEAR - HOLD, bounceOut)
     : cloud.phase === "leaving"
       ? timedLerp(center.x, outside, elapsed, cloud.exitDuration - DISAPPEAR, t => t)
       : center.x;
-  return { x, y: center.y - 100 };
+  const duration = cloud.phase === "entering" ? cloud.travelDuration - APPEAR - HOLD : cloud.exitDuration - DISAPPEAR;
+  const travel = cloud.phase === "entering" ? elapsed - APPEAR - HOLD : elapsed;
+  const t = Math.max(0, Math.min(1, travel / duration));
+  const lift = cloud.phase === "raining" ? 0 : Math.sin(t * Math.PI) * 22;
+  return { x, y: center.y - 100 - lift };
 }
 
 export function cloudAppearance(cloud, remainder = 0) {

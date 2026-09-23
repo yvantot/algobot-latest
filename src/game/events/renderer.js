@@ -95,8 +95,8 @@ export class FarmEventRenderer {
     const centers = simulation.clouds.size
       ? farmTiles(simulation.grid).map(([key]) => tileCenter(simulation.grid, key))
       : [];
-    const left = Math.min(...centers.map(pos => pos.x)) - 180;
-    const right = Math.max(...centers.map(pos => pos.x)) + 180;
+    const left = Math.min(...centers.map(pos => pos.x)) - 360;
+    const right = Math.max(...centers.map(pos => pos.x)) + 360;
     for (const [id, cloud] of simulation.clouds) {
       const center = tileCenter(simulation.grid, cloud.key);
       if (!center) continue;
