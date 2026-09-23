@@ -13,6 +13,7 @@
 
   let currentView = $state("MENU"); // 'MENU' | 'GAME'
   let hasStartedGame = false;
+  let isNewFarm = $state(false);
 
   onMount(() => {
     initGlobalUISounds();
@@ -21,6 +22,7 @@
 
   function startGame() {
     // Initializing Kaplay from this click satisfies browser audio-autoplay rules.
+    isNewFarm = !hasStartedGame;
     if (!hasStartedGame) {
       game();
       hasStartedGame = true;
@@ -41,7 +43,7 @@
   {#if currentView === "MENU"}
     <StartMenu onStart={startGame} />
   {:else}
-    <Game onReturnMenu={returnToMenu} />
+    <Game onReturnMenu={returnToMenu} {isNewFarm} />
   {/if}
 </div>
 
