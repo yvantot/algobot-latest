@@ -150,6 +150,40 @@ test("collection exports preserve unfinished observation time without assigning 
   assert.ok(session.data_quality.collection_audit);
 });
 
+test("cleared current sessions cannot silently return through autosave or export", () => {
+  const logger = new DataLogger();
+  telemetry.recordQuestStart("q");
+  logger.saveSessionLight();
+  logger.clearAllData();
+  logger.saveSessionLight();
+  assert.equal(logger.buildDatasetExport().sessions.length, 0);
+  assert.equal(logger.getSessionCount(), 0);
+  telemetry.resetSession();
+  logger.saveSessionLight();
+  assert.equal(logger.buildDatasetExport().sessions.length, 1);
+});
+
+test("recent-schema model waits for real history then receives shared training features", async () => {
+  const { recentSequence, scaleResearchSequence, RESEARCH_SCHEMA, RESEARCH_FEATURES } = await import("../src/game/ml/research-features.js");
+  const recentScaler = { type: "standard", feature_schema: RESEARCH_SCHEMA, feature_names: RESEARCH_FEATURES, mean: Array(12).fill(0), scale: Array(12).fill(1) };
+  let observed;
+  const agent = new MLDiffAgent({ loadScaler: async () => recentScaler, loadModel: async () => ({
+    ...fakeModel([20, 12], 1, [.4]), predict(input) { observed = input.arraySync()[0]; return tf.tensor2d([[.4]]); } }) });
+  telemetry.collectionEnabled = true;
+  let result = await agent.updateAndPredict();
+  assert.equal(result.proficiency, null);
+  assert.equal(agent.predictedProficiency, null);
+  assert.equal(agent.getAgentState().proficiencySource, "unknown");
+  const now = Date.now();
+  telemetry.collectionSnapshots = Array.from({ length: 21 }, (_, i) => ({ timestamp_ms: now - (20-i)*5000,
+    stage: 1, context: {phase:"gameplay",game_speed:1,robot_count:1},
+    counters: {errors:i,edits:0,completed_runs:0,failed_runs:i,stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0} }));
+  result = await agent.updateAndPredict();
+  assert.ok(Math.abs(result.proficiency - .4) < 1e-6);
+  assert.deepEqual(observed, scaleResearchSequence(recentSequence(telemetry.collectionSnapshots), recentScaler).map(row => row.map(Math.fround)));
+  assert.equal(agent.getAgentState().predictionTarget, "independent_scored_task");
+});
+
 test("malformed persisted research data is not silently overwritten", () => {
   const logger = new DataLogger();
   localStorage.setItem("algobot_sessions", "{broken");

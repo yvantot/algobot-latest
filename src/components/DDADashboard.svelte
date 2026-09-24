@@ -32,7 +32,6 @@
   let ddaState = $state(null);
   let agentMode = $state("bootstrap");
   let sessionCount = $state(0);
-  let replaySize = $state(0);
 
   // Poll DDA + telemetry state every 2 seconds for dashboard display
   $effect(() => {
@@ -45,7 +44,6 @@
       ddaState = dda.getDDAState();
       agentMode = mlAgent.mode || "bootstrap";
       sessionCount = dataLogger.getSessionCount();
-      replaySize = mlAgent.replayBuffer?.length || 0;
     }, 2000);
     return () => clearInterval(interval);
   });
@@ -144,7 +142,6 @@
         class="flex justify-between text-sm text-gray-400 bg-gray-900/60 p-2 rounded border border-gray-800"
       >
         <span>Sessions: {sessionCount}</span>
-        <span>Replay: {replaySize}</span>
         <span class="font-mono">{telemetry.participantId}</span>
       </div>
 

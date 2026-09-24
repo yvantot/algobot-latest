@@ -1,4 +1,5 @@
 import { FEATURE_NAMES } from "./model-input.js";
+import { recentSequence } from "./research-features.js";
 
 export function inspectCollection(session) {
   const issues = [];
@@ -19,13 +20,18 @@ export function inspectCollection(session) {
   }
   if (invalid) issues.push("invalid_or_unordered_snapshots");
   if (gaps) issues.push("sampling_gaps_check_pause_context");
+  let recentWindows = 0;
+  for (let i = 20; i < snapshots.length; i++) {
+    try { recentSequence(snapshots.slice(i - 20, i + 1)); recentWindows++; } catch { /* Count only complete, compatible windows. */ }
+  }
+  if (!recentWindows) issues.push("no_usable_recent_feature_window");
   if (attempts.some(a => a.start_time_inferred)) issues.push("inferred_quest_start");
   const support = [0, 0, 0];
   for (const attempt of attempts) {
     const y = attempt.proficiency_label;
     if (Number.isFinite(y)) support[y < .3 ? 0 : y < .6 ? 1 : 2]++;
   }
-  return { issues, snapshot_count: snapshots.length, sampling_gaps: gaps,
+  return { issues, snapshot_count: snapshots.length, sampling_gaps: gaps, usable_recent_windows: recentWindows,
     unfinished_attempts: attempts.filter(a => !a.completed).length,
     proxy_category_support: support,
     independent_assessment_linked: false };

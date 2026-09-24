@@ -69,6 +69,8 @@ export class TelemetryTracker {
     // Code execution tracking (Feature 7: code execution success rate)
     this.codeRunCount = 0;
     this.codeRunSuccessCount = 0;
+    this.runOutcomes = { completed: 0, error: 0, stopped: 0 };
+    this.requestedHints = 0;
 
     // Hint tracking (Feature 8: hint consumption rate)
     this.hintsShown = 0;
@@ -242,6 +244,8 @@ export class TelemetryTracker {
 
   // Code run tracking (Feature 7)
   recordCodeRun(success, details = {}) {
+    const outcome = details.outcome ?? (success ? "completed" : "error");
+    if (outcome in this.runOutcomes) this.runOutcomes[outcome]++;
     this.codeRunCount++;
     if (success) this.codeRunSuccessCount++;
     this._recordQuestCodeRun();
@@ -250,6 +254,7 @@ export class TelemetryTracker {
 
   // Hint tracking (Feature 8)
   recordHintShown(hintText = "", source = "unspecified") {
+    if (source === "requested_quest_hint") this.requestedHints++;
     this.hintsShown++;
     this._recordQuestHint();
     this._logRawEvent("hint_shown", { hint: hintText, source });
@@ -444,6 +449,8 @@ export class TelemetryTracker {
       counters: {
         errors: this.errorCount, resets: this.resetCount, hints: this.hintsShown,
         code_runs: this.codeRunCount, successful_runs: this.codeRunSuccessCount,
+        completed_runs: this.runOutcomes.completed, failed_runs: this.runOutcomes.error,
+        stopped_runs: this.runOutcomes.stopped, requested_hints: this.requestedHints,
         steps: this.totalInterpreterSteps, edits: this.codeEditsCount,
         for_loops: this.forLoopExecutions, while_loops: this.whileLoopExecutions,
         conditions: this.ifEvaluations, harvested: this.cropsHarvestedFresh,

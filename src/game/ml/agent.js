@@ -5,6 +5,7 @@ import { telemetry } from "./telemetry.js";
 import { dda, DDA_ACTIONS } from "./dda.js";
 import { recentPolicyState, StableDifficultyPolicy } from "./recent-policy.js";
 import { FEATURE_COUNT, SEQUENCE_LENGTH, validateScaler, normalizeSequence } from "./model-input.js";
+import { RESEARCH_SCHEMA, recentSequence, validateResearchScaler, scaleResearchSequence } from "./research-features.js";
 
 
 function validateModel(model, inputShape, outputSize) {
@@ -54,7 +55,9 @@ export class MLDiffAgent {
     this.prevAction = null;
     this.prevMode = null;
     this.pendingCompletionReward = 0;
-    this.predictedProficiency = 0.5;
+    this.predictedProficiency = null;
+    this.predictionAvailable = false;
+    this.observationReason = null;
     this.lastAction = DDA_ACTIONS.NORMAL;
     dda.applyAction(DDA_ACTIONS.NORMAL);
   }
@@ -69,18 +72,17 @@ export class MLDiffAgent {
   async _initialize() {
     const failures = [];
     try {
+      const scaler = await this._loadScaler();
+      this.scaler = scaler?.feature_schema === RESEARCH_SCHEMA ? validateResearchScaler(scaler) : validateScaler(scaler);
+    } catch (error) { failures.push(`Scaler: ${error.message}`); }
+    try {
       this.lstmModel = await this._loadModel("/models/lstm/model.json");
-      validateModel(this.lstmModel, [SEQUENCE_LENGTH, FEATURE_COUNT], 1);
+      validateModel(this.lstmModel, [SEQUENCE_LENGTH, this.scaler?.feature_schema === RESEARCH_SCHEMA ? 12 : FEATURE_COUNT], 1);
       this.pretrainedLSTM = true;
     } catch (error) {
       this.lstmModel?.dispose();
       this.lstmModel = null;
       failures.push(`LSTM: ${error.message}`);
-    }
-    try {
-      this.scaler = validateScaler(await this._loadScaler());
-    } catch (error) {
-      failures.push(`Scaler: ${error.message}`);
     }
     this.mode = this.pretrainedLSTM && this.scaler
       ? "hybrid"
@@ -122,7 +124,8 @@ export class MLDiffAgent {
   }
 
   _bootstrapUpdate(stage) {
-    this.predictedProficiency = 0.5; // Unknown; exports identify bootstrap mode.
+    this.predictionAvailable = false;
+    this.predictedProficiency = null;
     const action = this._chooseAction(stage, null);
     const state = [0.5, stage / 5, telemetry.frustrationScore, telemetry.flowScore];
     this._applyDecision(state, action, stage);
@@ -145,12 +148,23 @@ export class MLDiffAgent {
   }
 
   async _mlUpdate(stage, generation) {
-    const sequence = normalizeSequence(telemetry.getLSTMInputTensor(), this.scaler);
+    let sequence;
+    if (this.scaler.feature_schema === RESEARCH_SCHEMA) {
+      try {
+        const snapshots = telemetry.getFeatureSnapshots().slice(-21);
+        if (!snapshots.length || Date.now() - snapshots.at(-1).timestamp_ms > 7500) throw Error("Waiting for fresh gameplay observations");
+        sequence = scaleResearchSequence(recentSequence(snapshots), this.scaler);
+        this.observationReason = null;
+      } catch (error) {
+        this.observationReason = error.message;
+        return { ...this._bootstrapUpdate(stage), observationReason: this.observationReason };
+      }
+    } else sequence = normalizeSequence(telemetry.getLSTMInputTensor(), this.scaler);
     // Keep decision diagnostics from the same observation as the LSTM input, even if
     // gameplay progresses while the GPU/backend resolves prediction.data().
     const frustration = telemetry.frustrationScore;
     const flow = telemetry.flowScore;
-    const proficiencyValues = await this._predictValues(this.lstmModel, [sequence], [1, SEQUENCE_LENGTH, FEATURE_COUNT]);
+    const proficiencyValues = await this._predictValues(this.lstmModel, [sequence], [1, SEQUENCE_LENGTH, sequence[0].length]);
     if (proficiencyValues.length !== 1 || proficiencyValues[0] < 0 || proficiencyValues[0] > 1) {
       throw new Error("LSTM proficiency must be a scalar in [0, 1]");
     }
@@ -158,6 +172,7 @@ export class MLDiffAgent {
     const state = [proficiency, stage / 5, frustration, flow];
     if (generation !== this._sessionGeneration || this._sessionEnded) return null;
     this.predictedProficiency = proficiency;
+    this.predictionAvailable = true;
     const action = this._chooseAction(stage, proficiency);
     this._applyDecision(state, action, stage);
     return { proficiency, action, mode: "hybrid", policySource: "rules", proficiencySource: "lstm" };
@@ -175,8 +190,9 @@ export class MLDiffAgent {
     telemetry.recordDDAAction(action, stage, {
       mode: this.mode,
       policySource: "rules",
-      proficiencySource: this.mode === "bootstrap" ? "unknown" : "lstm",
-      proficiency: this.mode === "bootstrap" ? null : state[0],
+      proficiencySource: this.predictionAvailable ? "lstm" : "unknown",
+      proficiency: this.predictionAvailable ? state[0] : null,
+      predictionTarget: this.scaler?.feature_schema === RESEARCH_SCHEMA ? "independent_scored_task" : "legacy_gameplay_proxy",
       policyVersion: "recent-window-v1",
       recentPerformance: this.recentPerformance,
     });
@@ -272,7 +288,9 @@ export class MLDiffAgent {
       pretrainedLSTM: this.pretrainedLSTM,
       scalerLoaded: Boolean(this.scaler),
       policySource: "rules",
-      proficiencySource: this.mode === "bootstrap" ? "unknown" : "lstm",
+      proficiencySource: this.predictionAvailable ? "lstm" : "unknown",
+      observationReason: this.observationReason,
+      predictionTarget: this.scaler?.feature_schema === RESEARCH_SCHEMA ? "independent_scored_task" : "legacy_gameplay_proxy",
       fallbackReason: this.fallbackReason,
       episodeCount: this.episodeCount,
       replayBufferSize: this.replayBuffer.length,

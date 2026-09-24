@@ -5,6 +5,8 @@ import { mlAgent } from "./agent.js";
 import { FEATURE_NAMES } from "./model-input.js";
 import { COLLECTION_INTERVAL_MS } from "./collection.js";
 import { inspectCollection } from "./collection-quality.js";
+import { sealDataset } from "./export-integrity.js";
+import { RESEARCH_SCHEMA, RESEARCH_FEATURES } from "./research-features.js";
 
 const LABEL_FORMULA = "0.40*completion + 0.25*(1-min(1,errors/10)) + 0.20*(1-min(1,resets/5)) + 0.15*(1-min(1,hints/5))";
 const toISO = value => value ? new Date(value).toISOString() : null;
@@ -75,7 +77,8 @@ export class DataLogger {
   constructor() {
     this.storageKey = "algobot_sessions";
     this.rawStorageKey = "algobot_raw_sessions";
-    this.datasetVersion = "v3";
+    this.datasetVersion = "v4";
+    this.clearedSessionIds = new Set();
     this.lastPersistenceError = null;
     // A failed save must survive a return to the menu and the next telemetry
     // reset. Keep immutable per-session snapshots in memory until persistence
@@ -87,12 +90,13 @@ export class DataLogger {
     const summary = telemetry.getSessionSummary();
     const attempts = telemetry.getQuestAttempts();
     const agentState = mlAgent.getAgentState();
-    const replay = mlAgent.getReplayBuffer({ sessionOnly: true });
     const session = {
       dataset_version: this.datasetVersion,
       export_date: new Date().toISOString(),
       feature_schema_version: "10f",
-      telemetry_revision: "v3-independent-collection",
+      telemetry_revision: "v4-recent-counters",
+      build: typeof __BUILD_PROVENANCE__ === "undefined" ? { commit: "unknown", dirty: null } : __BUILD_PROVENANCE__,
+      research_features: { schema: RESEARCH_SCHEMA, names: RESEARCH_FEATURES, snapshots_required: 21 },
       source_type: "recorded",
       feature_names: FEATURE_NAMES,
       collection: { interval_ms: COLLECTION_INTERVAL_MS, independent_of_inference: telemetry.collectionEnabled,
@@ -112,7 +116,6 @@ export class DataLogger {
         telemetry.sessionEndTime ?? Date.now(), telemetry.sessionEndTime !== null)),
       feature_timeseries: telemetry.getFeatureSnapshots(),
       dda_log: telemetry.getDDALog(),
-      replay_buffer: replay,
       raw_events: telemetry.getRawEvents(),
       data_quality: { legacy_lightweight_record: false, raw_events_available: true, timestamps_available: true },
       summary: {
@@ -128,7 +131,6 @@ export class DataLogger {
         avg_flow: summary.avgFlow,
         emotion_sample_count: summary.emotionSampleCount,
         total_interpreter_steps: summary.totalSteps,
-        replay_buffer_size: replay.length,
         agent_episode_count: agentState.episodeCount,
       },
     };
@@ -147,6 +149,7 @@ export class DataLogger {
   // Kept for existing callers; now saves the complete canonical record and upserts
   // by session ID so periodic, unload and return-to-menu saves do not duplicate it.
   saveSessionLight() {
+    if (this.clearedSessionIds.has(telemetry.sessionId)) return true;
     try {
       const current = this.buildSessionExport();
       this.pendingSessions.set(current.session_id, structuredClone(current));
@@ -202,7 +205,7 @@ export class DataLogger {
     for (const pending of this.pendingSessions.values()) {
       sessions.set(pending.session_id, structuredClone(pending));
     }
-    sessions.set(current.session_id, current);
+    if (!this.clearedSessionIds.has(current.session_id)) sessions.set(current.session_id, current);
     const records = [...sessions.values()];
     return {
       dataset_version: this.datasetVersion,
@@ -222,9 +225,11 @@ export class DataLogger {
     };
   }
 
-  exportAllSessionsJSON() {
-    this._downloadFile(JSON.stringify(this.buildDatasetExport(), null, 2),
+  async exportAllSessionsJSON() {
+    const dataset = await sealDataset(this.buildDatasetExport());
+    this._downloadFile(JSON.stringify(dataset, null, 2),
       `algobot_dataset_${this.datasetVersion}_${Date.now()}.json`, "application/json");
+    return `${dataset.session_count} sessions exported in one JSON file`;
   }
 
   buildQuestCSV() {
@@ -266,10 +271,12 @@ export class DataLogger {
     localStorage.removeItem(this.rawStorageKey);
     localStorage.removeItem("algobot_replay_buffer");
     this.pendingSessions.clear();
+    this.clearedSessionIds.add(telemetry.sessionId);
     mlAgent.replayBuffer = [];
     mlAgent.prevState = null;
     mlAgent.prevAction = null;
     mlAgent.pendingCompletionReward = 0;
+    return "Stored research data cleared. Reload before collecting a new session.";
   }
 
   _downloadFile(content, filename, mimeType) {

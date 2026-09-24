@@ -1416,7 +1416,7 @@
           <div class="flex justify-between">
             <span class="text-gray-400">Predicted Proficiency:</span>
             <span class="font-bold text-white"
-              >{mlAgent.mode === "bootstrap" ? "Unavailable" : `${(mlAgent.predictedProficiency * 100).toFixed(1)}%`}</span
+              >{mlAgent.mode === "bootstrap" || !Number.isFinite(mlAgent.predictedProficiency) ? "Unavailable" : `${(mlAgent.predictedProficiency * 100).toFixed(1)}%`}</span
             >
           </div>
           <div class="flex justify-between">
@@ -1438,10 +1438,9 @@
             >
           </div>
           <div class="flex justify-between">
-            <span class="text-gray-400">Sessions / Replay Buffer:</span>
+            <span class="text-gray-400">Saved Sessions:</span>
             <span class="text-gray-300"
-              >{dataLogger.getSessionCount()} sessions / {mlAgent.replayBuffer
-                ?.length || 0} exp</span
+              >{dataLogger.getSessionCount()} sessions</span
             >
           </div>
         </div>
@@ -1542,19 +1541,10 @@
           )}
         </div>
 
-        {@render sec("Dataset Exports")}
+        {@render sec("Research Data")}
         <div class="grid grid-cols-2 gap-1">
-          {@render btn("Export JSON Dataset", "text-sky-300 font-bold", () =>
+          {@render btn("Download Dataset JSON", "text-sky-300 font-bold", () =>
             run("Export JSON", () => dataLogger.exportAllSessionsJSON()),
-          )}
-          {@render btn("Export Quest CSV", "text-emerald-300 font-bold", () =>
-            run("Export CSV", () => dataLogger.exportQuestCSV()),
-          )}
-          {@render btn(
-            "Export Replay Buffer",
-            "text-violet-300 font-bold",
-            () =>
-              run("Export Replay", () => dataLogger.exportReplayBufferJSON()),
           )}
           {@render btn("Clear Stored Data", "text-red-400", () =>
             run("Clear Data", () => dataLogger.clearAllData()),
