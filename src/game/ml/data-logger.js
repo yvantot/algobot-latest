@@ -2,11 +2,14 @@
 // and marked incomplete: missing raw events and timestamps cannot be recovered.
 import { telemetry } from "./telemetry.js";
 import { mlAgent } from "./agent.js";
+import { FEATURE_NAMES } from "./model-input.js";
+import { COLLECTION_INTERVAL_MS } from "./collection.js";
+import { inspectCollection } from "./collection-quality.js";
 
 const LABEL_FORMULA = "0.40*completion + 0.25*(1-min(1,errors/10)) + 0.20*(1-min(1,resets/5)) + 0.15*(1-min(1,hints/5))";
 const toISO = value => value ? new Date(value).toISOString() : null;
 
-function exportAttempt(key, attempt, fallbackStage) {
+function exportAttempt(key, attempt, fallbackStage, observedAt = null, ended = false) {
   return {
     quest_key: key,
     stage: attempt.stage ?? fallbackStage,
@@ -15,6 +18,11 @@ function exportAttempt(key, attempt, fallbackStage) {
     start_time_inferred: attempt.startTimeInferred ?? false,
     duration_seconds: attempt.durationSeconds ?? 0,
     completed: Boolean(attempt.completed),
+    observation_status: attempt.completed ? "completed" : ended ? "censored_at_session_end" : "in_progress",
+    observed_until: toISO(attempt.endTime ?? observedAt),
+    observed_duration_seconds: attempt.startTime && observedAt
+      ? Math.max(0, ((attempt.endTime ?? observedAt) - attempt.startTime) / 1000) : null,
+    context_at_start: attempt.contextAtStart ?? null,
     errors: attempt.errors ?? 0,
     resets: attempt.resets ?? 0,
     code_runs: attempt.codeRuns ?? 0,
@@ -67,7 +75,7 @@ export class DataLogger {
   constructor() {
     this.storageKey = "algobot_sessions";
     this.rawStorageKey = "algobot_raw_sessions";
-    this.datasetVersion = "v2";
+    this.datasetVersion = "v3";
     this.lastPersistenceError = null;
     // A failed save must survive a return to the menu and the next telemetry
     // reset. Keep immutable per-session snapshots in memory until persistence
@@ -80,11 +88,16 @@ export class DataLogger {
     const attempts = telemetry.getQuestAttempts();
     const agentState = mlAgent.getAgentState();
     const replay = mlAgent.getReplayBuffer({ sessionOnly: true });
-    return {
+    const session = {
       dataset_version: this.datasetVersion,
       export_date: new Date().toISOString(),
       feature_schema_version: "10f",
-      telemetry_revision: "v2-timestamped-outcomes",
+      telemetry_revision: "v3-independent-collection",
+      source_type: "recorded",
+      feature_names: FEATURE_NAMES,
+      collection: { interval_ms: COLLECTION_INTERVAL_MS, independent_of_inference: telemetry.collectionEnabled,
+        browser_timer_not_exact: true, participant_id_source: telemetry.participantIdSource },
+      end_time: toISO(telemetry.sessionEndTime),
       introduction_version: summary.introductionVersion,
       label_formula: LABEL_FORMULA,
       label_interpretation: "Gameplay heuristic; not an independent algorithmic-logic assessment",
@@ -95,7 +108,8 @@ export class DataLogger {
       editor_mode_primary: summary.editorMode,
       dda_mode: agentState.mode,
       agent_state: agentState,
-      quest_attempts: Object.entries(attempts).map(([key, attempt]) => exportAttempt(key, attempt, summary.currentStage)),
+      quest_attempts: Object.entries(attempts).map(([key, attempt]) => exportAttempt(key, attempt, summary.currentStage,
+        telemetry.sessionEndTime ?? Date.now(), telemetry.sessionEndTime !== null)),
       feature_timeseries: telemetry.getFeatureSnapshots(),
       dda_log: telemetry.getDDALog(),
       replay_buffer: replay,
@@ -118,6 +132,8 @@ export class DataLogger {
         agent_episode_count: agentState.episodeCount,
       },
     };
+    session.data_quality.collection_audit = inspectCollection(session);
+    return session;
   }
 
   _readStoredSessions() {

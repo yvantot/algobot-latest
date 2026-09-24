@@ -134,6 +134,22 @@ test("legacy stored records keep known mode and explicitly mark missing raw data
   assert.equal(normalizeStoredSession({ summary: {} }).dda_mode, "unknown");
 });
 
+test("collection exports preserve unfinished observation time without assigning a failure label", () => {
+  telemetry.recordQuestStart("unfinished");
+  telemetry.questAttempts.unfinished.startTime -= 10000;
+  const logger = new DataLogger();
+  let session = logger.buildSessionExport();
+  assert.equal(session.quest_attempts[0].observation_status, "in_progress");
+  assert.ok(session.quest_attempts[0].observed_duration_seconds >= 10);
+  assert.equal(session.quest_attempts[0].proficiency_label, null);
+  telemetry.endCollection();
+  session = logger.buildSessionExport();
+  assert.equal(session.quest_attempts[0].observation_status, "censored_at_session_end");
+  assert.equal(session.quest_attempts[0].completed, false);
+  assert.ok(session.end_time);
+  assert.ok(session.data_quality.collection_audit);
+});
+
 test("malformed persisted research data is not silently overwritten", () => {
   const logger = new DataLogger();
   localStorage.setItem("algobot_sessions", "{broken");

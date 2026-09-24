@@ -11,14 +11,14 @@ vm.runInContext(fs.readFileSync(new URL("../public/js-interpreter.js", import.me
 const InterpreterClass = context.Interpreter;
 
 function harness(source, methods = {}, dependencies = {}) {
-  const log = { output: [], quests: [], actions: [], errors: [], greedy: [], runs: [], checks: 0 };
+  const log = { output: [], quests: [], actions: [], errors: [], greedy: [], runs: [], runDetails: [], checks: 0 };
   const robot = { grid_x: 1, grid_y: 1, bot_index: 3, executionErrorCount: 0, sayText: value => log.output.push(value), ...methods };
   const telemetry = {
     recordBotAction: action => log.actions.push(action),
     recordError: message => log.errors.push(message),
     recordGreedyChoice: choice => log.greedy.push(choice),
     recordCheckBeforeAction: () => log.checks++,
-    recordCodeRun: result => log.runs.push(result),
+    recordCodeRun: (result, details) => { log.runs.push(result); log.runDetails.push(details); },
     recordInterpreterStep() {}, recordLoopExecution() {}, recordIfCondition() {}, recordCodeReset() {},
   };
   const api = createCommandAPI({ robot, telemetry, onQuestEvent: (...event) => log.quests.push(event), ...dependencies });
@@ -150,6 +150,22 @@ test("a rejected promise marks the owning code run failed after the interpreter 
   for (let i = 0; i < 20 && states[0].interpreter; i++) runner.step(0);
   assert.equal(states[0].interpreter, null);
   assert.deepEqual(h.log.runs, [false]);
+  assert.equal(h.log.runDetails[0].outcome, "error");
+});
+
+test("stopping a program is distinguishable from an interpreter error in research records", () => {
+  const h = harness("");
+  const states = [{ robot: h.robot }];
+  const runner = createCodeRunner({ states, InterpreterClass, telemetry: h.telemetry,
+    prepare: () => "while (true) { bot.say('working'); }", init: () => createInterpreterInit(h.api),
+    schedule: () => 1, unschedule() {} });
+  runner.start(0);
+  runner.start(0);
+  assert.deepEqual(h.log.runs, [false]);
+  assert.equal(h.log.runDetails[0].outcome, "stopped");
+  assert.equal(h.log.runDetails[0].reason, "manual_stop");
+  assert.ok(h.log.runDetails[0].run_id);
+  assert.ok(h.log.runDetails[0].duration_ms >= 0);
 });
 
 test("locked async actions and checks resume with false without invoking the robot", () => {

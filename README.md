@@ -8,6 +8,8 @@ The [September 24 model experiments](documentation/LSTM_IMPROVEMENT.md) provide 
 
 ## Run and verify
 
+Before collecting more players, follow the [collection and scored-task protocol](documentation/DATA_COLLECTION_PROTOCOL.md). Version 3 exports sample gameplay independently of DDA, retain unfinished attempts and distinguish stopped programs from errors. The protocol includes assigned participant codes, a draft independent assessment, export audits and a separate training path for scored-task labels.
+
 From the repository root, with a Node version supported by the installed Vite package:
 
 ```powershell

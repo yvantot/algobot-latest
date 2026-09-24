@@ -6,13 +6,14 @@ export function stopCodeRuns(states, telemetry) {
     state.interval = null;
     state.is_running = false;
     state.interpreter = null;
-    if (state.runPending) telemetry.recordCodeRun(false);
+    if (state.runPending) telemetry.recordCodeRun(false, { outcome: "stopped", reason: "session_exit",
+      run_id: state.researchRunId, duration_ms: Date.now() - state.runStartedAt });
     state.runPending = false;
   }
 }
 
 export function createCodeRunner({ states, InterpreterClass, telemetry, prepare, init, highlight = () => {}, canStep = () => true, schedule = setInterval, unschedule = clearInterval }) {
-  function finish(index, success = null) {
+  function finish(index, success = null, reason = "manual_stop") {
     const state = states[index];
     if (!state) return;
     if (state.interval != null) unschedule(state.interval);
@@ -21,7 +22,9 @@ export function createCodeRunner({ states, InterpreterClass, telemetry, prepare,
     state.is_running = false;
     if (state.robot) state.robot.executingLoop = false;
     if (state.runPending) {
-      telemetry.recordCodeRun(success === true && (state.robot?.executionErrorCount || 0) === state.runErrorBaseline);
+      const passed = success === true && (state.robot?.executionErrorCount || 0) === state.runErrorBaseline;
+      telemetry.recordCodeRun(passed, { outcome: success === null ? "stopped" : passed ? "completed" : "error",
+        reason, robot_index: index, run_id: state.researchRunId, duration_ms: Date.now() - state.runStartedAt });
       state.runPending = false;
     }
     highlight(index, null);
@@ -30,12 +33,15 @@ export function createCodeRunner({ states, InterpreterClass, telemetry, prepare,
   function fail(index, error) {
     telemetry.recordError(error.message || String(error));
     states[index]?.robot?.sayText(`Code error: ${error.message || error}`);
-    finish(index, false);
+    finish(index, false, "interpreter_error");
   }
 
   function begin(index) {
     const state = states[index];
     state.runPending = true;
+    state.runStartedAt = Date.now();
+    state.researchRunId = crypto.randomUUID();
+    telemetry._logRawEvent?.("code_run_start", { run_id: state.researchRunId, robot_index: index });
     state.runErrorBaseline = state.robot?.executionErrorCount || 0;
     state.branchVisits = new WeakSet();
     state.stepsWithoutYield = 0;
@@ -78,7 +84,7 @@ export function createCodeRunner({ states, InterpreterClass, telemetry, prepare,
           state.onQuestEvent?.("cs_loop_0", 1);
         }
         if (!result) {
-          finish(index, true);
+          finish(index, true, "program_end");
           return;
         }
         if (after !== before && after?.node && (after.node.type.endsWith("Statement") || after.node.type === "VariableDeclaration") && after.node.type !== "BlockStatement") {
@@ -94,12 +100,12 @@ export function createCodeRunner({ states, InterpreterClass, telemetry, prepare,
   return {
     step,
     start(index) {
-      if (states[index]?.is_running) { finish(index, false); return; }
+      if (states[index]?.is_running) { finish(index, null); return; }
       if (!states[index]?.interpreter && !begin(index)) return;
       states[index].is_running = true;
       states[index].interval = schedule(() => step(index), 16);
     },
-    reset(index) { finish(index, false); telemetry.recordCodeReset(); },
-    dispose() { states.forEach((_, index) => finish(index, false)); },
+    reset(index) { finish(index, null, "reset"); telemetry.recordCodeReset(); },
+    dispose() { states.forEach((_, index) => finish(index, null, "editor_closed")); },
   };
 }

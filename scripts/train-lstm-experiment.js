@@ -6,13 +6,20 @@ import {recoverSamples,simulateSamples,participantFolds,fitScaler,normalize,metr
 
 const output=process.argv[2];
 if(!output || fs.existsSync(output)) throw Error('Supply a NEW experiment output directory; existing evidence is never overwritten');
-const data=recoverSamples('training/data/raw');
+const assessmentInput=process.argv[3];
+const data=assessmentInput ? JSON.parse(fs.readFileSync(assessmentInput,'utf8')) : recoverSamples('training/data/raw');
+if (assessmentInput && (!data.samples?.length || data.samples.some(s=>s.source_type!=='recorded' ||
+    s.label_source!=='independent_scored_task' || !Number.isFinite(s.y) || s.y<0 || s.y>1))) {
+  throw Error('Assessment training requires recorded independently scored samples');
+}
+if (assessmentInput && new Set(data.samples.map(s=>s.rubric_version)).size!==1) throw Error('Train one reviewed rubric version at a time');
 const folds=participantFolds(data.samples);
-const synthetic=simulateSamples(240,42);
+const synthetic=assessmentInput ? [] : simulateSamples(240,42);
+const candidateNames=assessmentInput ? ['small_lstm'] : ['small_lstm','simulation_pretrained'];
 fs.mkdirSync(output,{recursive:true});
 const write=(name,value)=>fs.writeFileSync(path.join(output,name),JSON.stringify(value,null,2));
 write('recorded-samples.json',data);
-write('synthetic-training.json',{source_type:'synthetic',purpose:'Experimental pretraining only; not participant observations',samples:synthetic});
+if(synthetic.length)write('synthetic-training.json',{source_type:'synthetic',purpose:'Experimental pretraining only; not participant observations',samples:synthetic});
 
 function model() {
   const m=tf.sequential();
@@ -60,21 +67,21 @@ async function save(m,name,scaler) {
 const report={seed:42,architecture:'LSTM(4), Dense(1 sigmoid), L2=.001',
   feature_schema:'legacy-10f unchanged',cutoffs:[.3,.6],cutoff_status:'provisional',
   evaluation:'Leave-one-recorded-participant-ID-out; next ID reserved for validation; train-only scaling',
-  deployment_ready:false,limitations:[
+  deployment_ready:false,label_source:assessmentInput?'independent_scored_task':'recorded_gameplay_formula',limitations:[
     'Participant IDs are grouping identifiers, not verified distinct people.',
-    'Labels measure a gameplay formula, not independently assessed skill.',
+    assessmentInput?'Labels measure the separately scored task; rubric validity still needs review.':'Labels measure a gameplay formula, not independently assessed skill.',
     'Legacy quest-end vectors do not reconstruct missing time-series observations.',
     'All real labels may occupy one category; synthetic categories cannot establish real category discrimination.',
     'Single fixed seed and very few participant groups: exploratory comparison, not a stable population estimate.',
   ],folds:[],candidates:{}};
-const pooled={mean:[],small_lstm:[],simulation_pretrained:[]},truth=[];
+const pooled={mean:[],...Object.fromEntries(candidateNames.map(name=>[name,[]]))},truth=[];
 for(const fold of folds) {
   const entry={test_id:fold.testId,validation_id:fold.validationId,train_ids:[...new Set(fold.train.map(s=>s.student_id))],
     counts:{train:fold.train.length,validation:fold.validation.length,test:fold.test.length},results:{}};
   const baseline=fold.train.reduce((sum,s)=>sum+s.y,0)/fold.train.length;
   const y=fold.test.map(s=>s.y);truth.push(...y);pooled.mean.push(...y.map(()=>baseline));
   entry.results.mean=metrics(y,y.map(()=>baseline));
-  for(const name of ['small_lstm','simulation_pretrained']) {
+  for(const name of candidateNames) {
     console.log(`Training ${name}: held-out ${fold.testId}`);
     const scaler=fitScaler(name==='small_lstm'?fold.train:[...fold.train,...synthetic]);
     const m=model();
@@ -88,7 +95,7 @@ for(const fold of folds) {
   report.folds.push(entry);write('evaluation.json',report);
 }
 for(const [name,predictions] of Object.entries(pooled)) report.candidates[name]=metrics(truth,predictions);
-for(const name of ['small_lstm','simulation_pretrained']) {
+for(const name of candidateNames) {
   const epochs=report.folds.map(f=>f.results[name].best_epoch).sort((a,b)=>a-b)[Math.floor(folds.length/2)];
   const scaler=fitScaler(name==='small_lstm'?data.samples:[...data.samples,...synthetic]);
   const m=model();

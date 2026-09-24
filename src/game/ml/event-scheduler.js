@@ -94,7 +94,8 @@ export class EventScheduler {
   _markEvent(type, result) {
     this.lastEventTime = Date.now();
     this.eventsTriggered++;
-    telemetry.recordScheduledEvent(type, { mode: mlAgent.mode, actionId: mlAgent.lastAction });
+    telemetry.recordScheduledEvent(type, { mode: mlAgent.mode, actionId: mlAgent.lastAction,
+      severity_points: this.eventSeverity(), planted_crops: this.countPlantedCrops(), total_tiles: this.getTotalTiles() });
     return { triggered: true, reason: type, event: result };
   }
 

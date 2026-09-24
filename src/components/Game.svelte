@@ -34,6 +34,8 @@
   import { onMount, onDestroy, tick } from "svelte";
   import DocumentationPreview from "./DocumentationPreview.svelte";
   import { telemetry } from "../game/ml/telemetry.js";
+  import { startCollection } from "../game/ml/collection.js";
+  import { resolveParticipant } from "../game/ml/participant.js";
   import { eventScheduler } from "../game/ml/event-scheduler.js";
   import { mlAgent } from "../game/ml/agent.js";
   import { dataLogger } from "../game/ml/data-logger.js";
@@ -135,11 +137,13 @@
     showIntroduction = entryScreen === "demonstration";
     showOnboarding = entryScreen === "onboarding";
     let participantId = `p_${crypto.randomUUID()}`;
+    let participantSource = "temporary_browser_pseudonym";
     try {
-      participantId = localStorage.getItem("algobot_participant_id") || participantId;
-      localStorage.setItem("algobot_participant_id", participantId);
-    } catch {
-      storageWarning = "Browser storage is unavailable. Export research data before closing this page.";
+      const participant = resolveParticipant(window.location.search, localStorage);
+      participantId = participant.id;
+      participantSource = participant.source;
+    } catch (error) {
+      storageWarning = `Participant code or storage could not be saved: ${error.message} Export data before closing.`;
     }
     tutorialPolicy.protected = TUTORIAL.active;
     ONBOARDING.isModalOpen = showOnboarding || showIntroduction;
@@ -150,10 +154,23 @@
     telemetry.setStage(resumedStage);
     mlAgent.resetSession();
     telemetry.setParticipantId(participantId);
+    telemetry.participantIdSource = participantSource;
+    const collectionContext = () => ({
+      phase: showIntroduction || !!docPreview ? "demonstration"
+        : document.hidden ? "hidden" : ONBOARDING.isModalOpen ? "modal"
+        : k.debug.timeScale <= 0 ? "paused" : TUTORIAL.active ? "guided_practice" : "gameplay",
+      game_speed: k.debug.timeScale,
+      farm_rows: CONFIG.FARM.rows,
+      farm_columns: CONFIG.FARM.columns,
+      robot_count: robots_state.length,
+      editor: current_editor === Editors.TEXT ? "text" : "blockly",
+    });
+    const stopCollection = startCollection({ tracker: telemetry, getContext: collectionContext });
 
     function saveSession() {
       if (saved) return;
       stopCodeRuns(robots_state, telemetry);
+      telemetry.endCollection();
       mlAgent.endSession();
       saved = dataLogger.saveSessionLight();
     }
@@ -171,7 +188,7 @@
           mlAgent.updateAndPredict(telemetry.currentStage).then(() => {
             if (disposed) return;
             const nextHint = dda.activeHint || "";
-            if (hintNotice.update(nextHint)) telemetry.recordHintShown(nextHint);
+            if (hintNotice.update(nextHint)) telemetry.recordHintShown(nextHint, "dda");
           }).catch(console.warn);
         }
       }, 5000);
@@ -183,6 +200,7 @@
       hintNotice.dispose();
       clearInterval(predictionTimer);
       clearInterval(saveTimer);
+      stopCollection();
       window.removeEventListener("beforeunload", saveSession);
       eventScheduler.stop();
       configureFarmEvents(farm_grid_index, { shouldRun: () => false });

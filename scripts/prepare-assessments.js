@@ -1,0 +1,10 @@
+import fs from "node:fs";
+import { readCollection, assessmentSamples } from "./collection-dataset.js";
+const [input, labels, output] = process.argv.slice(2);
+if (!input || !labels || !output) throw Error("Usage: node scripts/prepare-assessments.js <exports> <assessments.json> <NEW-output.json>");
+const data = readCollection(input);
+const assessments = JSON.parse(fs.readFileSync(labels, "utf8").replace(/^\uFEFF/, ""));
+if (!Array.isArray(assessments)) throw Error("Assessments must be a JSON array");
+const result = assessmentSamples(data.sessions, assessments);
+fs.writeFileSync(output, JSON.stringify({ ...result, source_sha256: data.source_sha256, assessments }, null, 2), { flag: "wx" });
+console.log(`${result.samples.length} usable samples; ${result.excluded.length} excluded. See ${output}.`);

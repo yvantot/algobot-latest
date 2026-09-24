@@ -29,6 +29,7 @@ export class TelemetryTracker {
     this.sessionId = crypto.randomUUID();
     this.sessionStartTime = Date.now();
     this.participantId = "anonymous";
+    this.participantIdSource = "unspecified";
 
     // Overall Metrics
     this.totalInterpreterSteps = 0;
@@ -89,6 +90,11 @@ export class TelemetryTracker {
     this.historyBuffer = [];
     this.bufferMaxSize = 20;
     this.featureSnapshots = [];
+    this.collectionEnabled = false;
+    this.collectionSnapshots = [];
+    this.collectionContext = { phase: "unknown" };
+    this.getCollectionContext = null;
+    this.sessionEndTime = null;
     this.emotionSamples = { count: 0, frustration: 0, flow: 0 };
 
     // Computed Scores (0.0 to 1.0)
@@ -114,6 +120,9 @@ export class TelemetryTracker {
     this.rawEvents.push({
       t: Date.now() - this.sessionStartTime,
       event: type,
+      quest_key: this.activeQuestKey,
+      stage: this.currentStage,
+      context: { ...(this.getCollectionContext?.() ?? this.collectionContext) },
       ...data,
     });
   }
@@ -232,18 +241,18 @@ export class TelemetryTracker {
   // --- New ML Pipeline Methods ---
 
   // Code run tracking (Feature 7)
-  recordCodeRun(success) {
+  recordCodeRun(success, details = {}) {
     this.codeRunCount++;
     if (success) this.codeRunSuccessCount++;
     this._recordQuestCodeRun();
-    this._logRawEvent("code_run", { success });
+    this._logRawEvent("code_run", { success, ...details });
   }
 
   // Hint tracking (Feature 8)
-  recordHintShown(hintText = "") {
+  recordHintShown(hintText = "", source = "unspecified") {
     this.hintsShown++;
     this._recordQuestHint();
-    this._logRawEvent("hint_shown", { hint: hintText });
+    this._logRawEvent("hint_shown", { hint: hintText, source });
   }
 
   // Editor mode (metadata only)
@@ -281,6 +290,7 @@ export class TelemetryTracker {
       codeRuns: 0,
       hintsShown: 0,
       completed: false,
+      contextAtStart: { ...(this.getCollectionContext?.() ?? this.collectionContext) },
       featureVectorAtStart: this.getFeatureVector(),
     };
     this.activeQuestKey = questKey;
@@ -415,6 +425,39 @@ export class TelemetryTracker {
   }
 
   // Sample current snapshot and append to sliding window buffer for LSTM
+  setCollectionContext(context) {
+    if (JSON.stringify(context) === JSON.stringify(this.collectionContext)) return;
+    this.collectionContext = structuredClone(context);
+    this._logRawEvent("collection_context");
+  }
+
+  sampleCollection() {
+    this.updateEmotionScores();
+    this.collectionSnapshots.push({
+      index: this.collectionSnapshots.length,
+      timestamp_ms: Date.now(),
+      t: Date.now() - this.sessionStartTime,
+      vector: this.getFeatureVector(),
+      stage: this.currentStage,
+      quest_key: this.activeQuestKey,
+      context: structuredClone(this.collectionContext),
+      counters: {
+        errors: this.errorCount, resets: this.resetCount, hints: this.hintsShown,
+        code_runs: this.codeRunCount, successful_runs: this.codeRunSuccessCount,
+        steps: this.totalInterpreterSteps, edits: this.codeEditsCount,
+        for_loops: this.forLoopExecutions, while_loops: this.whileLoopExecutions,
+        conditions: this.ifEvaluations, harvested: this.cropsHarvestedFresh,
+        spoiled: this.cropsSpoiled, quests_completed: this.questsCompleted,
+      },
+    });
+  }
+
+  endCollection(reason = "session_exit") {
+    if (this.sessionEndTime !== null) return;
+    this.sessionEndTime = Date.now();
+    this._logRawEvent("session_end", { reason });
+  }
+
   sampleHistory() {
     this.updateEmotionScores();
     const vector = this.getFeatureVector();
@@ -482,7 +525,7 @@ export class TelemetryTracker {
   }
 
   getFeatureSnapshots() {
-    return structuredClone(this.featureSnapshots);
+    return structuredClone(this.collectionEnabled ? this.collectionSnapshots : this.featureSnapshots);
   }
 
   getDDALog() {

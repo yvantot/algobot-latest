@@ -24,7 +24,7 @@
   $effect(() => { const id = key; hintLevel = 0; offered = false; idle = 0; lastProgress = 0; lastErrors = telemetry.errorCount || 0; });
   function showHint() {
     if (hintLevel < hints.length) {
-      telemetry.recordHintShown(hints[hintLevel]);
+      telemetry.recordHintShown(hints[hintLevel], "requested_quest_hint");
       hintLevel++;
     }
     offered = false;
