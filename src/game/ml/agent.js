@@ -1,13 +1,11 @@
-// Browser LSTM proficiency inference and greedy DQN policy selection.
+// Browser LSTM proficiency estimates with an explicit rule-based difficulty policy.
 // Missing/incompatible models or scaler use the explicit deterministic fallback.
 import * as tf from "@tensorflow/tfjs";
 import { telemetry } from "./telemetry.js";
 import { dda, DDA_ACTIONS } from "./dda.js";
-import { computeBootstrapAction } from "./dda-bootstrap.js";
+import { recentPolicyState, StableDifficultyPolicy } from "./recent-policy.js";
 import { FEATURE_COUNT, SEQUENCE_LENGTH, validateScaler, normalizeSequence } from "./model-input.js";
 
-const DQN_STATE_SIZE = 4;
-const DQN_ACTION_COUNT = 5;
 
 function validateModel(model, inputShape, outputSize) {
   if (model.inputs?.length !== 1 || model.outputs?.length !== 1 ||
@@ -29,27 +27,17 @@ export class MLDiffAgent {
     const response = await fetch("/models/lstm/scaler_params.json");
     if (!response.ok) throw new Error(`LSTM scaler unavailable (${response.status})`);
     return response.json();
-  }, loadPolicyMetadata = async () => {
-    const response = await fetch("/models/dqn/policy_metadata.json");
-    if (!response.ok) throw new Error(`DQN policy metadata unavailable (${response.status})`);
-    return response.json();
   } } = {}) {
     this._loadModel = loadModel;
     this._loadScaler = loadScaler;
-    this._loadPolicyMetadata = loadPolicyMetadata;
-    this.policyMetadata = null;
-    this.dqnDeploymentReady = false;
     this.isInitialized = false;
     this._initPromise = null;
     this._updatePromise = null;
     this.lstmModel = null;
-    this.dqnModel = null;
     this.scaler = null;
     this.mode = "bootstrap";
     this.pretrainedLSTM = false;
-    this.pretrainedDQN = false;
     this.fallbackReason = null;
-    this.epsilon = 0; // Deployment always uses the greedy policy.
     this.replayBuffer = [];
     this.replayBufferMax = 500;
     this._sessionGeneration = 0;
@@ -57,6 +45,7 @@ export class MLDiffAgent {
   }
 
   resetSession() {
+    this.difficultyPolicy = new StableDifficultyPolicy();
     this._sessionGeneration++;
     this._sessionEnded = false;
     this.sessionId = telemetry.getSessionId();
@@ -66,7 +55,6 @@ export class MLDiffAgent {
     this.prevMode = null;
     this.pendingCompletionReward = 0;
     this.predictedProficiency = 0.5;
-    this.predictedQValues = [0, 0, 0, 0, 0];
     this.lastAction = DDA_ACTIONS.NORMAL;
     dda.applyAction(DDA_ACTIONS.NORMAL);
   }
@@ -90,30 +78,12 @@ export class MLDiffAgent {
       failures.push(`LSTM: ${error.message}`);
     }
     try {
-      this.dqnModel = await this._loadModel("/models/dqn/model.json");
-      validateModel(this.dqnModel, [DQN_STATE_SIZE], DQN_ACTION_COUNT);
-      this.pretrainedDQN = true;
-    } catch (error) {
-      this.dqnModel?.dispose();
-      this.dqnModel = null;
-      failures.push(`DQN: ${error.message}`);
-    }
-    try {
       this.scaler = validateScaler(await this._loadScaler());
     } catch (error) {
       failures.push(`Scaler: ${error.message}`);
     }
-    try {
-      this.policyMetadata = await this._loadPolicyMetadata();
-      this.dqnDeploymentReady = this.policyMetadata?.deployment_ready === true &&
-        Array.from({ length: DQN_ACTION_COUNT }, (_, action) =>
-          this.policyMetadata.observed_action_counts?.[action]).every(count => Number.isInteger(count) && count > 0);
-      if (!this.dqnDeploymentReady) failures.push(`DQN policy withheld: ${this.policyMetadata?.reason ?? "insufficient action coverage or validation"}`);
-    } catch (error) {
-      failures.push(`DQN policy metadata: ${error.message}`);
-    }
     this.mode = this.pretrainedLSTM && this.scaler
-      ? (this.pretrainedDQN && this.dqnDeploymentReady ? "ml" : "hybrid")
+      ? "hybrid"
       : "bootstrap";
     this.fallbackReason = failures.join("; ") || null;
     this._loadReplayBuffer();
@@ -141,7 +111,7 @@ export class MLDiffAgent {
     const safeStage = Number.isInteger(stage) && stage >= 1 && stage <= 5 ? stage : telemetry.currentStage;
     telemetry.sampleHistory();
     try {
-      if (this.mode === "ml" || this.mode === "hybrid") return await this._mlUpdate(safeStage, generation);
+      if (this.mode === "hybrid") return await this._mlUpdate(safeStage, generation);
     } catch (error) {
       if (generation !== this._sessionGeneration || this._sessionEnded) return null;
       this.mode = "bootstrap";
@@ -153,11 +123,10 @@ export class MLDiffAgent {
 
   _bootstrapUpdate(stage) {
     this.predictedProficiency = 0.5; // Unknown; exports identify bootstrap mode.
-    this.predictedQValues = [0, 0, 0, 0, 0];
-    const action = computeBootstrapAction(telemetry, stage);
+    const action = this._chooseAction(stage, null);
     const state = [0.5, stage / 5, telemetry.frustrationScore, telemetry.flowScore];
     this._applyDecision(state, action, stage);
-    return { proficiency: null, qValues: null, action, mode: "bootstrap", fallbackReason: this.fallbackReason };
+    return { proficiency: null, action, mode: "bootstrap", fallbackReason: this.fallbackReason };
   }
 
   async _predictValues(model, values, shape) {
@@ -177,7 +146,7 @@ export class MLDiffAgent {
 
   async _mlUpdate(stage, generation) {
     const sequence = normalizeSequence(telemetry.getLSTMInputTensor(), this.scaler);
-    // Keep the DQN state from the same observation as the LSTM input, even if
+    // Keep decision diagnostics from the same observation as the LSTM input, even if
     // gameplay progresses while the GPU/backend resolves prediction.data().
     const frustration = telemetry.frustrationScore;
     const flow = telemetry.flowScore;
@@ -187,22 +156,17 @@ export class MLDiffAgent {
     }
     const proficiency = proficiencyValues[0];
     const state = [proficiency, stage / 5, frustration, flow];
-    if (this.mode === "hybrid") {
-      if (generation !== this._sessionGeneration || this._sessionEnded) return null;
-      this.predictedProficiency = proficiency;
-      this.predictedQValues = [0, 0, 0, 0, 0];
-      const action = computeBootstrapAction(telemetry, stage, proficiency);
-      this._applyDecision(state, action, stage);
-      return { proficiency, qValues: null, action, mode: "hybrid", policySource: "rules", proficiencySource: "lstm" };
-    }
-    const qValues = await this._predictValues(this.dqnModel, [state], [1, DQN_STATE_SIZE]);
-    if (qValues.length !== DQN_ACTION_COUNT) throw new Error("DQN must return five action values");
     if (generation !== this._sessionGeneration || this._sessionEnded) return null;
     this.predictedProficiency = proficiency;
-    this.predictedQValues = qValues;
-    const action = qValues.indexOf(Math.max(...qValues));
+    const action = this._chooseAction(stage, proficiency);
     this._applyDecision(state, action, stage);
-    return { proficiency, qValues, action, mode: "ml" };
+    return { proficiency, action, mode: "hybrid", policySource: "rules", proficiencySource: "lstm" };
+  }
+
+  _chooseAction(stage, proficiency) {
+    const now = Date.now() - telemetry.sessionStartTime;
+    this.recentPerformance = recentPolicyState(telemetry.rawEvents, now);
+    return this.difficultyPolicy.decide(this.recentPerformance, stage, proficiency, now);
   }
 
   _applyDecision(state, action, stage) {
@@ -210,9 +174,11 @@ export class MLDiffAgent {
     dda.applyAction(action, stage);
     telemetry.recordDDAAction(action, stage, {
       mode: this.mode,
-      policySource: this.mode === "ml" ? "dqn" : "rules",
+      policySource: "rules",
       proficiencySource: this.mode === "bootstrap" ? "unknown" : "lstm",
       proficiency: this.mode === "bootstrap" ? null : state[0],
+      policyVersion: "recent-window-v1",
+      recentPerformance: this.recentPerformance,
     });
     // Only record a hint when its presentation is confirmed by the UI.
     this._recordExperience(state, action, stage);
@@ -304,17 +270,14 @@ export class MLDiffAgent {
     return {
       mode: this.mode,
       pretrainedLSTM: this.pretrainedLSTM,
-      pretrainedDQN: this.pretrainedDQN,
       scalerLoaded: Boolean(this.scaler),
-      dqnDeploymentReady: this.dqnDeploymentReady,
-      policySource: this.mode === "ml" ? "dqn" : "rules",
+      policySource: "rules",
       proficiencySource: this.mode === "bootstrap" ? "unknown" : "lstm",
       fallbackReason: this.fallbackReason,
       episodeCount: this.episodeCount,
       replayBufferSize: this.replayBuffer.length,
       predictedProficiency: this.predictedProficiency,
       lastAction: this.lastAction,
-      epsilon: this.epsilon,
     };
   }
 }

@@ -21,6 +21,7 @@ const { MLDiffAgent, mlAgent } = await import("../src/game/ml/agent.js");
 const { DataLogger, normalizeStoredSession } = await import("../src/game/ml/data-logger.js");
 const { FEATURE_NAMES, normalizeSequence } = await import("../src/game/ml/model-input.js");
 const { dda, DDA_ACTIONS } = await import("../src/game/ml/dda.js");
+const { recentPolicyState, StableDifficultyPolicy } = await import("../src/game/ml/recent-policy.js");
 const { EventScheduler } = await import("../src/game/ml/event-scheduler.js");
 const { CropStates } = await import("../src/game/global/enum.js");
 const { CONFIG, CROP_DATA } = await import("../src/game/global/global.js");
@@ -149,14 +150,14 @@ test("loaded LSTM receives scaled current observation before action inference", 
   } } } });
   telemetry.totalInterpreterSteps = 2;
   const result = await agent.updateAndPredict(1);
-  assert.equal(result.mode, "ml");
-  assert.equal(result.action, DDA_ACTIONS.CHALLENGE);
+  assert.equal(result.mode, "hybrid");
+  assert.equal(result.action, DDA_ACTIONS.SCAFFOLD);
   assert.ok(observed[0][19][1] > 0);
   assert.equal(observed[0][19][1], Math.fround(telemetry.getFeatureSnapshots()[0].vector[1] / 0.05));
   assert.equal(telemetry.getFeatureSnapshots().length, 1);
 });
 
-test("unsupported DQN policy uses normalized LSTM with rules and honest provenance", async () => {
+test("LSTM uses rules regardless of legacy policy metadata", async () => {
   const { agent, dqn } = makeAgent({ policy: { deployment_ready: false, observed_action_counts: { 0: 40 }, reason: "only Normal observed" } });
   dqn.predict = () => { throw new Error("Unsupported DQN must not run"); };
   const result = await agent.updateAndPredict(1);
@@ -165,14 +166,14 @@ test("unsupported DQN policy uses normalized LSTM with rules and honest provenan
   assert.equal(result.proficiencySource, "lstm");
   assert.equal(agent.getAgentState().policySource, "rules");
   assert.equal(telemetry.ddaActionsLog[0].mode, "hybrid");
-  assert.ok(agent.fallbackReason.includes("only Normal"));
+  assert.equal(agent.fallbackReason, null);
 });
 
-test("deployment flag alone cannot authorize a DQN lacking observed actions", async () => {
+test("legacy deployment metadata cannot enable a removed DQN", async () => {
   const { agent } = makeAgent({ policy: { deployment_ready: true, observed_action_counts: { 0: 40 } } });
   await agent.init();
   assert.equal(agent.mode, "hybrid");
-  assert.equal(agent.dqnDeploymentReady, false);
+  assert.equal(agent.dqnModel, undefined);
 });
 
 test("missing scaler falls back to deterministic rules", async () => {
@@ -309,8 +310,8 @@ test("unavailable model artifacts still initialize a functioning deterministic c
     loadScaler: async () => scaler,
     loadPolicyMetadata: async () => { throw new Error("metadata unavailable"); },
   });
-  telemetry.errorCount = 7;
-  telemetry.resetCount = 4;
+  for(let i=0;i<7;i++) telemetry.recordError("test");
+  for(let i=0;i<4;i++) telemetry.recordCodeReset();
   const result = await agent.updateAndPredict();
   assert.equal(agent.isInitialized, true);
   assert.equal(result.mode, "bootstrap");
@@ -318,13 +319,13 @@ test("unavailable model artifacts still initialize a functioning deterministic c
   assert.match(agent.fallbackReason, /404 unavailable/);
 });
 
-test("missing policy metadata enables only LSTM and rule policy", async () => {
+test("policy metadata is no longer fetched", async () => {
   const { agent } = makeAgent();
   agent._loadPolicyMetadata = async () => { throw new Error("metadata missing"); };
   const result = await agent.updateAndPredict();
   assert.equal(result.mode, "hybrid");
-  assert.equal(agent.dqnDeploymentReady, false);
-  assert.match(agent.fallbackReason, /metadata missing/);
+  assert.equal(agent.dqnModel, undefined);
+  assert.equal(agent.fallbackReason, null);
 });
 
 test("scheduled events respect the gameplay pause predicate while explicit developer force remains available", () => {
@@ -379,4 +380,32 @@ test("pending sessions are retained alongside corrupt storage recovery without o
   assert.ok(exportData.sessions.some(session => session.session_id === sessionA));
   assert.equal(exportData.unparsed_stored_sessions_backup, "{broken");
   assert.equal(localStorage.getItem("algobot_sessions"), "{broken");
+});
+
+test("rule window forgets old mistakes without changing LSTM features", () => {
+  const events = [...Array.from({length:7},()=>({t:0,event:'error'})),...Array.from({length:4},()=>({t:0,event:'code_reset'}))];
+  assert.ok(recentPolicyState(events,1000).frustrationScore>.5);
+  assert.equal(recentPolicyState(events,181000).frustrationScore,0);
+});
+
+test("difficulty recovers after confirmed improvement and does not immediately escalate", () => {
+  const policy=new StableDifficultyPolicy();
+  const struggling={errorCount:7,resetCount:4,frustrationScore:.6,flowScore:.2,successfulRuns:0};
+  const recovered={errorCount:0,resetCount:0,frustrationScore:0,flowScore:.5,successfulRuns:1};
+  assert.equal(policy.decide(struggling,1,.5,0),DDA_ACTIONS.SCAFFOLD);
+  assert.equal(policy.decide(recovered,1,.5,10000),DDA_ACTIONS.SCAFFOLD);
+  assert.equal(policy.decide(recovered,1,.5,61000),DDA_ACTIONS.NORMAL);
+  const strong={...recovered,flowScore:1,successfulRuns:3};
+  assert.equal(policy.decide(strong,1,.9,70000),DDA_ACTIONS.NORMAL);
+  assert.equal(policy.decide(strong,1,.9,122000),DDA_ACTIONS.CHALLENGE);
+});
+
+test("agent fetches only LSTM and scaler, with no DQN or policy metadata",async()=>{
+  const paths=[];
+  const agent=new MLDiffAgent({loadModel:async p=>{paths.push(p);return fakeModel([20,10],1,[.8]);},loadScaler:async()=>scaler,
+    loadPolicyMetadata:async()=>{throw Error('Must not fetch legacy metadata');}});
+  await agent.init();
+  assert.deepEqual(paths,['/models/lstm/model.json']);
+  assert.equal(agent.mode,'hybrid');
+  assert.equal(agent.fallbackReason,null);
 });

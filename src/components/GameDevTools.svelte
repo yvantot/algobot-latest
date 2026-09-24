@@ -1410,7 +1410,7 @@
             <span
               class="font-bold {mlAgent.mode === 'ml'
                 ? 'text-emerald-400'
-                : 'text-amber-400'}">{mlAgent.mode === "hybrid" ? "LSTM + Rules" : mlAgent.mode === "ml" ? "LSTM + DQN" : "Rules"}</span
+                : 'text-amber-400'}">{mlAgent.mode === "hybrid" ? "LSTM + Rules" : "Rules"}</span
             >
           </div>
           <div class="flex justify-between">

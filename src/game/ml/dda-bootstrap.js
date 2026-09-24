@@ -1,6 +1,6 @@
 // Bootstrap DDA Controller
 // Deterministic adaptive difficulty mechanism used during the data collection phase.
-// Produces the same 5-action output interface as the DQN, using handcrafted thresholds
+// Selects five difficulty actions using explicit thresholds
 // derived from telemetry scores. This is an intentional research phase — not a replacement
 // for ML — that generates representative gameplay data before models are trained.
 

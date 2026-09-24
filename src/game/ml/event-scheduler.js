@@ -1,4 +1,4 @@
-// Periodic DDA events: rules, hybrid LSTM/rules, or a validated DQN policy.
+// Periodic DDA events: rules or LSTM-assisted rules.
 // Rain helps plants; challenge events choose eligible pests or fire.
 import { farm_grid_index } from "../game.js";
 import { CONFIG, PLAYER_DATA } from "../global/global.js";

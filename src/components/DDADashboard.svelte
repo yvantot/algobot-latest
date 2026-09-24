@@ -26,7 +26,6 @@
 
   let proficiency = $state(0.5);
   let actionId = $state(0);
-  let qValues = $state([0, 0, 0, 0, 0]);
   let frustration = $state(0);
   let flow = $state(0.5);
   let stage = $state(1);
@@ -34,14 +33,12 @@
   let agentMode = $state("bootstrap");
   let sessionCount = $state(0);
   let replaySize = $state(0);
-  let policyReason = $state("");
 
   // Poll DDA + telemetry state every 2 seconds for dashboard display
   $effect(() => {
     const interval = setInterval(() => {
       proficiency = mlAgent.predictedProficiency;
       actionId = mlAgent.lastAction;
-      qValues = mlAgent.predictedQValues || [0, 0, 0, 0, 0];
       frustration = telemetry.frustrationScore;
       flow = telemetry.flowScore;
       stage = telemetry.currentStage;
@@ -49,7 +46,6 @@
       agentMode = mlAgent.mode || "bootstrap";
       sessionCount = dataLogger.getSessionCount();
       replaySize = mlAgent.replayBuffer?.length || 0;
-      policyReason = mlAgent.policyMetadata?.reason || "";
     }, 2000);
     return () => clearInterval(interval);
   });
@@ -131,7 +127,7 @@
             ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
             : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}"
         >
-          {agentMode === "ml" ? "LSTM + DQN" : agentMode === "hybrid" ? "LSTM + Rules" : "Rules"}
+          {agentMode === "hybrid" ? "LSTM + Rules" : "Rules"}
         </span>
       </div>
       <button
@@ -155,8 +151,7 @@
       <!-- CS1 Curriculum Stage -->
       {#if agentMode === "hybrid"}
         <p class="text-amber-200 text-xs">
-          LSTM estimates proficiency; rules select difficulty. The DQN policy is not deployed.
-          {policyReason}
+          LSTM estimates gameplay proficiency; rules select difficulty.
         </p>
       {/if}
       <div class="flex flex-col gap-1">
@@ -238,7 +233,7 @@
         >
           <span
             class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
-            >Active DDA Action ({agentMode === "ml" ? "DQN" : "Rules"})</span
+            >Active DDA Action (Rules)</span
           >
           <span
             class="font-bold"
@@ -254,48 +249,6 @@
             <span>Fire: ×{ddaState.fireSpawnMultiplier.toFixed(1)}</span>
           </div>
         </div>
-      {/if}
-
-      <!-- DQN Q-Values -->
-      {#if agentMode === "ml"}
-      <div class="flex flex-col gap-1">
-        <span
-          class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
-          >DQN Q-Values</span
-        >
-        <div class="flex flex-col gap-0.5">
-          {#each qValues as q, i}
-            {@const labels = [
-              "Normal",
-              "Scaffold",
-              "Challenge",
-              "Greedy Guide",
-              "State Opt.",
-            ]}
-            <div class="flex items-center gap-2">
-              <span
-                class="text-[9px] w-20 shrink-0"
-                style="color: {i === actionId ? ACTION_COLORS[i] : '#94a3b8'}"
-                >{labels[i]}</span
-              >
-              <div class="flex-1 bg-gray-800 rounded h-1 overflow-hidden">
-                <div
-                  class="h-1 rounded transition-all"
-                  style="width: {Math.max(
-                    0,
-                    Math.min(100, (q + 1) * 50),
-                  )}%; background-color: {i === actionId
-                    ? ACTION_COLORS[i]
-                    : '#475569'}"
-                ></div>
-              </div>
-              <span class="text-[9px] text-gray-400 w-10 text-right"
-                >{q.toFixed(2)}</span
-              >
-            </div>
-          {/each}
-        </div>
-      </div>
       {/if}
 
       <!-- Telemetry Counters -->

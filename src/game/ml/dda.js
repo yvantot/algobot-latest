@@ -1,5 +1,5 @@
 // Dynamic Difficulty Adjustment (DDA) Controller
-// Modulates game mechanics in real-time based on DQN policy recommendations:
+// Modulates game mechanics in real-time based on LSTM-assisted rule decisions:
 // 1. Crop Growth Speeds & Spoilage Windows
 // 2. Pest & Fire Event Frequencies
 // 3. Adaptive Pedagogical Scaffolding (Hints & Visual Priority Pulses)
