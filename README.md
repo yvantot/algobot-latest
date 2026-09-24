@@ -2,7 +2,9 @@
 
 Algobot is a browser game for first-year computer science students. Players program farm robots using Blockly blocks or JavaScript, progressing through sequencing, conditionals and loops. Greedy decisions and state optimization are additional DDA concepts whose formal curriculum stages remain incomplete. Svelte 5 provides the interface, KAPLAY draws the farm, JS-Interpreter executes student code, and TensorFlow.js runs a saved LSTM model locally.
 
-The audited deployment uses **LSTM proficiency estimates plus explicit difficulty rules**. The saved DQN is preserved but gated: its historical training experiences contain only the Normal action. Neither learning improvement nor a successful learned DQN policy has been demonstrated.
+The deployment uses **LSTM proficiency estimates plus explicit difficulty rules**. DQN has been removed from live inference and the research dashboard. Its original artifacts remain only to preserve the research record. Neither student learning improvement nor reliable three-category proficiency discrimination has been demonstrated.
+
+The [September 24 model experiments](documentation/LSTM_IMPROVEMENT.md) provide a Node/TensorFlow.js training workflow, 240 explicitly simulated training scenarios, participant-separated evaluation, and two saved experimental LSTMs. Neither candidate beat the mean baseline, so deployed weights remain unchanged. Rule decisions now use recent gameplay and confirmation before increasing difficulty; the trained LSTM's feature definitions remain unchanged.
 
 ## Run and verify
 
