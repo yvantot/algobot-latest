@@ -3,6 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { inspectCollection } from "../src/game/ml/collection-quality.js";
 import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
+import { RESEARCH_SCHEMA, RESEARCH_FEATURES, recentSequence } from "../src/game/ml/research-features.js";
 
 export function readCollection(input) {
   const files = fs.statSync(input).isDirectory()
@@ -13,10 +14,26 @@ export function readCollection(input) {
     const bytes = fs.readFileSync(file);
     source_sha256[path.basename(file)] = crypto.createHash("sha256").update(bytes).digest("hex");
     const data = JSON.parse(bytes.toString().replace(/^\uFEFF/, ""));
+    if (data.data_quality?.stored_sessions_fully_readable === false) throw Error(`${file}: export contains unreadable storage; recover it before training`);
+    if (data.dataset_version === "v4" && !data.integrity) throw Error(`${file}: v4 export has no integrity manifest`);
+    if (data.integrity) {
+      if (data.integrity.algorithm !== "SHA-256" || !Array.isArray(data.sessions) ||
+          data.integrity.sessions?.length !== data.sessions.length) throw Error(`${file}: invalid integrity manifest`);
+      data.sessions.forEach((s, i) => {
+        const hash = crypto.createHash("sha256").update(JSON.stringify(s)).digest("hex");
+        if (data.integrity.sessions[i].session_id !== s.session_id || data.integrity.sessions[i].sha256 !== hash) throw Error(`${file}: session checksum mismatch`);
+      });
+    }
     for (const session of data.sessions ?? [data]) {
-      if (!session.session_id) continue;
+      if (!session?.session_id) throw Error(`${file}: record has no session_id; use canonical dataset exports only`);
       const old = sessions.get(session.session_id);
       if (old && old.student_id !== session.student_id) throw Error(`Conflicting participant IDs for ${session.session_id}`);
+      if (old) for (const key of ["raw_events", "feature_timeseries"]) {
+        const a = old[key] ?? [], b = session[key] ?? [];
+        for (let i = 0; i < Math.min(a.length, b.length); i++) {
+          if (JSON.stringify(a[i]) !== JSON.stringify(b[i])) throw Error(`Conflicting ${key} history for ${session.session_id}; do not merge edited exports`);
+        }
+      }
       // Periodic downloads overlap. Keep the most complete observation, not the
       // one with the most completed missions (which would discard failed work).
       const rank = s => (s.raw_events?.length ?? 0) + (s.feature_timeseries?.length ?? 0);
@@ -34,7 +51,8 @@ export function auditCollection(sessions) {
     reports, note: "A clean capture audit does not establish model accuracy or adequate participant diversity." };
 }
 
-export function assessmentSamples(sessions, assessments) {
+export function assessmentSamples(sessions, assessments, { schema = "10f" } = {}) {
+  if (!["10f", RESEARCH_SCHEMA].includes(schema)) throw Error("Unsupported feature schema");
   const samples = [], excluded = [], ids = new Set();
   const index = new Map(sessions.map(s => [s.session_id, s]));
   for (const a of assessments) {
@@ -61,14 +79,20 @@ export function assessmentSamples(sessions, assessments) {
           !Number.isFinite(s.timestamp_ms) || (i && (s.timestamp_ms <= window[i-1].timestamp_ms || s.timestamp_ms - window[i-1].timestamp_ms > 7500)))) {
       reject("requires_20_contiguous_normal_speed_gameplay_snapshots_immediately_before_assessment"); continue;
     }
+    let x = window.map(s => [...s.vector]);
+    const recentWindow = snapshots.slice(-21);
+    if (schema === RESEARCH_SCHEMA) {
+      try { x = recentSequence(recentWindow); }
+      catch (error) { reject(error.message); continue; }
+    }
     samples.push({ source_type: "recorded", label_source: "independent_scored_task",
       student_id: a.student_id, session_id: a.session_id, assessment_id: a.assessment_id,
       task_id: a.task_id, rubric_version: a.rubric_version, assessor_id: a.assessor_id,
-      input_start_ms: window[0].timestamp_ms, input_end_ms: window.at(-1).timestamp_ms,
+      input_start_ms: (schema === RESEARCH_SCHEMA ? recentWindow : window)[0].timestamp_ms, input_end_ms: window.at(-1).timestamp_ms,
       assessment_start_ms: cutoff, real_timesteps: 20, y: a.score / a.max_score,
-      x: window.map(s => [...s.vector]) });
+      x });
   }
-  return { samples, excluded, feature_names: FEATURE_NAMES, feature_schema: "10f",
+  return { samples, excluded, feature_names: schema === RESEARCH_SCHEMA ? RESEARCH_FEATURES : FEATURE_NAMES, feature_schema: schema,
     target: "Independent task score / maximum; not the legacy gameplay proxy",
     deployment_ready: false };
 }

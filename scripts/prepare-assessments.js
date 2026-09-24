@@ -1,10 +1,13 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
+import { RESEARCH_SCHEMA } from "../src/game/ml/research-features.js";
 import { readCollection, assessmentSamples } from "./collection-dataset.js";
 const [input, labels, output] = process.argv.slice(2);
 if (!input || !labels || !output) throw Error("Usage: node scripts/prepare-assessments.js <exports> <assessments.json> <NEW-output.json>");
 const data = readCollection(input);
 const assessments = JSON.parse(fs.readFileSync(labels, "utf8").replace(/^\uFEFF/, ""));
 if (!Array.isArray(assessments)) throw Error("Assessments must be a JSON array");
-const result = assessmentSamples(data.sessions, assessments);
-fs.writeFileSync(output, JSON.stringify({ ...result, source_sha256: data.source_sha256, assessments }, null, 2), { flag: "wx" });
+const result = assessmentSamples(data.sessions, assessments, { schema: RESEARCH_SCHEMA });
+const assessments_sha256 = crypto.createHash("sha256").update(fs.readFileSync(labels)).digest("hex");
+fs.writeFileSync(output, JSON.stringify({ ...result, source_sha256: data.source_sha256, assessments_sha256, assessments }, null, 2), { flag: "wx" });
 console.log(`${result.samples.length} usable samples; ${result.excluded.length} excluded. See ${output}.`);

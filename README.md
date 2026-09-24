@@ -8,7 +8,8 @@ The previous datasets and experimental outputs have been [removed for a fresh co
 
 ## Run and verify
 
-Before collecting more players, follow the [collection and scored-task protocol](documentation/DATA_COLLECTION_PROTOCOL.md). Version 3 exports sample gameplay independently of DDA, retain unfinished attempts and distinguish stopped programs from errors. The protocol includes assigned participant codes, a draft independent assessment, export audits and a separate training path for scored-task labels.
+Before collecting more players, follow the [collection and scored-task protocol](documentation/DATA_COLLECTION_PROTOCOL.md). Exports sample gameplay independently of DDA, retain unfinished attempts and distinguish stopped programs from errors. The protocol includes assigned participant codes and a draft independent assessment.
+The [current local model workflow](documentation/MODEL_WORKFLOW.md) uses one v4 JSON export with integrity checks, recent-activity features, a frozen participant split, validation-selected LSTM and dense baselines, a separate held-out evaluation, and a reviewable model bundle. Use this workflow for new training; the earlier experiment script remains for historical reproduction.
 
 From the repository root, with a Node version supported by the installed Vite package:
 
