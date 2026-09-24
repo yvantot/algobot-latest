@@ -8,6 +8,7 @@ const output=process.argv[2];
 if(!output || fs.existsSync(output)) throw Error('Supply a NEW experiment output directory; existing evidence is never overwritten');
 const assessmentInput=process.argv[3];
 const data=assessmentInput ? JSON.parse(fs.readFileSync(assessmentInput,'utf8')) : recoverSamples('training/data/raw');
+if (!data.samples?.length) throw Error('No recorded training samples. Collect new gameplay and prepare scored assessments first.');
 if (assessmentInput && (!data.samples?.length || data.samples.some(s=>s.source_type!=='recorded' ||
     s.label_source!=='independent_scored_task' || !Number.isFinite(s.y) || s.y<0 || s.y>1))) {
   throw Error('Assessment training requires recorded independently scored samples');

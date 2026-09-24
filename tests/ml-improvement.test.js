@@ -4,8 +4,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {recoverSamples,simulateSamples,participantFolds,fitScaler,normalize} from '../scripts/ml-experiment-data.js';
-import {loadDeployedModel} from '../scripts/model-artifacts.js';
-import * as tf from '@tensorflow/tfjs';
 
 test('recovery excludes future observations and deduplicates session exports',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'algobot-data-'));
@@ -37,13 +35,4 @@ test('real folds separate participants and scaler never sees validation or test 
   const scaler=fitScaler(samples.slice(0,1));
   assert.deepEqual(scaler.feature_max,Array(10).fill(0));
   assert.equal(normalize(samples.slice(2),scaler)[0][0][0],2);
-});
-
-test('saved experiment candidates load through browser-compatible TFJS artifacts',async()=>{
-  for(const name of ['small_lstm','simulation_pretrained']) {
-    const m=await loadDeployedModel(`training/experiments/2026-09-24-lstm/${name}/model.json`);
-    const input=tf.zeros([1,20,10]);let output;
-    try {output=m.predict(input);assert.ok(Array.from(await output.data()).every(v=>Number.isFinite(v)&&v>=0&&v<=1));}
-    finally {tf.dispose([input,output]);m.dispose();}
-  }
 });

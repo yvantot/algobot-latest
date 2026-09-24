@@ -2,6 +2,8 @@
 
 ## Outcome
 
+Historical report: the referenced datasets, candidate models and evaluation outputs were retired after this experiment. Recover them from Git tag `checkpoint/pre-data-reset-2026-09-24`. New collection starts with empty data directories; these results do not describe the next dataset.
+
 DQN no longer loads, predicts, or selects actions. The dashboard no longer displays Q-values. Old DQN files, training scripts and replay exports remain historical artifacts; they are not part of the active policy. The existing replay export format remains readable and records difficulty transitions for compatibility, not online reinforcement learning.
 
 The deployed LSTM is unchanged. Two alternative LSTMs were trained and evaluated, but neither earned promotion. The backend/server is deferred.

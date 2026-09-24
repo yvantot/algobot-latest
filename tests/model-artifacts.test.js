@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import * as tf from '@tensorflow/tfjs';
 import { loadDeployedModel } from '../scripts/model-artifacts.js';
 
@@ -31,7 +32,7 @@ test('deployed LSTM and DQN weights load, predict finite values and release tens
 });
 
 test('deployed normalization is identical to the preserved model training normalization', async () => {
-  const original = JSON.parse(await readFile('training/data/processed/scaler_params.json', 'utf8'));
+  const original = JSON.parse(execFileSync('git', ['show', '008bc124204c7ff47e90e051625dcbb2bba22cd4:training/data/processed/scaler_params.json'], { encoding: 'utf8' }));
   const deployed = JSON.parse(await readFile('public/models/lstm/scaler_params.json', 'utf8'));
   assert.deepEqual(deployed, original);
 });

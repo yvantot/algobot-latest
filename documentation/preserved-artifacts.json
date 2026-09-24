@@ -1,5 +1,5 @@
 {
-  "purpose": "Verify original samples, processed arrays, trained models and historical reports remain unchanged during the reliability audit.",
+  "purpose": "Verify retained legacy models and retired research artifacts in Git history after the requested data reset.",
   "baseline_commit": "008bc124204c7ff47e90e051625dcbb2bba22cd4",
   "recorded_at": "2026-09-14",
   "files": [
@@ -23,147 +23,177 @@
     },
     {
       "sha256": "0733b883c1aa1969781faad6edfdbff241715bf02d6c86504175a54ec00b5ecc",
-      "path": "training/data/processed/X_test.npy"
+      "path": "training/data/processed/X_test.npy",
+      "storage": "git_history"
     },
     {
       "sha256": "98e252263c017b8724bad17c04170c8d2da35f5250c22cd5aae874a4fea505b2",
-      "path": "training/data/processed/X_train.npy"
+      "path": "training/data/processed/X_train.npy",
+      "storage": "git_history"
     },
     {
       "sha256": "8f0bc3fc4a1bbfe0942cbd7303c0b33954eb20bcb03abd8677ab8a709916a4ff",
-      "path": "training/data/processed/X_val.npy"
+      "path": "training/data/processed/X_val.npy",
+      "storage": "git_history"
     },
     {
       "sha256": "1f2661dabec37f18dcd34dc65235f589e98fbe008e1804e12e93d8d9035127b8",
       "path": "training/data/processed/dataset_stats.json",
-      "sha256_lf": "da33f49e7114a8db913428e364515a252489e9bfa6187d7f187016fe4dd7ad12"
+      "sha256_lf": "da33f49e7114a8db913428e364515a252489e9bfa6187d7f187016fe4dd7ad12",
+      "storage": "git_history"
     },
     {
       "sha256": "1e3812632da34b04c75f746ef0fed878d34ea115b67990db5b35ea7ed2118dc8",
       "path": "training/data/processed/scaler_params.json",
-      "sha256_lf": "b429bc7feac9811641ed65c9f64b316b571d27298a7326c27fbe2dbaab143327"
+      "sha256_lf": "b429bc7feac9811641ed65c9f64b316b571d27298a7326c27fbe2dbaab143327",
+      "storage": "git_history"
     },
     {
       "sha256": "d667578dee28cc0ba2b4a083f3d34cec34151146d458b96038ef7fe06f979aea",
-      "path": "training/data/processed/y_test.npy"
+      "path": "training/data/processed/y_test.npy",
+      "storage": "git_history"
     },
     {
       "sha256": "26c0726ad384447209296eb279b7aed31ce504914a9d1fb4a4eed0366124e335",
-      "path": "training/data/processed/y_train.npy"
+      "path": "training/data/processed/y_train.npy",
+      "storage": "git_history"
     },
     {
       "sha256": "6635bd2ceddf299b7de2cd49232c076099b333755509f2b0e3f7d02112e5de35",
-      "path": "training/data/processed/y_val.npy"
+      "path": "training/data/processed/y_val.npy",
+      "storage": "git_history"
     },
     {
       "sha256": "6d483da99889967a7a2ef6e6cdad1396785aae211fe12bf231a084b4d1d630b1",
       "path": "training/data/raw/algobot_dataset_v1_1786593288166.json",
-      "sha256_lf": "6d483da99889967a7a2ef6e6cdad1396785aae211fe12bf231a084b4d1d630b1"
+      "sha256_lf": "6d483da99889967a7a2ef6e6cdad1396785aae211fe12bf231a084b4d1d630b1",
+      "storage": "git_history"
     },
     {
       "sha256": "d20aaf4ebb672598963c079a5a46324a1b290e1a1d12af6137b2ff25ab9c70a7",
       "path": "training/data/raw/algobot_dataset_v1_1786593336869.json",
-      "sha256_lf": "d20aaf4ebb672598963c079a5a46324a1b290e1a1d12af6137b2ff25ab9c70a7"
+      "sha256_lf": "d20aaf4ebb672598963c079a5a46324a1b290e1a1d12af6137b2ff25ab9c70a7",
+      "storage": "git_history"
     },
     {
       "sha256": "e414ce66037efb73da6f7e3e272fb94c7cf1f7a7bfec35bc4ac8207dd1845b91",
       "path": "training/data/raw/algobot_dataset_v1_1786594362714.json",
-      "sha256_lf": "e414ce66037efb73da6f7e3e272fb94c7cf1f7a7bfec35bc4ac8207dd1845b91"
+      "sha256_lf": "e414ce66037efb73da6f7e3e272fb94c7cf1f7a7bfec35bc4ac8207dd1845b91",
+      "storage": "git_history"
     },
     {
       "sha256": "d11b7d67fbd5c5b31f57c070cff846418f89ffdcb96ae78c129222c1a27dc209",
       "path": "training/data/raw/algobot_dataset_v1_1786594546205.json",
-      "sha256_lf": "d11b7d67fbd5c5b31f57c070cff846418f89ffdcb96ae78c129222c1a27dc209"
+      "sha256_lf": "d11b7d67fbd5c5b31f57c070cff846418f89ffdcb96ae78c129222c1a27dc209",
+      "storage": "git_history"
     },
     {
       "sha256": "3bebcbdab1154036792822444db1f1dfc8ecfb6644764926f91cb490364c8ef6",
       "path": "training/data/raw/algobot_dataset_v1_1786595452307.json",
-      "sha256_lf": "3bebcbdab1154036792822444db1f1dfc8ecfb6644764926f91cb490364c8ef6"
+      "sha256_lf": "3bebcbdab1154036792822444db1f1dfc8ecfb6644764926f91cb490364c8ef6",
+      "storage": "git_history"
     },
     {
       "sha256": "bf5a32d252fe42038b5ac46caf45abe5d5f078a5a21096beba41a34a212f922c",
       "path": "training/data/raw/algobot_dataset_v1_1786602425027.json",
-      "sha256_lf": "bf5a32d252fe42038b5ac46caf45abe5d5f078a5a21096beba41a34a212f922c"
+      "sha256_lf": "bf5a32d252fe42038b5ac46caf45abe5d5f078a5a21096beba41a34a212f922c",
+      "storage": "git_history"
     },
     {
       "sha256": "d29e49613da1fdb3e42de7a5bd1e5a76dedca71459bf3d1856b822f0fe794b36",
       "path": "training/data/raw/algobot_dataset_v1_1786602517207.json",
-      "sha256_lf": "d29e49613da1fdb3e42de7a5bd1e5a76dedca71459bf3d1856b822f0fe794b36"
+      "sha256_lf": "d29e49613da1fdb3e42de7a5bd1e5a76dedca71459bf3d1856b822f0fe794b36",
+      "storage": "git_history"
     },
     {
       "sha256": "042e90f859e4ea2cff7d094bbdc4804bc918ea38d0503e1c99235c5b61ee57bf",
       "path": "training/data/raw/algobot_quests_v1_1786593289161.csv",
-      "sha256_lf": "042e90f859e4ea2cff7d094bbdc4804bc918ea38d0503e1c99235c5b61ee57bf"
+      "sha256_lf": "042e90f859e4ea2cff7d094bbdc4804bc918ea38d0503e1c99235c5b61ee57bf",
+      "storage": "git_history"
     },
     {
       "sha256": "5d80b0795a1d18ae0880be52bcc25253e35f9a9c2c5df422e3916a537206f0ef",
       "path": "training/data/raw/algobot_quests_v1_1786593337754.csv",
-      "sha256_lf": "5d80b0795a1d18ae0880be52bcc25253e35f9a9c2c5df422e3916a537206f0ef"
+      "sha256_lf": "5d80b0795a1d18ae0880be52bcc25253e35f9a9c2c5df422e3916a537206f0ef",
+      "storage": "git_history"
     },
     {
       "sha256": "e7bdc3405da276d627f83ae1d0bde93875949a8200da87b2cd64b04b99fa5fb4",
       "path": "training/data/raw/algobot_quests_v1_1786594363641.csv",
-      "sha256_lf": "e7bdc3405da276d627f83ae1d0bde93875949a8200da87b2cd64b04b99fa5fb4"
+      "sha256_lf": "e7bdc3405da276d627f83ae1d0bde93875949a8200da87b2cd64b04b99fa5fb4",
+      "storage": "git_history"
     },
     {
       "sha256": "305528f499d56dcf42210f25e5fa9963511516cd65999c556e7b765392cfbde0",
       "path": "training/data/raw/algobot_quests_v1_1786594547348.csv",
-      "sha256_lf": "305528f499d56dcf42210f25e5fa9963511516cd65999c556e7b765392cfbde0"
+      "sha256_lf": "305528f499d56dcf42210f25e5fa9963511516cd65999c556e7b765392cfbde0",
+      "storage": "git_history"
     },
     {
       "sha256": "58cf2ca857c7f2954459a4b0881b39ac6d9c818747c4a74ca3b5d2385b649ae6",
       "path": "training/data/raw/algobot_quests_v1_1786595453461.csv",
-      "sha256_lf": "58cf2ca857c7f2954459a4b0881b39ac6d9c818747c4a74ca3b5d2385b649ae6"
+      "sha256_lf": "58cf2ca857c7f2954459a4b0881b39ac6d9c818747c4a74ca3b5d2385b649ae6",
+      "storage": "git_history"
     },
     {
       "sha256": "db29c0bdd772b11e2aac27b6d1ea286313f3ef34451a8b559cbaf10dc9fe2ed8",
       "path": "training/data/raw/algobot_quests_v1_1786602423831.csv",
-      "sha256_lf": "db29c0bdd772b11e2aac27b6d1ea286313f3ef34451a8b559cbaf10dc9fe2ed8"
+      "sha256_lf": "db29c0bdd772b11e2aac27b6d1ea286313f3ef34451a8b559cbaf10dc9fe2ed8",
+      "storage": "git_history"
     },
     {
       "sha256": "61611e2c6e1acffbd23ce6329f9f7f9121656df7422d43db749ff3e259b627ca",
       "path": "training/data/raw/algobot_quests_v1_1786602518206.csv",
-      "sha256_lf": "61611e2c6e1acffbd23ce6329f9f7f9121656df7422d43db749ff3e259b627ca"
+      "sha256_lf": "61611e2c6e1acffbd23ce6329f9f7f9121656df7422d43db749ff3e259b627ca",
+      "storage": "git_history"
     },
     {
       "sha256": "2815436065d8c459ec51f055eb2e2de36d2de19c910ce06ef8df2bbcc9f3c358",
       "path": "training/data/raw/algobot_replay_buffer_1786593290542.json",
-      "sha256_lf": "2815436065d8c459ec51f055eb2e2de36d2de19c910ce06ef8df2bbcc9f3c358"
+      "sha256_lf": "2815436065d8c459ec51f055eb2e2de36d2de19c910ce06ef8df2bbcc9f3c358",
+      "storage": "git_history"
     },
     {
       "sha256": "4dde6c387f56b13b13623214c2a0423efc67bfe8029c5ef04135c5a3613f2bae",
       "path": "training/data/raw/algobot_replay_buffer_1786593338630.json",
-      "sha256_lf": "4dde6c387f56b13b13623214c2a0423efc67bfe8029c5ef04135c5a3613f2bae"
+      "sha256_lf": "4dde6c387f56b13b13623214c2a0423efc67bfe8029c5ef04135c5a3613f2bae",
+      "storage": "git_history"
     },
     {
       "sha256": "780f4202f9ddc2e7e16b116a8cea06e72d56d5c0e0160b48749af51bb762d0e1",
       "path": "training/data/raw/algobot_replay_buffer_1786594364849.json",
-      "sha256_lf": "780f4202f9ddc2e7e16b116a8cea06e72d56d5c0e0160b48749af51bb762d0e1"
+      "sha256_lf": "780f4202f9ddc2e7e16b116a8cea06e72d56d5c0e0160b48749af51bb762d0e1",
+      "storage": "git_history"
     },
     {
       "sha256": "e3fef590e1100e938d8dbc4bc2751b58c02fe413c56665d867384b8c0ea075ff",
       "path": "training/data/raw/algobot_replay_buffer_1786594549561.json",
-      "sha256_lf": "e3fef590e1100e938d8dbc4bc2751b58c02fe413c56665d867384b8c0ea075ff"
+      "sha256_lf": "e3fef590e1100e938d8dbc4bc2751b58c02fe413c56665d867384b8c0ea075ff",
+      "storage": "git_history"
     },
     {
       "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "path": "training/data/raw/algobot_replay_buffer_1786595454747.json",
-      "sha256_lf": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      "sha256_lf": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "storage": "git_history"
     },
     {
       "sha256": "c4d01cc1c59d11235e44767bd8802d622bb67afaf58ea10440b7345c412fe704",
       "path": "training/data/raw/algobot_replay_buffer_1786602425941.json",
-      "sha256_lf": "c4d01cc1c59d11235e44767bd8802d622bb67afaf58ea10440b7345c412fe704"
+      "sha256_lf": "c4d01cc1c59d11235e44767bd8802d622bb67afaf58ea10440b7345c412fe704",
+      "storage": "git_history"
     },
     {
       "sha256": "ae5ba48d06babf4db9ca692a9e702fd58b62a04fc2dc9ab94e9afb483e22b7d7",
       "path": "training/data/raw/algobot_replay_buffer_1786602519305.json",
-      "sha256_lf": "ae5ba48d06babf4db9ca692a9e702fd58b62a04fc2dc9ab94e9afb483e22b7d7"
+      "sha256_lf": "ae5ba48d06babf4db9ca692a9e702fd58b62a04fc2dc9ab94e9afb483e22b7d7",
+      "storage": "git_history"
     },
     {
       "sha256": "9f1ff78ffa5b2059881bdef230c0ce85150123deec6f2787c7c6b4e7afea1cc1",
       "path": "training/models/dqn_evaluation.json",
-      "sha256_lf": "bbe10542f9333560d60bc83ed2dc70992979e6f1557ad1e3724a71c459d362d5"
+      "sha256_lf": "bbe10542f9333560d60bc83ed2dc70992979e6f1557ad1e3724a71c459d362d5",
+      "storage": "git_history"
     },
     {
       "sha256": "d9c3701fb70811a5934431fb4470cd9d1827fef2d9a2376eb9518eff571e734a",
@@ -172,7 +202,8 @@
     {
       "sha256": "7ecb636435500ad327a6491b941d773827d7c1215556586f4a99eb3cd5180499",
       "path": "training/models/lstm_evaluation.json",
-      "sha256_lf": "5b5125a68c18cc7f961d969a73306f906b8cbc6a9407b0e310e9565a1b5f7d93"
+      "sha256_lf": "5b5125a68c18cc7f961d969a73306f906b8cbc6a9407b0e310e9565a1b5f7d93",
+      "storage": "git_history"
     },
     {
       "sha256": "2544772aea9756331dc8f5a2247ff18a8031af371e0a584852a9560a315dbedd",
@@ -180,16 +211,19 @@
     },
     {
       "sha256": "dcb0c74170c0d746174ae31e3cddc787e4e1b7783349515c5dbf028087d55d0f",
-      "path": "training/models/training_history.png"
+      "path": "training/models/training_history.png",
+      "storage": "git_history"
     },
     {
       "sha256": "c1dd1a266e7df398537c5a28a96d5c354dbf4333cdd35339f6dccb203eb45c75",
-      "path": "training/results/ab_comparison.png"
+      "path": "training/results/ab_comparison.png",
+      "storage": "git_history"
     },
     {
       "sha256": "b5861e2ee83f1617201a9a1d4d222104efec988d2d41bf91a50b314465501e99",
       "path": "training/results/evaluation_report.json",
-      "sha256_lf": "aa39fb515c2d872ba769ac8483c225c4d6fcc5da7ace4fd2d4a6d2992e7b47cf"
+      "sha256_lf": "aa39fb515c2d872ba769ac8483c225c4d6fcc5da7ace4fd2d4a6d2992e7b47cf",
+      "storage": "git_history"
     }
   ]
 }

@@ -1,6 +1,6 @@
 # Gameplay collection for the next LSTM experiment
 
-Status: collection code implemented; scored-task protocol below is a draft for adviser review. No new participant results have been collected. The deployed model and historical records are unchanged.
+Status: collection code implemented; scored-task protocol below is a draft for adviser review. No new participant results have been collected. The deployed model is unchanged. Previous datasets and experimental outputs were retired to Git history; see `training/DATA_RESET.md`.
 
 ## What was wrong with the earlier collection
 

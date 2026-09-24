@@ -4,7 +4,7 @@ Algobot is a browser game for first-year computer science students. Players prog
 
 The deployment uses **LSTM proficiency estimates plus explicit difficulty rules**. DQN has been removed from live inference and the research dashboard. Its original artifacts remain only to preserve the research record. Neither student learning improvement nor reliable three-category proficiency discrimination has been demonstrated.
 
-The [September 24 model experiments](documentation/LSTM_IMPROVEMENT.md) provide a Node/TensorFlow.js training workflow, 240 explicitly simulated training scenarios, participant-separated evaluation, and two saved experimental LSTMs. Neither candidate beat the mean baseline, so deployed weights remain unchanged. Rule decisions now use recent gameplay and confirmation before increasing difficulty; the trained LSTM's feature definitions remain unchanged.
+The previous datasets and experimental outputs have been [removed for a fresh collection](training/DATA_RESET.md), with a Git recovery checkpoint. The [September 24 experiment report](documentation/LSTM_IMPROVEMENT.md) remains a historical account. Neither candidate beat the mean baseline, so deployed weights remain unchanged. Rule decisions use recent gameplay and confirmation before increasing difficulty; the trained LSTM's feature definitions remain unchanged.
 
 ## Run and verify
 
@@ -28,7 +28,7 @@ See [the project audit](documentation/PROJECT_AUDIT.md) for architecture, verifi
 
 ## Preserve the research record
 
-- Original raw samples, processed arrays, model weights, and historical reports are tracked in Git. `npm run verify:artifacts` checks the 40 baseline artifacts; text line-ending conversion by Git is allowed, binary changes are not.
+- Retired samples, processed arrays and evaluation outputs are recoverable from Git history. `npm run verify:artifacts` checks retired baseline artifacts in history and retained legacy models in the working tree. This requires the original baseline commit to be available locally.
 - Write corrected preparation and evaluation to **new directories**. Do not overwrite historical results or change cutoffs after inspecting predictions.
 - This is a local browser prototype. It has no server database or complete farm save/restore. Export research sessions through the research tools; do not rely on browser storage as your only copy.
 - Use short feature branches and separate commits for substantial changes. For example, `git switch -c codex/quest-fix`, then review `git diff`, run the checks above, and commit the intended files. Keep the lockfile; use `npm ci` for a repeatable install. Push only when ready to publish the branch to the repository.
