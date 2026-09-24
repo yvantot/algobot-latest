@@ -87,6 +87,8 @@ export class TelemetryTracker {
 
     // Raw event stream (immutable, for future re-processing)
     this.rawEvents = [];
+    this.challengeAttempts = [];
+    this.researchExclusionReasons = [];
 
     // Telemetry Buffer for RNN Model (Sliding Window of Feature Vectors)
     this.historyBuffer = [];

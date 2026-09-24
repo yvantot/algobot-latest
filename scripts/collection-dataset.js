@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { inspectCollection } from "../src/game/ml/collection-quality.js";
 import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
 import { RESEARCH_SCHEMA, RESEARCH_FEATURES, recentSequence } from "../src/game/ml/research-features.js";
+import { CHALLENGES } from "../src/game/challenges/catalog.js";
 
 export function readCollection(input) {
   const files = fs.statSync(input).isDirectory()
@@ -32,6 +33,16 @@ export function readCollection(input) {
         const a = old[key] ?? [], b = session[key] ?? [];
         for (let i = 0; i < Math.min(a.length, b.length); i++) {
           if (JSON.stringify(a[i]) !== JSON.stringify(b[i])) throw Error(`Conflicting ${key} history for ${session.session_id}; do not merge edited exports`);
+        }
+      }
+      if (old) for (const previous of old.challenge_attempts ?? []) {
+        const current = session.challenge_attempts?.find(a => a.assessment_id === previous.assessment_id);
+        if (!current) continue;
+        for (const key of ["started_at", "task_id", "rubric_version", "first_exposure"]) {
+          if (previous[key] !== current[key]) throw Error(`Conflicting challenge provenance for ${session.session_id}`);
+        }
+        for (let i = 0; i < Math.min(previous.submissions?.length ?? 0, current.submissions?.length ?? 0); i++) {
+          if (JSON.stringify(previous.submissions[i]) !== JSON.stringify(current.submissions[i])) throw Error(`Conflicting challenge submission for ${session.session_id}`);
         }
       }
       // Periodic downloads overlap. Keep the most complete observation, not the
@@ -95,4 +106,42 @@ export function assessmentSamples(sessions, assessments, { schema = "10f" } = {}
   return { samples, excluded, feature_names: schema === RESEARCH_SCHEMA ? RESEARCH_FEATURES : FEATURE_NAMES, feature_schema: schema,
     target: "Independent task score / maximum; not the legacy gameplay proxy",
     deployment_ready: false };
+}
+
+export function challengeSamples(sessions, taskId = "ready-row-v1") {
+  const developerSessions = sessions.filter(s => s.source_type === "developer_test");
+  sessions = sessions.filter(s => s.source_type !== "developer_test");
+  const attempts = sessions.flatMap(session => (session.challenge_attempts ?? []).map(attempt => ({ ...attempt,
+    student_id: session.student_id, session_id: session.session_id })));
+  attempts.sort((a, b) => Date.parse(a.started_at) - Date.parse(b.started_at));
+  const seen = new Set(), assessments = [], excluded = [];
+  for (const attempt of attempts) {
+    if (attempt.task_id !== taskId) continue;
+    const key = JSON.stringify([attempt.student_id, attempt.task_id]);
+    const reject = reason => excluded.push({ assessment_id: attempt.assessment_id, reason });
+    if (seen.has(key)) { reject("repeat_exposure_practice_only"); continue; }
+    seen.add(key);
+    if (!attempt.first_exposure) { reject("previously_exposed_to_task"); continue; }
+    if (attempt.status !== "scored") { reject("unfinished_challenge_not_a_zero_score"); continue; }
+    const first = attempt.submissions?.[0];
+    if (!first || first.score !== attempt.score || first.submitted_at !== attempt.finished_at || first.assistance !== attempt.assistance) {
+      reject("first_submission_provenance_mismatch"); continue;
+    }
+    assessments.push(attempt);
+  }
+  const result = assessmentSamples(sessions, assessments, { schema: RESEARCH_SCHEMA });
+  const participantCount = values => new Set(values).size;
+  const taskAttempts = attempts.filter(a => a.task_id === taskId);
+  const prerequisite = CHALLENGES.find(task => task.id === taskId)?.prerequisite;
+  const total = participantCount(sessions.map(s => s.student_id));
+  const submitted = participantCount(taskAttempts.filter(a => a.status === "scored").map(a => a.student_id));
+  return { ...result, excluded: [...excluded, ...result.excluded], task_id: taskId,
+    participation: { developer_sessions_excluded: developerSessions.length, participants_in_exports: total,
+      participants_completed_prerequisite: participantCount(sessions.filter(s => s.quest_attempts?.some(a => a.quest_key === prerequisite && a.completed)).map(s => s.student_id)),
+      participants_opened_task: participantCount(taskAttempts.map(a => a.student_id)),
+      participants_never_opened_task: total - participantCount(taskAttempts.map(a => a.student_id)),
+      participants_submitted: submitted, participants_without_submission: total - submitted,
+      participants_with_usable_first_score: participantCount(result.samples.map(s => s.student_id)),
+      unfinished_attempts: taskAttempts.filter(a => a.status !== "scored").length },
+    target: "First submission score on a fixed in-game programming task; not a validated general programming-skill measure" };
 }

@@ -2,7 +2,7 @@
 
 Use this protocol for task administration and the [local model workflow](MODEL_WORKFLOW.md) for the full plan, train, evaluate and bundle procedure.
 
-Status: collection code implemented; scored-task protocol below is a draft for adviser review. No new participant results have been collected. The deployed model is unchanged. Previous datasets and experimental outputs were retired to Git history; see `training/DATA_RESET.md`.
+Status: collection and automatic in-game challenge scoring implemented; the tasks and rubric need adviser review and piloting. No new participant results have been collected. The deployed model is unchanged. Previous datasets and experimental outputs were retired to Git history; see `training/DATA_RESET.md`.
 
 ## What was wrong with the earlier collection
 
@@ -33,11 +33,30 @@ The live model still uses its original inference history and scaler. Independent
 5. Confirm the displayed participant code in the DDA Research Panel. Record its session ID from the JSON export. The code persists locally; explicitly change it before the next person uses that browser. Invalid codes produce a warning and a temporary ID, which must be reconciled before using the data.
 6. Let the student finish guided practice, then play independently at normal speed. Do not coach them through the scored task. Record any deviations instead of silently omitting them.
 7. Collect at least 21 consecutive normal gameplay snapshots immediately before each model-target task (20 intervals, about 100 seconds; allow 110 seconds for timer alignment). This is a minimum window requirement, not a recommended total learning duration. Set the overall session length with the adviser. Pauses are allowed, but resume long enough to obtain a new uninterrupted window.
-8. At the assessment start, record an ISO timestamp with timezone, pause the game, and administer the separate task. The first assessment timestamp should be within 15 seconds of the final gameplay sample. Record finish time, actual score and scoring provenance. A pause or stale window will be reported and excluded, never filled with invented observations.
+8. Open **Quests & Mission Path → Challenge Farm**. The game records the opening timestamp, pauses the main farm, and scores the student's first submitted program automatically. Ask students to report whether they used outside help. Keep conditions and time allowance consistent across participants. A stale gameplay window blocks entry until enough normal play has been recorded.
 9. Use **Download Dataset JSON** after each player and retain the original download. Check storage warnings. Browser storage is a checkpoint, not a server or guaranteed backup; losing power can lose changes since the last successful 30-second save. Never clear storage before verifying the downloaded file.
-10. Audit each download before the player leaves. A sampling gap may be a legitimate pause; inspect context. Collect a replacement window while they are still present if the intended assessment window is unusable.
+10. Audit each download before the player leaves. A sampling gap may be a legitimate pause; inspect context. A later retry cannot repair a lost first-exposure assessment. Retain the session and its exclusion reason rather than treating the retry as an unseen task.
 
-## Draft independent task (10 points)
+## Built-in Challenge Farm (current collection path)
+
+The hub appears in Quests & Mission Path. An unobtrusive invitation appears when a mission-unlocked challenge and its pre-task gameplay window are ready. Unlocks stay tied to mission progress, as requested; there is no forced six-minute prompt. The first task unlocks after “Check before you harvest”; the second after “Tell us about your farm.”
+
+- `ready-row-v1`, rubric `ready-row-1.0`: visit a four-tile row and harvest only ready wheat, across three fixed layouts.
+- `changing-row-v1`, rubric `changing-row-1.0`: the same behavior on rows with 3, 5 and 6 tiles. The same program runs on all rows.
+- Each row awards one point for visiting every tile, one for harvesting all ready wheat, and one for terminating without invalid harvests or out-of-bounds moves: 9 points total. This is behavioral scoring, not code-style scoring. A no-op would earn safety points but fail traversal and harvesting; empty submissions are blocked. Review whether these weights produce useful distinctions during the pilot.
+- Conditions do not vary with DDA. Crops never grow or spoil; no pests, fire, rain, hints or main-farm resources affect the tests. Programs run inside JS-Interpreter with bounded steps/actions and only the small challenge bot API. Visible animation replays the actual execution trace.
+- Feedback appears after submission. Every submission is retained, but only the first submission from the first exposure is a candidate training target. Task opening, not submission time, is the feature cutoff. The independent-work answer is self-report, not proof; supervision and a consistent assistance policy remain necessary.
+- Coins, EXP and wheat seeds are granted for passing every row, once per challenge in the current farm session. Retries may earn the reward but cannot improve the saved first score.
+
+### Short sessions and incomplete participation
+
+Students do **not** have to finish the game or every challenge. A submitted program can supply a score even when some test rows fail. A never-opened or abandoned task has no score; its gameplay is retained but cannot become a supervised example for this target. The dataset preparation report counts participation and exclusions so these students do not silently disappear from reporting.
+
+Mission-gated access may preferentially include faster players in ten-minute sessions. Pilot how many reach and submit the first challenge, including struggling players. Report that selection limitation. Do not claim the model represents all students if many never reach the assessment. If coverage is poor, revise the unlock/protocol with the researcher rather than fabricating labels or assigning non-completers zero. The second challenge is optional enrichment; train/evaluate its score separately.
+
+The task score is independently computed from program behavior rather than the gameplay feature formula. It is **not yet a validated measure of general programming skill**. Adviser review and pilot evidence are still needed; this feature does not establish the thesis's pre/post learning-improvement objective.
+
+## Earlier external task draft (optional alternative, not required)
 
 Purpose: predict performance on a short algorithmic-logic task from the gameplay immediately before it. This is a measurable task score, not a diagnosis of general ability or an emotion score.
 

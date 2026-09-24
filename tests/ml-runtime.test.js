@@ -154,17 +154,32 @@ test("cleared current sessions cannot silently return through autosave or export
   const logger = new DataLogger();
   localStorage.setItem("algobot_participant_id", "P001");
   localStorage.setItem("algobot_participant_id_source", "researcher_assigned_code");
+  localStorage.setItem("algobot_challenge_exposure_v1", "{}");
   telemetry.recordQuestStart("q");
   logger.saveSessionLight();
   logger.clearAllData();
   assert.equal(localStorage.getItem("algobot_participant_id"), null);
   assert.equal(localStorage.getItem("algobot_participant_id_source"), null);
+  assert.equal(localStorage.getItem("algobot_challenge_exposure_v1"), null);
   logger.saveSessionLight();
   assert.equal(logger.buildDatasetExport().sessions.length, 0);
   assert.equal(logger.getSessionCount(), 0);
   telemetry.resetSession();
   logger.saveSessionLight();
   assert.equal(logger.buildDatasetExport().sessions.length, 1);
+});
+
+test("challenge records and developer-test provenance survive the canonical export", () => {
+  telemetry.challengeAttempts.push({assessment_id:"a",status:"abandoned",score:null,submissions:[]});
+  const logger=new DataLogger();
+  let exported=logger.buildSessionExport();
+  assert.equal(exported.challenge_attempts[0].score,null);
+  exported.challenge_attempts[0].status="edited";
+  assert.equal(telemetry.challengeAttempts[0].status,"abandoned");
+  telemetry.researchExclusionReasons.push("developer_action");
+  exported=logger.buildSessionExport();
+  assert.equal(exported.source_type,"developer_test");
+  assert.deepEqual(exported.research_exclusion_reasons,["developer_action"]);
 });
 
 test("recent-schema model waits for real history then receives shared training features", async () => {

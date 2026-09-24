@@ -1,12 +1,12 @@
 # Local model workflow
 
-This is the recommended workflow for the next collection. It replaces the legacy experiment command for new data. The model target is the score on a separately assessed programming task, divided by its maximum. The old gameplay completion formula is retained only as historical/proxy telemetry, not as the target for this workflow.
+This is the recommended workflow for the next collection. It replaces the legacy experiment command for new data. The model target is the first submitted program's score on a fixed Challenge Farm task, divided by its maximum. The game scores actual behavior on predefined test rows and includes the score in the dataset automatically. The old gameplay completion formula is retained only as historical/proxy telemetry, not as the target for this workflow.
 
 There is no new real training dataset yet. The workflow has been exercised with temporary automated-test fixtures, which are not research results. Deployed weights remain the original model until a candidate is separately reviewed and installed.
 
 ## One collection export
 
-In Dev Console, open the research controls and use **Download Dataset JSON**. That one v4 file contains participant/session identities, timestamps, gameplay snapshots, uncapped counters, quest attempts including unfinished attempts, raw events, hints, DDA decisions and event severity. It includes build provenance, collection-quality checks, an export ID, and SHA-256 checksums for each session.
+In Dev Console, open the research controls and use **Download Dataset JSON**. That one v4 file contains participant/session identities, timestamps, gameplay snapshots, uncapped counters, quest attempts including unfinished attempts, challenge attempts and submitted programs, raw events, hints, DDA decisions and event severity. It includes build provenance, collection-quality checks, an export ID, and SHA-256 checksums for each session.
 
 The separate Quest CSV and replay-buffer download buttons were removed. DQN replay is not needed for the new supervised target. New sessions omit the replay-buffer payload; DDA decision logs remain. Old stored records are preserved as originally recorded. The developer diagnostics download is for debugging the game, not another training dataset.
 
@@ -26,7 +26,7 @@ The CSV is a summary, not the input for training. Keep the JSON.
 
 Follow [the collection protocol](DATA_COLLECTION_PROTOCOL.md) for participant codes, task administration and the draft rubric. Have the adviser review the task and rubric before the main collection. Record normal-speed independent gameplay immediately before the task. Use the same build and procedure; mark deviations. Restart the development server after a code change so its build provenance reflects the new version.
 
-The new features require **21 snapshots for 20 observed intervals**, approximately 100 seconds at five-second sampling. Wait at least 110 seconds of uninterrupted independent play to allow for timer alignment. Guided practice is collected but excluded from these assessment windows. A long pause requires a fresh window. Record assessment start within 15 seconds of the last gameplay sample, then pause the game for the task. Do not invent scores for an unfinished or interrupted assessment.
+The new features require **21 snapshots for 20 observed intervals**, approximately 100 seconds at five-second sampling. Allow 110 seconds of uninterrupted independent play for timer alignment. Guided practice is excluded from these assessment windows. A long pause requires a fresh window. The Challenge Farm checks that the recent window is ready before entry, records the opening timestamp as the cutoff, and pauses the main farm. Challenge editing, execution and rewards never enter that pre-task input window. Do not invent scores for unfinished work.
 
 The ten recent rate features are errors, edits, completed runs, failed runs, stopped runs, requested hints, harvests, spoiled crops, loop iterations and condition evaluations per minute. Stage and robot count are context features. Rates use differences between uncapped counters and the actual interval duration. They do not remain high merely because the student made mistakes earlier. The schema is `recent-12f-v1`.
 
@@ -36,16 +36,18 @@ The legacy ten-feature vector is still exported for traceability and retained fo
 
 ## Prepare the dataset
 
-Place new downloads in `training/data/raw/`. Copy `training/templates/assessment-template.json` to a separate working file, for example `training/assessments.json`, and enter real scores and provenance. Keep this file outside the raw-export directory. Use the participant/session IDs from the JSON. A score of zero is valid; null means unscored. Pre/post tests are excluded from the model-target importer.
+Place new downloads in `training/data/raw/`. No manual score sheet is needed for Challenge Farm. Use the primary task, `ready-row-v1`, for the initial experiment; prepare the harder `changing-row-v1` separately. Do not pool the two tasks just because both have nine points. A score of zero is valid; null means unscored. Pre/post tests are separate from the model-target importer.
 
 From the repository root:
 
 ```powershell
 npm run audit:collection -- training/data/raw
-node scripts/prepare-assessments.js training/data/raw training/assessments.json training/samples-v1.json
+node scripts/prepare-challenges.js training/data/raw training/samples-v1.json
 ```
 
-Read the exclusion report in `samples-v1.json`. It includes source-file and assessment-file hashes. Check that labels represent the same reviewed construct and that task forms are comparable. Preparation does not certify task validity. New output files must not already exist.
+Read the exclusion report and participation counts in `samples-v1.json`. The importer retains one first-exposure, first-submission score per participant for the chosen task, excludes reported/unconfirmed assistance, and never substitutes a better retry. Closing before submitting is unfinished, not zero. Browser exposure history prevents a reload from becoming another first exposure; the importer also checks across exported sessions. Keep the same participant code across devices and record any prior exposure that browser storage cannot detect. Preparation does not certify task validity. New output files must not already exist.
+
+The older `prepare-assessments.js` and manual template remain available only for a separately administered, reviewed task protocol. They are not required for the built-in challenges.
 
 ## Freeze a participant split
 

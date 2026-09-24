@@ -8,6 +8,7 @@ import { inspectCollection } from "./collection-quality.js";
 import { sealDataset } from "./export-integrity.js";
 import { RESEARCH_SCHEMA, RESEARCH_FEATURES } from "./research-features.js";
 import { clearParticipant } from "./participant.js";
+import { CHALLENGE_STORAGE } from "../challenges/catalog.js";
 
 const LABEL_FORMULA = "0.40*completion + 0.25*(1-min(1,errors/10)) + 0.20*(1-min(1,resets/5)) + 0.15*(1-min(1,hints/5))";
 const toISO = value => value ? new Date(value).toISOString() : null;
@@ -98,7 +99,8 @@ export class DataLogger {
       telemetry_revision: "v4-recent-counters",
       build: typeof __BUILD_PROVENANCE__ === "undefined" ? { commit: "unknown", dirty: null } : __BUILD_PROVENANCE__,
       research_features: { schema: RESEARCH_SCHEMA, names: RESEARCH_FEATURES, snapshots_required: 21 },
-      source_type: "recorded",
+      source_type: telemetry.researchExclusionReasons.length ? "developer_test" : "recorded",
+      research_exclusion_reasons: [...telemetry.researchExclusionReasons],
       feature_names: FEATURE_NAMES,
       collection: { interval_ms: COLLECTION_INTERVAL_MS, independent_of_inference: telemetry.collectionEnabled,
         browser_timer_not_exact: true, participant_id_source: telemetry.participantIdSource },
@@ -118,6 +120,7 @@ export class DataLogger {
       feature_timeseries: telemetry.getFeatureSnapshots(),
       dda_log: telemetry.getDDALog(),
       raw_events: telemetry.getRawEvents(),
+      challenge_attempts: structuredClone(telemetry.challengeAttempts),
       data_quality: { legacy_lightweight_record: false, raw_events_available: true, timestamps_available: true },
       summary: {
         total_quests_attempted: Object.keys(attempts).length,
@@ -271,6 +274,7 @@ export class DataLogger {
     localStorage.removeItem(this.storageKey);
     localStorage.removeItem(this.rawStorageKey);
     localStorage.removeItem("algobot_replay_buffer");
+    localStorage.removeItem(CHALLENGE_STORAGE);
     clearParticipant(localStorage);
     this.pendingSessions.clear();
     this.clearedSessionIds.add(telemetry.sessionId);

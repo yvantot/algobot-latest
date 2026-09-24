@@ -155,6 +155,8 @@
 
   async function run(label, fn, color = "text-gray-200") {
     if (pending) return;
+    if (!telemetry.researchExclusionReasons.includes("developer_action")) telemetry.researchExclusionReasons.push("developer_action");
+    telemetry._logRawEvent("developer_action", { action: label });
     pending = true;
     try {
       const result = await executeDevAction(fn);
