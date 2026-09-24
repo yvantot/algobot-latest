@@ -7,6 +7,8 @@ import { registerHooks } from "node:module";
 import { INTRODUCTION_STORY } from "../src/game/global/introduction-story.js";
 import { FarmEventSimulation, fireSettings } from "../src/game/events/simulation.js";
 import { getDifficultyParams } from "../src/game/events/difficulty.js";
+import { evaluateChallenge } from "../src/game/challenges/engine.js";
+import { CHALLENGES } from "../src/game/challenges/catalog.js";
 import { CropStates, CropTypes, FreshnessStates, SoilStates, IconTypes, OrbTypes } from "../src/game/global/enum.js";
 
 const dataHook = registerHooks({
@@ -533,9 +535,16 @@ test("every demonstration chapter completes with real crop, robot and event acti
   vm.runInContext(source,h.context);
   const controller=h.context.startLiveDemonstration(change=>changes.push(change));
   for(let chapter=0;chapter<INTRODUCTION_STORY.length;chapter++){
-    for(let frame=0;frame<1800&&!changes.at(-1)?.ready;frame++){if(changes.at(-1)?.purchase)controller.purchase(changes.at(-1).purchase.id);h.advance(.05);await Promise.resolve();await Promise.resolve();}
+    let frames=0;
+    for(let frame=0;frame<1800&&!changes.findLast(change=>"ready" in change)?.ready;frame++){frames++;const pending=changes.findLast(change=>"purchase" in change)?.purchase;if(pending)controller.purchase(pending.id);h.advance(.05);await Promise.resolve();await Promise.resolve();}
     assert.equal(changes.at(-1)?.error,undefined,INTRODUCTION_STORY[chapter].action+" failed");
-    assert.equal(changes.at(-1)?.ready,true,INTRODUCTION_STORY[chapter].action+" stalled");
+    assert.equal(changes.findLast(change=>"ready" in change)?.ready,true,INTRODUCTION_STORY[chapter].action+" stalled");
+    if(INTRODUCTION_STORY[chapter].action==="workflow"){
+      assert.ok(frames*.05<16,"team explanation must arrive without waiting for a lap");
+      const before=changes.filter(change=>change.line>=0).length;
+      for(let i=0;i<30;i++){h.advance(.05);await Promise.resolve();await Promise.resolve();}
+      assert.ok(changes.filter(change=>change.line>=0).length>before,"bots keep working after the explanation");
+    }
     if(chapter<INTRODUCTION_STORY.length-1)controller.next();
   }
   controller.dispose();
@@ -543,4 +552,22 @@ test("every demonstration chapter completes with real crop, robot and event acti
   assert.equal(runtimes.size,0);
   assert.equal(h.context.CONFIG.FARM.rows,3);
   assert.equal(h.context.CONFIG.FARM.columns,3);
+});
+
+test("challenge interpreter harvests real crop objects without changing main-farm rewards", async()=>{
+  const h=harness();
+  h.farm.isDemonstration=true;h.farm.freezeCropLifecycle=true;
+  const interpreterContext=vm.createContext({console,setTimeout,clearTimeout});
+  vm.runInContext(fs.readFileSync(new URL('../public/js-interpreter.js',import.meta.url),'utf8'),interpreterContext);
+  const world={reset(layout){
+    for(const object of [...h.roots])object.destroy();h.farm.clear();
+    h.farm.demoBounds={rows:1,columns:layout.length};
+    layout.forEach((ready,x)=>{h.addSoil(x);h.plant(CropTypes.WHEAT,ready?CropStates.HARVESTABLE:CropStates.YOUNG,x);});
+    return h.bot();
+  }};
+  const result=await evaluateChallenge('for(var x=0;x<columns();x++){if(bot.is_harvestable())bot.harvest();if(x<columns()-1)bot.right();}',CHALLENGES[0],interpreterContext.Interpreter,{world,yieldControl:async()=>{h.advance(.05);}});
+  assert.equal(result.score,9);
+  assert.deepEqual(h.rewards,{coins:0,exp:0,seeds:0,spoiled:0});
+  assert.equal([...h.farm.values()].filter(tile=>tile.crop).length,1);
+  assert.ok([...h.farm.values()].filter(tile=>tile.crop).every(tile=>tile.crop.crop_state===CropStates.YOUNG));
 });

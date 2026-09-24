@@ -27,11 +27,28 @@ test("demonstration loops visit every tile and never step beyond the final colum
  for(const dynamicGrid of [true,false]){
   const workspace=new Blockly.Workspace();
   try{
-   vm.runInNewContext(effect,{workspace,Blockly:{...Blockly,svgResize(){}},commandExample,structuredClone,ids:new Map(),crops:new Map(),code:["bot.harvest();","bot.right();"],repeat:dynamicGrid?0:6,checkHarvest:true,dynamicGrid,working:false,fit:false});
+   vm.runInNewContext(effect,{workspace,Blockly:{...Blockly,svgResize(){}},commandExample,structuredClone,ids:new Map(),crops:new Map(),code:["bot.harvest();","bot.right();"],repeat:dynamicGrid?0:6,checkHarvest:true,dynamicGrid,working:false,fit:false,forever:false,job:null});
    const generated=javascriptGenerator.workspaceToCode(workspace),calls=[];
    vm.runInNewContext(generated,{bot:{jump:(x,y)=>calls.push([x,y]),is_harvestable:()=>true,harvest:()=>calls.push("harvest"),right:()=>calls.push("right")},rows:()=>4,columns:()=>5,highlightBlock(){}},{timeout:1000});
    if(dynamicGrid){assert.equal(calls.length,20);assert.deepEqual(calls[0],[0,0]);assert.deepEqual(calls.at(-1),[4,3]);}
    else {assert.equal(calls.filter(x=>x==="harvest").length,6);assert.equal(calls.filter(x=>x==="right").length,5);}
+  }finally{workspace.dispose();}
+ }
+});
+
+test('team programs show repeating bounded traversal and role-specific checks',()=>{
+ const component=fs.readFileSync(new URL('../src/components/DemonstrationBlocks.svelte',import.meta.url),'utf8');
+ const start=component.indexOf('  $effect(() => {');
+ const effect=component.slice(start,component.indexOf('\n  $effect',start+1)).replace('$effect(() => {','(()=>{').replace(/\);\s*$/,' )();');
+ for(const job of ['plant','water','harvest']){
+  const workspace=new Blockly.Workspace();
+  try{
+   vm.runInNewContext(effect,{workspace,Blockly:{...Blockly,svgResize(){}},commandExample,structuredClone,ids:new Map(),crops:new Map(),code:[],repeat:0,checkHarvest:false,dynamicGrid:false,working:false,fit:false,forever:true,job});
+   const generated=javascriptGenerator.workspaceToCode(workspace);
+   const positions=[],done=new Error('two laps complete');
+   assert.throws(()=>vm.runInNewContext(generated,{columns:()=>6,highlightBlock(){},bot:new Proxy({jump(x,y){positions.push([x,y]);if(positions.length===25)throw done;}},{get:(target,name)=>target[name]??(()=>false)})},{timeout:1000}),error=>error===done);
+   assert.ok(positions.every(([x,y])=>x>=0&&x<6&&y>=0&&y<2));
+   assert.deepEqual(positions.slice(0,12),positions.slice(12,24));
   }finally{workspace.dispose();}
  }
 });

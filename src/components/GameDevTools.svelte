@@ -3,7 +3,7 @@
   import { fly } from "svelte/transition";
   import { devInteger, inspectFarm, executeDevAction } from "../game/dev-console.js";
   import { destroyFarmEvents } from "../game/event.js";
-  import { robots_state, ONBOARDING, finishIntroduction } from "./global.svelte.js";
+  import { robots_state, ONBOARDING, finishIntroduction, finishTutorialForTesting } from "./global.svelte.js";
   import { stopCodeRuns } from "../game/global/code-runner.js";
   import {
     addFarmbot,
@@ -467,6 +467,7 @@
           {/each}
           {@render btn("Stop all programs", "text-amber-300", () => run("Stop programs", () => stopCodeRuns(robots_state, telemetry)))}
           {@render btn("End protected practice", "text-amber-300", () => run("End practice", finishIntroduction))}
+          {@render btn("Finish tutorial & missions", "text-green-300", () => run("Finish tutorial and claim its missions", finishTutorialForTesting))}
         </div>
         {@render sec("Events")}
         <label class="flex gap-2 items-center">Difficulty points <input aria-label="Difficulty points" type="number" min="100" max="10000" bind:value={points} class="w-28 bg-gray-800 p-2 rounded" /></label>

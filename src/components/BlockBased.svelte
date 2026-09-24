@@ -816,6 +816,7 @@
   function handleStep(index) { runner.step(index); }
   function handleStart(index) {
     ONBOARDING.startClicked = true;
+    spotlightRect = null;
     runner.start(index);
   }
   function handleReset(index) { runner.reset(index); }
@@ -935,6 +936,7 @@
       startBtnRef &&
       is_command_ready &&
       currentQuest() === "intro_run" &&
+      !ONBOARDING.startClicked &&
       !ONBOARDING.isModalOpen
     ) {
       const _ = resize.width;

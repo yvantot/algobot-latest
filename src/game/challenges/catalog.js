@@ -1,13 +1,13 @@
 export const CHALLENGES = [
   {
-    id: "ready-row-v1", title: "Pick the ready crops", prerequisite: "cs_if_0",
-    rubric: "ready-row-1.0", coins: 30, exp: 40, seeds: 3,
+    id: "ready-row-v2", title: "Pick the ready crops", prerequisite: "intro_loop",
+    rubric: "ready-row-2.0", coins: 30, exp: 40, seeds: 3,
     description: "Visit every tile. Harvest the yellow, ready wheat. Leave the young wheat alone.",
     cases: [[1, 0, 1, 0], [0, 1, 0, 1], [1, 1, 0, 1]],
   },
   {
-    id: "changing-row-v1", title: "A row of any size", prerequisite: "cs_grid_0",
-    rubric: "changing-row-1.0", coins: 50, exp: 60, seeds: 5,
+    id: "changing-row-v2", title: "A row of any size", prerequisite: "intro_loop",
+    rubric: "changing-row-2.0", coins: 50, exp: 60, seeds: 5,
     description: "Do the same job on rows of different sizes. Use columns() to find the row length.",
     cases: [[0, 1, 1], [1, 0, 1, 0, 1], [0, 1, 0, 1, 1, 0]],
   },

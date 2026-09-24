@@ -39,16 +39,18 @@ The live model still uses its original inference history and scaler. Independent
 
 ## Built-in Challenge Farm (current collection path)
 
-The hub appears in Quests & Mission Path. An unobtrusive invitation appears when a mission-unlocked challenge and its pre-task gameplay window are ready. Unlocks stay tied to mission progress, as requested; there is no forced six-minute prompt. The first task unlocks after “Check before you harvest”; the second after “Tell us about your farm.”
+The hub appears in Quests & Mission Path. A separate Bot Teacher invitation appears below the mission panel after the introductory tutorial missions are claimed. Both tasks are available then; there is no extra waiting period or later-mission gate.
 
-- `ready-row-v1`, rubric `ready-row-1.0`: visit a four-tile row and harvest only ready wheat, across three fixed layouts.
-- `changing-row-v1`, rubric `changing-row-1.0`: the same behavior on rows with 3, 5 and 6 tiles. The same program runs on all rows.
+- `ready-row-v2`, rubric `ready-row-2.0`: visit a four-tile row and harvest only ready wheat, across three fixed layouts.
+- `changing-row-v2`, rubric `changing-row-2.0`: the same behavior on rows with 3, 5 and 6 tiles. The same program runs on all rows.
 - Each row awards one point for visiting every tile, one for harvesting all ready wheat, and one for terminating without invalid harvests or out-of-bounds moves: 9 points total. This is behavioral scoring, not code-style scoring. A no-op would earn safety points but fail traversal and harvesting; empty submissions are blocked. Review whether these weights produce useful distinctions during the pilot.
-- Conditions do not vary with DDA. Crops never grow or spoil; no pests, fire, rain, hints or main-farm resources affect the tests. Programs run inside JS-Interpreter with bounded steps/actions and only the small challenge bot API. Visible animation replays the actual execution trace.
-- Feedback appears after submission. Every submission is retained, but only the first submission from the first exposure is a candidate training target. Task opening, not submission time, is the feature cutoff. The independent-work answer is self-report, not proof; supervision and a consistent assistance policy remain necessary.
+- Conditions do not vary with DDA. Crops never grow or spoil; no pests, fire, rain, hints or main-farm resources affect the tests. Programs run inside JS-Interpreter with bounded steps/actions and only the small challenge bot API. Programs drive the real robot, crop and soil components on an isolated KAPLAY farm. Main-farm entities and resources are preserved.
+- Feedback appears after submission. Every submission is retained, but only the first submission from the first exposure is a candidate training target. Task opening, not submission time, is the feature cutoff. There is no student declaration checkbox. The v2 assessor records standard_in_game assistance conditions: common instructions before the first run, feedback afterward. This does not verify absence of outside help; supervision and a consistent assistance policy remain necessary.
 - Coins, EXP and wheat seeds are granted for passing every row, once per challenge in the current farm session. Retries may earn the reward but cannot improve the saved first score.
 
 ### Short sessions and incomplete participation
+
+Challenge access does not guarantee a training-ready input window. The importer still requires 21 contiguous, normal-speed gameplay snapshots before task opening. Early scores are retained but excluded if that history is missing; never pad it with tutorial or challenge activity. The v2 task IDs separate these changed conditions from the previous trace-based tasks.
 
 Students do **not** have to finish the game or every challenge. A submitted program can supply a score even when some test rows fail. A never-opened or abandoned task has no score; its gameplay is retained but cannot become a supervised example for this target. The dataset preparation report counts participation and exclusions so these students do not silently disappear from reporting.
 
@@ -71,7 +73,7 @@ Allow pseudocode, familiar programming syntax or drawn blocks. Use the same time
 
 Use a parallel form for a later checkpoint (different numbers/order but equivalent demands), with form identity recorded. Check form comparability during the pilot; do not pool arbitrary easy and hard tests merely because both have ten points. Preserve the actual response separately so another assessor can review scoring. Ideally assessors score without seeing the game's proficiency prediction. Do not score asking for help as evidence of low skill.
 
-One checkpoint gives a cross-player prediction target. Repeated, reviewed parallel tasks after later gameplay windows can investigate progression, with all observations from the same participant kept in one split. Scores with assistance or an interrupted assessment stay in the records with their actual status and are excluded from this initial unassisted-target pipeline.
+One checkpoint gives a cross-player prediction target. Repeated, reviewed parallel tasks after later gameplay windows can investigate progression, with all observations from the same participant kept in one split. Scores with assistance or an interrupted assessment stay in the records with their actual status and are excluded from the initial target pipeline.
 
 ## Pre-test and post-test are a separate question
 

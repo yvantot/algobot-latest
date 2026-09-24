@@ -14,6 +14,8 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
   const story = singleAction ? INTRODUCTION_STORY.filter(step => step.action === singleAction) : INTRODUCTION_STORY;
   let disposed = false;
   let running = false;
+  let ambientWorkflow = false;
+  let stopWorkflow = () => {};
   let chapter = -1;
   const waiting = new Set();
   const actions = new Set();
@@ -62,7 +64,7 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
     for (const tile of farm.values()) if (tile.crop?.exists()) tile.crop.paused = value;
   }
   const controller = k.onUpdate(() => {
-    if (!running || document.hidden) return;
+    if ((!running && !ambientWorkflow) || document.hidden) return;
     elapsed += k.dt();
     for (const pending of [...waiting]) if (pending.ready()) { waiting.delete(pending); pending.resolve(true); }
   });
@@ -88,6 +90,7 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
     tile.soil.setSoilState(SoilStates.READY);
     const crop = addCrop(farm, type, x, y, state);
     crop.crop_grow_duration = 3;
+    crop.crop_spoilage_time = 3600; crop.spoilage_remaining = 3600;
     tile.crop = crop;
     return crop;
   }
@@ -119,7 +122,8 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
   function requestPurchase(id, label) {
     return new Promise(resolve => {
       purchaseRequest = {id, resolve};
-      onChange({purchase: {id, label}});
+      const messages = {move:"Those feet could be faster. Give Bot 0 a movement upgrade!",action:"Now let's speed up the digging. Your turn!",row:"More room for our speedy helper! Add a row.",column:"One more stretch; add a column and watch the loop follow it!"};
+      onChange({purchase: {id, label, message: messages[id]}});
     });
   }
   function purchase(id) {
@@ -152,11 +156,15 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
   }
   async function next() {
     if (disposed || running || chapter >= story.length - 1) return;
-    running = true; pause(false); chapter++;
+    running = true; pause(false);
+    const changingScene = chapter >= 0 && story[chapter].scene !== story[chapter+1].scene;
+    if(changingScene) {onChange({transition:true,ready:false});if(!await wait(.45))return;}
+    chapter++;
     const step = story[chapter];
     onChange({ chapter, line: -1, ready: false });
     // Leave a short beat to notice the blocks before the action starts.
-    if (!await wait(0.8)) return;
+    if (!changingScene && !await wait(0.8)) return;
+    if(changingScene)onChange({transition:false});
     if (singleAction && singleAction !== "move") {
       if (!await action(robot, -1, "botJump", 1, ["fire","pest"].includes(singleAction) ? 1 : 0)) return;
       if (singleAction === "water") plantAt(1,0);
@@ -186,8 +194,8 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
         break;
       case "spoil": {
         const crop = plantAt(1, 0, CropStates.HARVESTABLE);
-        crop.crop_spoilage_time = 9;
-        crop.spoilage_remaining = 9;
+        crop.crop_spoilage_time = 3.6;
+        crop.spoilage_remaining = 3.6;
         crop.demonstrateSpoilage = true;
         crop.clearFreshness(); crop.initFreshness();
         if (!await until(() => crop.crop_state === CropStates.DEAD)) return;
@@ -214,7 +222,7 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
         fillFarm();
         const runtime=eventRuntime();
         const fire=runtime.simulation.ignite("1-1");
-        Object.assign(fire.settings,{stageDuration:2,spreadChance:1,spreadInterval:.3});
+        Object.assign(fire.settings,{stageDuration:.7,spreadChance:1,spreadInterval:.15,matureBurnDuration:1.2});
         if (!await until(()=>[...farm.values()].every(tile=>!tile.crop))) return;
         break;
       }
@@ -240,9 +248,13 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
         clearCrops();
         for (let y = 0; y < farm.demoBounds.rows; y++) for (let x = 0; x < farm.demoBounds.columns; x++) plantAt(x, y);
         const runtime = eventRuntime();
-        runtime.simulation.ignite("1-1");
-        if (!await wait(5)) return;
+        const fire=runtime.simulation.ignite("1-1");
+        Object.assign(fire.settings,{stageDuration:.7,spreadChance:0});
+        if (!await wait(1.2)) return;
+        const previousDuration=robot.botact_duration;
+        robot.botact_duration=.3;
         if (!await action(robot, 1, "botExtinguish")) return;
+        robot.botact_duration=previousDuration;
         break;
       }
       case "expand": {
@@ -261,6 +273,7 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
         break;
       }
       case "upgrade": {
+        clearCrops();
         const traversal = startTraversal(true);
         if(!await wait(2))return;
         if(!await requestPurchase("move", "Upgrade movement"))return;
@@ -280,52 +293,51 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
         clearCrops();
         const types=["wheat","corn","rice","potato","tomato","sugarcane"];
         for(let y=0;y<6;y++)for(let x=0;x<6;x++)plantAt(x,y,CropStates.HARVESTABLE,types[(x+y)%types.length]);
-        for(const row of [0,3])for(let x=0;x<6;x++){
-          const tile=farm.get(row+"-"+x);tile.crop.destroy();tile.soil.setSoilState(SoilStates.INITIAL);
-        }
-        if(!helper)helper=addBot(1,0,1);
-        const team=[robot,helper,addBot(2,0,3),addBot(3,0,4)];
-        for(const bot of team){bot.botmove_duration=.16;bot.botact_duration=.16;}
+        helper?.destroy(); helper=null;
+        const team=[robot,...Array.from({length:8},(_,i)=>addBot(i+1,i%6,Math.floor((i+1)/3)*2))];
+        for(const bot of team){bot.botmove_duration=.15;bot.botact_duration=.15;bot.botcheck_duration=.1;}
         k.setCamScale(.8);
         k.setCamPos(CONFIG.FARM.grid_origin.x+(6*CONFIG.FARM.cell_size-CONFIG.FARM.gap)/2,CONFIG.FARM.grid_origin.y+(6*CONFIG.FARM.cell_size-CONFIG.FARM.gap)/2);
-        await Promise.all(team.map((bot,id)=>action(bot,-1,"botJump",0,[0,1,3,4][id])));
-        if(disposed)return;
-        async function grow(bot,row,type) {
-          bot.sayText("Planting "+type+"!");
-          for(let x=0;x<6;x++) {
-            if(!await action(bot,1,"botTill"))return;
-            if(!await action(bot,2,"botPlant",type))return;
-            farm.get(row+"-"+x).crop.crop_grow_duration=.6;
-            if(!await action(bot,3,"botWater"))return;
-            if(!await action(bot,4,"botWait",.7))return;
-            if(!await action(bot,5,"botWater"))return;
-            if(!await action(bot,6,"botWait",.7))return;
-            if(x<5&&!await action(bot,7,"botJump",x+1,row))return;
-          }
-          bot.sayText("Fresh crops ready!");
-        }
-        async function harvest(bot,row) {
-          for(let x=0;x<6;x++) {
-            bot.sayText("Harvesting!");onChange({bot:bot.bot_index,line:0});
-            if(farm.get(row+"-"+x).crop?.crop_state===CropStates.HARVESTABLE){
-              if(!await action(bot,1,"botHarvest"))return;
+        let active=true; ambientWorkflow=true;
+        stopWorkflow=()=>{active=false;ambientWorkflow=false;};
+        const messages=["Seeds coming through!","Water delivery!","Room for new crops!"];
+        async function work(bot,id) {
+          const role=id%3, firstRow=Math.floor(id/3)*2;
+          while(active&&!disposed) {
+            bot.sayText(messages[role]);
+            for(let y=firstRow;y<firstRow+2;y++)for(let x=0;x<6;x++) {
+              if(!active||disposed||!await action(bot,3,"botJump",x,y))return;
+              const tile=farm.get(`${y}-${x}`);
+              if(tile.workLock)continue;
+              tile.workLock=true;
+              try {
+                if(role===0&&!tile.crop) {
+                  if(tile.soil.soil_state===SoilStates.INITIAL&&!await action(bot,1,"botTill"))return;
+                  if(!await action(bot,2,"botPlant",types[(x+y)%types.length]))return;
+                  if(tile.crop){tile.crop.crop_grow_duration=.35;tile.crop.crop_spoilage_time=3600;tile.crop.spoilage_remaining=3600;}
+                } else if(role===1&&tile.crop&&tile.crop.crop_state!==CropStates.HARVESTABLE&&!tile.soil.isWatered()) {
+                  if(!await action(bot,1,"botWater"))return;
+                } else if(role===2&&tile.crop?.crop_state===CropStates.HARVESTABLE) {
+                  if(!await action(bot,1,"botHarvest"))return;
+                }
+              } finally {tile.workLock=false;}
             }
-            if(x<5&&!await action(bot,2,"botJump",x+1,row))return;
           }
-          bot.sayText("Harvest done!");
         }
-        await Promise.all([grow(robot,0,"wheat"),harvest(helper,1),grow(team[2],3,"potato"),harvest(team[3],4)]);
-        if(disposed)return;
+        for(const [id,bot] of team.entries())work(bot,id).catch(error=>{if(active&&!disposed)console.error("Team demo action failed",error);});
+        if(!await wait(15))return;
         break;
       }
     }
-    if (!await wait(1.5)) return;
-    pause(true); running = false;
+    if (!ambientWorkflow && !await wait(["spoil","fire","fire_loss"].includes(step.action) ? 0.6 : 1.5)) return;
+    if(!ambientWorkflow)pause(true);
+    running = false;
     onChange({ ready: true, line: -1 });
   }
   function dispose() {
     if (disposed) return;
     disposed = true;
+    stopWorkflow();
     purchaseRequest?.resolve(false); purchaseRequest=null;
     controller.cancel();
     for (const pending of waiting) pending.resolve(false);

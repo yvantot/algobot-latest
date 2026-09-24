@@ -161,7 +161,7 @@ export function botact(id, farm_grid_index) {
 
     botJump(x = this.grid_x, y = this.grid_y, callback = null) {
       if (!this.isWithinBounds(x, y) || !farm_grid_index.get(`${y}-${x}`)?.soil) {
-        triggerDidYouKnow("out_of_bounds");
+        if (!farm_grid_index.isDemonstration) triggerDidYouKnow("out_of_bounds");
         return this.rejectAction(SAY_DATA.farm.error.out_of_bounds, callback, this.botmove_duration);
       }
       this.botMovedTo(this.grid_x, this.grid_y, x, y, this.botmove_duration);

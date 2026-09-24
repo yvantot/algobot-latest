@@ -512,9 +512,9 @@ test("cloud travel keeps a constant height without vertical jiggle",()=>{
  }
 });
 
-test("cloud horizontal overshoot finishes in 0.1 seconds after pop and pause",()=>{
+test("cloud entrance gives its eased flight two seconds after pop and pause",()=>{
  const cloud={phase:"entering",phaseAge:.65,travelDuration:RAIN_TIMING.travelDuration};
  assert.equal(cloudPosition(cloud,0,{x:300,y:200}).x,0);
- cloud.phaseAge=.72;assert.ok(cloudPosition(cloud,0,{x:300,y:200}).x>300);
- cloud.phaseAge=.75;assert.equal(cloudPosition(cloud,0,{x:300,y:200}).x,300);
+ cloud.phaseAge=2.05;assert.ok(cloudPosition(cloud,0,{x:300,y:200}).x>300);
+ cloud.phaseAge=2.65;assert.equal(cloudPosition(cloud,0,{x:300,y:200}).x,300);
 });

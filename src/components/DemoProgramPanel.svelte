@@ -38,7 +38,7 @@
   <button class="handle" aria-label="Move Bot {program.bot} program; drag or use arrow keys" onpointerdown={start} onpointermove={move} onpointerup={()=>drag=null} onpointercancel={()=>drag=null} onkeydown={keyboard}>Robot program · Bot {program.bot}<span aria-hidden="true">⠿</span></button>
   <p>{program.role ?? "Follow the highlighted block"}</p>
   <div class="workspace">
-    <DemonstrationBlocks code={program.code} {line} repeat={program.repeat??0} checkHarvest={program.checkHarvest??false} {dynamicGrid} {working} fit/>
+    <DemonstrationBlocks code={program.code} {line} repeat={program.repeat??0} forever={program.forever??false} job={program.job??null} checkHarvest={program.checkHarvest??false} {dynamicGrid} {working} fit/>
   </div>
   <button class="resize-corner" aria-label="Resize Bot {program.bot} program" onpointerdown={resizeStart} onpointermove={resizeMove} onpointerup={()=>sizing=null} onpointercancel={()=>sizing=null} onkeydown={resizeKey}>↘</button>
 </aside>

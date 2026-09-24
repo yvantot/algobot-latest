@@ -14,7 +14,7 @@
       {#if !QUEST_STATE[task.prerequisite]?.is_claimed}<p class="small">Finish “{QUEST_DATA[task.prerequisite]?.title}” first.</p>
       {:else}<button onclick={() => onChallenge(task)} disabled={!challengeReady}>Enter challenge</button>{/if}</div>
     {/each}
-    {#if !challengeReady}<p class="small">Play your farm at normal speed for about two minutes before entering a challenge. Keep menus and guides closed during that time.</p>{/if}
+    {#if !challengeReady}<p class="small">Finish your first farming lessons to take on Bot Teacher.</p>{/if}
     {#if challengeNotice}<p role="alert">{challengeNotice}</p>{/if}
   </section>
   <ol>

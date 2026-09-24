@@ -5,7 +5,8 @@ export const INTRODUCTION_STORY = [
     "code": [
       "// Your instructions become the robot’s actions"
     ],
-    "action": "welcome"
+    "action": "welcome",
+    "scene": "basics"
   },
   {
     "title": "One command, one action",
@@ -13,7 +14,8 @@ export const INTRODUCTION_STORY = [
     "code": [
       "bot.right();"
     ],
-    "action": "move"
+    "action": "move",
+    "scene": "basics"
   },
   {
     "title": "Prepare, then plant",
@@ -22,7 +24,8 @@ export const INTRODUCTION_STORY = [
       "bot.till();",
       "bot.plant(\"wheat\");"
     ],
-    "action": "plant"
+    "action": "plant",
+    "scene": "basics"
   },
   {
     "title": "Care makes crops grow",
@@ -33,7 +36,8 @@ export const INTRODUCTION_STORY = [
       "bot.water();",
       "bot.wait(3);"
     ],
-    "action": "water"
+    "action": "water",
+    "scene": "basics"
   },
   {
     "title": "Your harvest earns its keep",
@@ -41,7 +45,8 @@ export const INTRODUCTION_STORY = [
     "code": [
       "bot.harvest();"
     ],
-    "action": "harvest"
+    "action": "harvest",
+    "scene": "basics"
   },
   {
     "title": "Ripe does not mean forever",
@@ -49,7 +54,8 @@ export const INTRODUCTION_STORY = [
     "code": [
       "// No harvest: fresh → expiring → rotten"
     ],
-    "action": "spoil"
+    "action": "spoil",
+    "scene": "spoil"
   },
   {
     "title": "More helpers, better plans",
@@ -67,7 +73,7 @@ export const INTRODUCTION_STORY = [
     "programs": [
       {
         "bot": 0,
-        "role": "Soil helper",
+        "forever": true, "role": "Soil helper",
         "code": [
           "bot.down();",
           "bot.till();"
@@ -75,14 +81,15 @@ export const INTRODUCTION_STORY = [
       },
       {
         "bot": 1,
-        "role": "New helper",
+        "forever": true, "role": "New helper",
         "code": [
           "bot.right();",
           "bot.right();",
           "bot.till();"
         ]
       }
-    ]
+    ],
+    "scene": "helpers"
   },
   {
     "title": "Rain lends a hand",
@@ -90,13 +97,15 @@ export const INTRODUCTION_STORY = [
     "code": [
       "// Rain waters the soil for you"
     ],
-    "action": "rain"
+    "action": "rain",
+    "scene": "rain"
   },
   {
     "action": "fire_loss",
     "title": "Fire can take the whole crop",
     "text": "We left the fire alone. It grew, spread, and burned every crop. Act early to save your farm!",
-    "code": []
+    "code": [],
+    "scene": "fire"
   },
   {
     "title": "Protect what you grow",
@@ -105,13 +114,15 @@ export const INTRODUCTION_STORY = [
       "// On a burning tile",
       "bot.extinguish();"
     ],
-    "action": "fire"
+    "action": "fire",
+    "scene": "fire"
   },
   {
     "action": "pest_loss",
     "title": "Small bugs, big damage",
     "text": "These bugs kept biting until every crop was lost. Watch for pests and remove them early!",
-    "code": []
+    "code": [],
+    "scene": "pests"
   },
   {
     "title": "An uninvited guest",
@@ -120,7 +131,18 @@ export const INTRODUCTION_STORY = [
       "// On a tile with a pest",
       "bot.kill_bug();"
     ],
-    "action": "pest"
+    "action": "pest",
+    "scene": "pests"
+  },
+  {
+    "action": "upgrade",
+    "title": "Help your bots work faster",
+    "text": "You made the bot faster! Watch it visit the whole farm. Next, let’s give that speedy helper more room.",
+    "code": [
+      "shop.upgrade_bot_move(0);",
+      "shop.upgrade_bot_action(0);"
+    ],
+    "scene": "shop"
   },
   {
     "action": "expand",
@@ -129,81 +151,52 @@ export const INTRODUCTION_STORY = [
     "code": [
       "shop.buy_row();",
       "shop.buy_column();"
-    ]
-  },
-  {
-    "action": "upgrade",
-    "title": "Help your bots work faster",
-    "text": "You made the bot faster! Its loop reads rows and columns, so it visits every tile even after the farm grows.",
-    "code": [
-      "shop.upgrade_bot_move(0);",
-      "shop.upgrade_bot_action(0);"
-    ]
+    ],
+    "scene": "shop"
   },
   {
     "action": "workflow",
     "title": "A farm that works together",
-    "text": "Four bots share a bigger farm! Two grow wheat and potatoes while two harvest mixed crops. Small jobs become a busy team. Build toward this one step at a time.",
+    "text": "Nine bots, three teams! Planters sow, waterers help crops grow, and harvesters make room for the next crop. Each bot keeps working on its own job.",
     "code": [],
     "programs": [
       {
         "bot": 0,
-        "role": "Grower",
-        "repeat": 6,
+        "forever": true, "job": "plant", "role": "Planters · Bots 0, 3, 6",
         "code": [
-          "bot.say(\"Planting!\");",
+          "bot.say(\"Seeds coming through!\");",
           "bot.till();",
           "bot.plant(\"wheat\");",
-          "bot.water();",
-          "bot.wait(0.7);",
-          "bot.water();",
-          "bot.wait(0.7);",
           "bot.right();"
         ]
       },
       {
         "bot": 1,
-        "role": "Harvester",
-        "repeat": 6,
-        "checkHarvest": true,
+        "forever": true, "job": "water", "role": "Waterers · Bots 1, 4, 7",
         "code": [
-          "bot.say(\"Checking crops!\");",
-          "bot.harvest();",
+          "bot.say(\"Water delivery!\");",
+          "bot.water();",
           "bot.right();"
         ]
       },
       {
         "bot": 2,
-        "role": "Potato grower",
-        "repeat": 6,
-        "code": [
-          "bot.say(\"Planting!\");",
-          "bot.till();",
-          "bot.plant(\"potato\");",
-          "bot.water();",
-          "bot.wait(0.7);",
-          "bot.water();",
-          "bot.wait(0.7);",
-          "bot.right();"
-        ]
-      },
-      {
-        "bot": 3,
-        "role": "Second harvester",
-        "repeat": 6,
+        "forever": true, "job": "harvest", "role": "Harvesters · Bots 2, 5, 8",
         "checkHarvest": true,
         "code": [
-          "bot.say(\"Checking crops!\");",
+          "bot.say(\"Ready for harvest!\");",
           "bot.harvest();",
           "bot.right();"
         ]
       }
-    ]
+    ],
+    "scene": "team"
   },
   {
     "title": "Your first little program",
     "text": "Your turn! Follow one mission at a time. Your first lessons are safe from fire, pests and spoiled crops. Have fun!",
     "code": [],
-    "action": "finish"
+    "action": "finish",
+    "scene": "team"
   }
 ];

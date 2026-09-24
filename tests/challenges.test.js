@@ -12,7 +12,18 @@ import { TelemetryTracker } from "../src/game/ml/telemetry.js";
 const context = vm.createContext({ console, setTimeout, clearTimeout });
 vm.runInContext(fs.readFileSync(new URL("../public/js-interpreter.js", import.meta.url), "utf8"), context);
 const solve = "for(var i=0;i<columns();i++){if(bot.is_harvestable()){bot.harvest();}if(i<columns()-1){bot.right();}}";
-const evaluate = (source, task=CHALLENGES[0], options={}) => evaluateChallenge(source, task, context.Interpreter, {yieldControl: async()=>{}, ...options});
+function testWorld() {
+  return {reset(layout) {
+    const crops=layout.map(Boolean);
+    return {grid_x:0,grid_y:0,is_available:true,
+      botJump(x,y,done){const valid=x>=0&&x<crops.length&&y===0;if(valid)this.grid_x=x;queueMicrotask(()=>done(valid));},
+      isHarvestable(done){queueMicrotask(()=>done(crops[this.grid_x]===true));},
+      botHarvest(done){const ready=crops[this.grid_x]===true;if(ready)crops[this.grid_x]=null;queueMicrotask(()=>done(ready?'wheat':false));},
+      sayText(){},
+    };
+  }};
+}
+const evaluate = (source, task=CHALLENGES[0], options={}) => evaluateChallenge(source, task, context.Interpreter, {world:testWorld(), yieldControl: async()=>{}, ...options});
 
 test("one real program passes every layout and variable-length row", async () => {
   for (const task of CHALLENGES) {
@@ -79,7 +90,7 @@ test("automatic task dataset uses only gameplay before opening; retries and assi
   tracker.collectionSnapshots = Array.from({length:21}, (_,i)=>({timestamp_ms:start+i*5000, vector:Array(10).fill(0.2), stage:2,
     context:{phase:"gameplay",game_speed:1,robot_count:1}, counters:{errors:0,edits:i,completed_runs:i,failed_runs:0,stopped_runs:0,requested_hints:0,harvested:i,spoiled:0,for_loops:0,while_loops:0,conditions:i}}));
   const attempt = openChallenge(tracker, CHALLENGES[0], true, start+102000);
-  submitChallenge(tracker, attempt, await evaluate(solve), solve, "text", true, start+130000);
+  submitChallenge(tracker, attempt, await evaluate(solve), solve, "text", null, start+130000);
   const session = {session_id:tracker.sessionId,student_id:tracker.participantId,source_type:"recorded",collection:{independent_of_inference:true},feature_names:FEATURE_NAMES,
     feature_timeseries:[...tracker.collectionSnapshots, {timestamp_ms:start+110000,vector:Array(10).fill(999),context:{phase:"challenge"}}],challenge_attempts:tracker.challengeAttempts};
   const prepared = challengeSamples([session]);
@@ -87,6 +98,7 @@ test("automatic task dataset uses only gameplay before opening; retries and assi
   assert.equal(prepared.samples[0].input_end_ms,start+100000);
   assert.equal(prepared.samples[0].y,1);
   assert.equal(prepared.participation.participants_with_usable_first_score,1);
+  assert.equal(attempt.assistance,"standard_in_game");
   attempt.first_exposure=false;
   assert.equal(challengeSamples([session]).samples.length,0);
   attempt.first_exposure=true; attempt.assistance="reported_or_unconfirmed";attempt.submissions[0].assistance=attempt.assistance;
@@ -98,7 +110,7 @@ test("unreached and abandoned challenges are reported without made-up labels", (
   let report = challengeSamples([session]);
   assert.equal(report.participation.participants_without_submission,1);
   assert.equal(report.participation.participants_opened_task,0);
-  session.challenge_attempts.push({assessment_id:"a",task_id:"ready-row-v1",first_exposure:true,status:"abandoned",started_at:"2026-09-24T00:00:00Z"});
+  session.challenge_attempts.push({assessment_id:"a",task_id:"ready-row-v2",first_exposure:true,status:"abandoned",started_at:"2026-09-24T00:00:00Z"});
   report = challengeSamples([session]);
   assert.equal(report.samples.length,0);
   assert.equal(report.participation.unfinished_attempts,1);
@@ -106,4 +118,16 @@ test("unreached and abandoned challenges are reported without made-up labels", (
   const withDebug=challengeSamples([session,{...session,student_id:"qa",session_id:"debug",source_type:"developer_test"}]);
   assert.equal(withDebug.participation.developer_sessions_excluded,1);
   assert.equal(withDebug.participation.participants_in_exports,1);
+});
+
+import { isolateScene } from '../src/game/challenges/scene-session.js';
+test('isolated farm restores exact visibility, pause state, camera and speed only once',()=>{
+  const objects=[{hidden:false,paused:false},{hidden:true,paused:true},{layer:'grass_bg',hidden:false,paused:false},{sceneryBackground:true,hidden:false,paused:false}].map(object=>({...object,exists:()=>true}));
+  const before=objects.map(object=>({...object}));let camera={x:12,y:34},zoom={x:.7,y:.7};
+  const engine={get:()=>objects,getCamPos:()=>camera,getCamScale:()=>zoom,setCamPos:value=>camera=value,setCamScale:value=>zoom=value,debug:{timeScale:2}};
+  const restore=isolateScene(engine);
+  assert.equal(objects[0].paused,true);assert.equal(objects[0].hidden,true);assert.equal(objects[2].hidden,false);assert.equal(objects[3].paused,false);
+  camera={x:999,y:999};zoom={x:1,y:1};restore();
+  assert.deepEqual(objects,before);assert.deepEqual(camera,{x:12,y:34});assert.deepEqual(zoom,{x:.7,y:.7});assert.equal(engine.debug.timeScale,2);
+  engine.debug.timeScale=3;restore();assert.equal(engine.debug.timeScale,3);
 });

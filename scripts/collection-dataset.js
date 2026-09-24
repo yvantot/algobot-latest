@@ -72,7 +72,8 @@ export function assessmentSamples(sessions, assessments, { schema = "10f" } = {}
     const reject = reason => excluded.push({ assessment_id: a.assessment_id, reason });
     const session = index.get(a.session_id);
     if (!session || !a.student_id || session.student_id !== a.student_id) { reject("unmatched_participant_or_session"); continue; }
-    if (a.purpose !== "model_target" || a.status !== "scored" || a.assistance !== "none" ||
+    const standardChallenge = a.assistance === "standard_in_game" && a.assessor_id === "algobot-live-cases-2.0";
+    if (a.purpose !== "model_target" || a.status !== "scored" || (a.assistance !== "none" && !standardChallenge) ||
         !a.rubric_version || !a.task_id || !a.assessor_id) { reject("missing_scoring_provenance_or_not_model_target"); continue; }
     if (!Number.isFinite(a.score) || !Number.isFinite(a.max_score) || a.max_score <= 0 || a.score < 0 || a.score > a.max_score) {
       reject("invalid_score"); continue;
@@ -108,7 +109,7 @@ export function assessmentSamples(sessions, assessments, { schema = "10f" } = {}
     deployment_ready: false };
 }
 
-export function challengeSamples(sessions, taskId = "ready-row-v1") {
+export function challengeSamples(sessions, taskId = "ready-row-v2") {
   const developerSessions = sessions.filter(s => s.source_type === "developer_test");
   sessions = sessions.filter(s => s.source_type !== "developer_test");
   const attempts = sessions.flatMap(session => (session.challenge_attempts ?? []).map(attempt => ({ ...attempt,

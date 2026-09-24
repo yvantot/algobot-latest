@@ -14,7 +14,7 @@ export function challengeWindowReady(tracker, now = Date.now()) {
 export function openChallenge(tracker, task, firstExposure, now = Date.now()) {
   const attempt = {
     assessment_id: crypto.randomUUID(), student_id: tracker.participantId, session_id: tracker.sessionId,
-    task_id: task.id, rubric_version: task.rubric, assessor_id: "algobot-fixed-cases-1.0",
+    task_id: task.id, rubric_version: task.rubric, assessor_id: "algobot-live-cases-2.0",
     first_exposure: firstExposure, started_at: new Date(now).toISOString(), finished_at: null,
     purpose: "practice", status: "in_progress", assistance: "unconfirmed", score: null, max_score: task.cases.length * 3,
     input_window_ready: challengeWindowReady(tracker, now), submissions: [], reward_claimed: false,
@@ -24,14 +24,14 @@ export function openChallenge(tracker, task, firstExposure, now = Date.now()) {
   return attempt;
 }
 
-export function submitChallenge(tracker, attempt, result, source, editor, independent, now = Date.now()) {
+export function submitChallenge(tracker, attempt, result, source, editor, independent = null, now = Date.now()) {
   const submission = { submitted_at: new Date(now).toISOString(), score: result.score, max_score: result.max_score,
-    passed: result.passed, source, editor, assistance: independent ? "none" : "reported_or_unconfirmed",
+    passed: result.passed, source, editor, assistance: independent === null ? "standard_in_game" : independent ? "none" : "reported_or_unconfirmed",
     cases: result.results.map(({ checks, error, mistakes }) => ({ checks, error, mistakes })) };
   attempt.submissions.push(submission);
   if (attempt.submissions.length === 1) {
     Object.assign(attempt, { finished_at: submission.submitted_at, status: "scored", score: result.score,
-      assistance: submission.assistance, purpose: attempt.first_exposure && independent ? "model_target" : "practice" });
+      assistance: submission.assistance, purpose: attempt.first_exposure && independent !== false ? "model_target" : "practice" });
   }
   tracker._logRawEvent("challenge_submitted", { assessment_id: attempt.assessment_id, submission: attempt.submissions.length, score: result.score });
   return submission;

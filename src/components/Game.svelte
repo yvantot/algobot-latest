@@ -15,7 +15,7 @@
   import Quest from "./Quest.svelte";
   import ChallengeFarm from "./ChallengeFarm.svelte";
   import { CHALLENGES, recordExposure } from "../game/challenges/catalog.js";
-  import { challengeWindowReady, openChallenge, submitChallenge, closeChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
+  import { openChallenge, submitChallenge, closeChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
   import { INVENTORY, PLAYER_DATA } from "../game/global/global.js";
   import { CropTypes } from "../game/global/enum.js";
   import { QUEST_STATE } from "./global.svelte.js";
@@ -103,21 +103,19 @@
 
   let current_menu = $state(Menus.COMMAND);
   let challenge = $state(null), challengeReady = $state(false), challengeNotice = $state("");
-  let challengeInvite = $state(false), challengeRewardAvailable = $state(true);
-  let challengeAttempt, pausedFarm = [], invitedChallenges = new Set();
+  let challengeInvite = $state(null), challengeRewardAvailable = $state(true);
+  let challengeAttempt, invitedChallenges = new Set();
   function persistChallenge() {
     if (!dataLogger.saveSessionLight()) storageWarning = "Research data could not be saved. Export it before closing this page.";
   }
   function enterChallenge(task) {
-    if (!QUEST_STATE[task.prerequisite]?.is_claimed || !challengeWindowReady(telemetry)) return;
+    if (TUTORIAL.active || !QUEST_STATE[task.prerequisite]?.is_claimed) return;
     try {
       const firstExposure = recordExposure(localStorage, telemetry.participantId, task.id);
       challengeAttempt = openChallenge(telemetry, task, firstExposure);
       challengeRewardAvailable = !farmChallengeRewards.has(task.id);
-      pausedFarm = k.get().map(object => ({ object, paused: object.paused }));
-      for (const { object } of pausedFarm) object.paused = true;
       ONBOARDING.isModalOpen = true;
-      challenge = task; challengeInvite = false; challengeNotice = "";
+      challenge = task; challengeInvite = null; challengeNotice = "";
       persistChallenge();
     } catch (error) { challengeNotice = error.message; }
   }
@@ -126,12 +124,10 @@
     closeChallenge(telemetry, challengeAttempt);
     persistChallenge();
     challenge = null;
-    for (const { object, paused } of pausedFarm) if (object.exists()) object.paused = paused;
-    pausedFarm = [];
   }
   onDestroy(leaveChallenge);
-  function scoreChallenge(result, source, editor, independent) {
-    submitChallenge(telemetry, challengeAttempt, result, source, editor, independent);
+  function scoreChallenge(result, source, editor) {
+    submitChallenge(telemetry, challengeAttempt, result, source, editor);
     persistChallenge();
   }
   function rewardChallenge() {
@@ -146,9 +142,9 @@
   }
   onMount(() => {
     const timer = setInterval(() => {
-      challengeReady = !challenge && challengeWindowReady(telemetry);
+      challengeReady = !challenge && !TUTORIAL.active && !!QUEST_STATE.intro_loop?.is_claimed;
       const available = CHALLENGES.find(task => QUEST_STATE[task.prerequisite]?.is_claimed && !invitedChallenges.has(task.id));
-      if (available && challengeReady && !ONBOARDING.isModalOpen) { invitedChallenges.add(available.id); challengeInvite = true; }
+      if (available && challengeReady && !challengeInvite && !ONBOARDING.isModalOpen) { invitedChallenges.add(available.id); challengeInvite = available; }
     }, 1000);
     return () => clearInterval(timer);
   });
@@ -296,7 +292,7 @@
 </script>
 
 <svelte:window onkeydown={e=>{if(e.key==="Escape"&&!docPreview&&docOpen){e.preventDefault();closeDocumentation();}}}/>
-<div inert={!!challenge} class:cutscene={showIntroduction||!!docPreview} class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
+<div inert={!!challenge} class:challenge-hidden={!!challenge} class:cutscene={showIntroduction||!!docPreview} class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
   {#if storageWarning}
     <div role="alert" class="fixed top-4 left-1/2 -translate-x-1/2 max-w-sm rounded-lg border-2 border-red-400 bg-white p-3 text-sm text-red-900 shadow-lg">{storageWarning}</div>
   {/if}
@@ -559,7 +555,15 @@
             current_menu = Menus.COMMAND;
             current_editor = Editors.BLOCK;
           }}
-        /></div>
+        />
+        {#if challengeInvite && challengeReady && !ONBOARDING.isModalOpen}
+          <aside class="challenge-invite" in:fly={{y:20,duration:350}} out:fly={{y:15,duration:220}}>
+            <div class="challenge-teacher"><img src="/sprites/bot_teacher.png" alt="Bot Teacher"/><div><strong>A challenge for you!</strong><p>Think you can out-farm your teacher? Let's find out!</p></div></div>
+            <p>{challengeInvite.title} · {challengeInvite.coins} coins + {challengeInvite.exp} EXP</p>
+            <button onclick={()=>enterChallenge(challengeInvite)}>Challenge accepted!</button><button onclick={()=>challengeInvite=null}>Later</button>
+          </aside>
+        {/if}
+        </div>
       </div>
     </div>
   </div>
@@ -686,12 +690,10 @@
 
 {#if challenge}
   <ChallengeFarm task={challenge} onSubmit={scoreChallenge} onClose={leaveChallenge} onReward={rewardChallenge} rewardAvailable={challengeRewardAvailable}/>
-{:else if challengeInvite && !ONBOARDING.isModalOpen}
-  <aside class="challenge-invite" in:fly={{y:24,duration:350}} out:fly={{y:24,duration:220}}><strong>A Challenge Farm is ready!</strong><p>Put your code to work and earn farm rewards.</p><button onclick={() => {current_menu=Menus.QUEST;challengeInvite=false;}}>See challenges</button><button aria-label="Dismiss challenge invitation" onclick={()=>challengeInvite=false}>Later</button></aside>
 {/if}
 
 <style>
-  .challenge-invite{position:fixed;bottom:20px;left:20px;z-index:75;max-width:330px;padding:16px;background:#f0fdf4;border:3px solid #64748b;border-radius:10px;color:#334155;box-shadow:0 6px 16px #0003;font-size:16px}.challenge-invite button{background:#bbf7d0;padding:8px 12px;border:2px solid #94a3b8;margin:10px 6px 0 0;cursor:pointer}.challenge-invite strong{font-size:18px}
+  .challenge-hidden{visibility:hidden}.challenge-invite{position:relative;margin-top:12px;padding:12px;background:#f0fdf4;border:3px solid #64748b;border-radius:10px;color:#334155;box-shadow:0 6px 16px #0003;font-size:15px}.challenge-invite button{background:#bbf7d0;padding:8px 10px;border:2px solid #94a3b8;margin:10px 6px 0 0;cursor:pointer}.challenge-invite strong{font-size:17px}.challenge-teacher{display:flex;align-items:center;gap:10px;margin-bottom:10px}.challenge-teacher img{width:44px;image-rendering:pixelated;animation:challenge-nod .7s ease-in-out 2}@keyframes challenge-nod{50%{transform:translateY(-6px) rotate(-5deg)}}@media(prefers-reduced-motion:reduce){.challenge-teacher img{animation:none}}
   button {
     border-radius: 0.2rem;
     padding: 0.2rem;

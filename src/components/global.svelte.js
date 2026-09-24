@@ -37,6 +37,18 @@ export function finishIntroduction() {
   QUEST_FEEDBACK.hazardsPending = false;
 }
 
+export function finishTutorialForTesting() {
+  for (const key of INTRO_QUESTS) {
+    QUEST_STATE[key].progress = QUEST_DATA[key].goal;
+    QUEST_STATE[key].is_completed = true;
+    claimQuest(key);
+  }
+  finishIntroduction();
+  QUEST_FEEDBACK.queue = QUEST_FEEDBACK.queue.filter(item => !INTRO_QUESTS.includes(item.key));
+  ONBOARDING.startClicked = true;
+  return INTRO_QUESTS.length;
+}
+
 export const QUEST_STATE = $state({});
 // Initialize quest state
 for (const [key, data] of Object.entries(QUEST_DATA)) {

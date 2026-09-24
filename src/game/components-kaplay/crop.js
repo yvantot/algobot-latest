@@ -196,6 +196,7 @@ export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
       const tile = farm_grid_index.get(`${this.grid_y}-${this.grid_x}`);
       if (tile?.crop !== this) { this.cropDestroy("replaced"); return; }
       if (this.is_harvesting) return;
+      if (farm_grid_index.freezeCropLifecycle) return;
       let seconds = k.dt();
       if (!Number.isFinite(seconds) || seconds <= 0) return;
       if (this.crop_state === CropStates.HARVESTABLE) {

@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import * as Blockly from "blockly";
   import { commandExample } from "../game/global/documentation.js";
-  let { code, line = -1, repeat = 0, checkHarvest = false, dynamicGrid = false, working = false, fit = false } = $props();
+  let { code, line = -1, repeat = 0, forever = false, job = null, checkHarvest = false, dynamicGrid = false, working = false, fit = false } = $props();
   let host, workspace = $state();
   const ids = new Map();
   const crops = new Map();
@@ -46,8 +46,31 @@
       const columnLoop={type:"controls_for",fields:{VAR:{id:column}},inputs:{FROM:number(0),TO:limit("columns"),BY:number(1),DO:{block:jump}}};
       root={type:"controls_for",fields:{VAR:{id:row}},inputs:{FROM:number(0),TO:limit("rows"),BY:number(1),DO:{block:columnLoop}}};
     }
+    if(job){
+      const num=value=>({shadow:{type:"math_number",fields:{NUM:value}}});
+      const variable=id=>({block:{type:"variables_get",fields:{VAR:{id}}}});
+      const row=workspace.getVariableMap().createVariable("row").getId(),column=workspace.getVariableMap().createVariable("column").getId();
+      const not=name=>({block:{type:"logic_negate",inputs:{BOOL:{block:{type:name}}}}});
+      const when=(condition,body)=>({type:"controls_if",inputs:{IF0:condition,DO0:{block:body}}});
+      let body;
+      if(job==="plant"){
+        const till=when(not("bot_check_tilled"),{type:"bot_till"});
+        till.next={block:{type:"bot_plant",fields:{TYPE:"wheat"}}};
+        body=when(not("bot_check_planted"),till);
+      }else if(job==="water"){
+        body=when({block:{type:"bot_check_planted"}},when(not("bot_is_harvestable"),when(not("bot_check_watered"),{type:"bot_water"})));
+      }else body=when({block:{type:"bot_is_harvestable"}},{type:"bot_harvest"});
+      const jump={type:"bot_jump",inputs:{X:variable(column),Y:variable(row)},next:{block:body}};
+      const columns={block:{type:"math_arithmetic",fields:{OP:"MINUS"},inputs:{A:{block:{type:"global_columns"}},B:num(1)}}};
+      const visit={type:"controls_for",fields:{VAR:{id:column}},inputs:{FROM:num(0),TO:columns,BY:num(1),DO:{block:jump}}};
+      root={type:"controls_for",fields:{VAR:{id:row}},inputs:{FROM:num(0),TO:num(1),BY:num(1),DO:{block:visit}}};
+      const say=structuredClone(commandExample("bot_farm_actions","say").block);
+      say.inputs.TEXT.shadow.fields.TEXT=job==="plant"?"Seeds coming through!":job==="water"?"Water delivery!":"Room for new crops!";
+      say.next={block:root};root=say;
+    }
     if(root){
       if(repeat)root={type:"controls_for",fields:{VAR:{id:counter}},inputs:{FROM:{shadow:{type:"math_number",fields:{NUM:0}}},TO:{shadow:{type:"math_number",fields:{NUM:repeat-1}}},BY:{shadow:{type:"math_number",fields:{NUM:1}}},DO:{block:root}}};
+      if(forever)root={type:"controls_whileUntil",fields:{MODE:"WHILE"},inputs:{BOOL:{block:{type:"logic_boolean",fields:{BOOL:"TRUE"}}},DO:{block:root}}};
       Blockly.serialization.blocks.append({...root,x:15,y:15},workspace);
       for(const [id,type] of crops){
         const field=workspace.getBlockById(id)?.getField("TYPE");

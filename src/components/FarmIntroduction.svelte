@@ -21,6 +21,7 @@
   let rewardTimer;
   let error = $state(false);
   let closing = $state(false);
+  let sceneChanging = $state(false);
   let controller;
   let closeTimer;
   let step = $derived(INTRODUCTION_STORY[chapter]);
@@ -36,6 +37,7 @@
       }
       controller = startLiveDemonstration(update => {
         if (update.chapter !== undefined) { chapter = update.chapter; botLines = {}; traversing = false; purchase = null; }
+        if (update.transition !== undefined) sceneChanging = update.transition;
         if (update.line !== undefined) { line = update.line; botLines = {...botLines,[update.bot ?? 0]:update.line}; }
         if (update.ready !== undefined) ready = update.ready;
         if (update.purchase !== undefined) purchase = update.purchase;
@@ -60,7 +62,7 @@
 
 {#if isOpen}
   <div class="live-cutscene" use:dialogFocus tabindex="-1" role="dialog" aria-modal="true" aria-label="Meet your farm" out:fade={{duration:reducedMotion ? 0 : 400}}>
-    <div class="curtain" class:closing></div>
+    <div class="curtain" class:closing={closing||sceneChanging}></div>
     <header><span>Meet your farm · {chapter + 1} / {INTRODUCTION_STORY.length}</span><button onclick={close} disabled={closing}>Skip introduction</button></header>
     <div class="programs">
     {#each programs.filter(program=>program.code.some(command=>!command.startsWith("//"))) as program,index (step.action+program.bot)}
@@ -89,15 +91,16 @@
         </footer>
       </div>
     </section>
-    {:else if purchase}<div class="purchase" in:fly={{y:20,duration:reducedMotion?0:250}}><p>Try it on this practice farm. Your coins are safe.</p><button class="primary" onclick={()=>controller?.purchase(purchase.id)}>{purchase.label}</button></div>
+    {:else if purchase}<div class="purchase" in:fly={{y:20,duration:reducedMotion?0:250}} out:fly={{y:12,duration:200}}><img src="/sprites/bot_teacher.png" alt="Bot Teacher"/><div><strong>Bot Teacher</strong><p>{purchase.message}</p><button class="primary" onclick={()=>controller?.purchase(purchase.id)}>{purchase.label}</button></div></div>
     {:else}<div class="watch-cue" role="status">{traversing?"The loop visits every row and column…":"Watch what happens…"}</div>{/if}
   </div>
 {/if}
 <style>
+ .purchase{top:min(calc(50% + 145px),calc(100% - 165px));display:flex;align-items:center;gap:12px;width:min(440px,calc(100% - 24px));z-index:3}.purchase img{width:48px;image-rendering:pixelated}.purchase strong{color:#166534;font-size:14px}
 .live-cutscene{position:fixed;inset:0;z-index:10000;padding:18px;color:#334155;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(#17251b55,transparent 20%,transparent 65%,#17251b66)}
 .curtain{position:absolute;inset:0;background:#142016;z-index:10;pointer-events:none;opacity:0;animation:reveal .8s ease-out;transition:opacity .45s ease-in-out}.curtain.closing{opacity:1;animation:none}@keyframes reveal{from{opacity:1}to{opacity:0}}
 header{display:flex;align-items:center;justify-content:space-between;color:white;font-size:15px;font-weight:bold;text-shadow:0 1px 2px #0008}button{font-family:inherit;padding:9px 14px;border:2px solid #64748b;border-radius:7px;background:#e5e7eb;color:#334155;font-weight:bold;cursor:pointer;text-shadow:none}button:disabled{opacity:.55;cursor:default}button:focus-visible{outline:3px solid #16a34a;outline-offset:3px}.primary{background:#bbf7d0;white-space:nowrap}
-.programs{position:absolute;inset:0;pointer-events:none;overflow:clip}.purchase{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);background:#f3f4f6;padding:16px;border:3px solid #64748b;border-radius:10px;text-align:center}.purchase p{margin:0 0 10px;font-size:16px}.earnings{position:absolute;left:50%;top:58%;transform:translateX(-50%);padding:12px 20px;border:3px solid #64748b;border-radius:10px;background:#f3f4f6;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;font-weight:bold;color:#166534}.earnings img{width:24px}
+.programs{position:absolute;inset:0;pointer-events:none;overflow:clip}.purchase{position:absolute;left:50%;transform:translateX(-50%);background:#f3f4f6;padding:16px;border:3px solid #64748b;border-radius:10px;text-align:left}.purchase p{margin:0 0 10px;font-size:16px}.earnings{position:absolute;left:50%;top:58%;transform:translateX(-50%);padding:12px 20px;border:3px solid #64748b;border-radius:10px;background:#f3f4f6;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;font-weight:bold;color:#166534}.earnings img{width:24px}
 .teacher{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:18px;align-items:center;width:min(940px,calc(100% - 24px));padding:18px;background:#f3f4f6;border:4px solid #64748b;border-radius:12px;box-shadow:0 8px 24px #0004}.watch-cue{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);padding:10px 18px;background:#f3f4f6;border:3px solid #64748b;border-radius:12px;font-size:17px}.portrait{animation:teacher-nod .8s ease-in-out 2;width:76px;image-rendering:pixelated;flex-shrink:0}.speech{flex:1;min-width:0}.speaker{font-size:14px;font-weight:bold;color:#15803d}h1{font-size:21px;font-weight:800;margin:4px 0 8px}.speech p{font-size:18px;line-height:1.5;margin:0}footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px}footer>span{font-size:14px;color:#64748b}
 @media(max-width:900px){.teacher{padding:12px;gap:12px}.portrait{width:50px}h1{font-size:18px}.speech p{font-size:15px}.live-cutscene{padding:12px}}
 @media(max-width:500px){.portrait{display:none}.teacher{max-height:42vh;overflow:auto}footer{flex-wrap:wrap}header span{font-size:14px}button{padding:7px 9px}.speech p{font-size:14px}}
