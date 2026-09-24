@@ -208,3 +208,22 @@ targets, approximately 40–44px where practical.
 
 This is a document review only. Runtime behavior, contrast, responsive layout and
 accessibility validation remain implementation checks, not completed claims.
+
+## Challenges menu extension
+
+The Challenges menu follows the same light gray panels, slate outlines, Quicksand,
+green actions and existing game artwork. The dedicated icon sits directly after
+Quests. A larger challenge title, difficulty label and reward count make the
+purpose visible without expanding the entry. This is a game challenge board,
+not a second mission list.
+
+Entries start collapsed. Expanded details contain the objective, exact winning
+rules, reward icons and Accept challenge. Difficulty filtering covers Beginner,
+Skilled, Advanced and Expert. Completed entries say Reward earned and offer a
+practice replay. A Bot Teacher header introduces the board; a real completion
+count reflects rewards earned on this farm. Tutorial-locked access stays readable.
+
+Challenge play repeats the winning checklist before Run. Results identify failed
+rules for each row. Coin, EXP and wheat-seed rewards have separate padded items;
+the existing animated reward and confetti remain. Stop & edit keeps the program.
+No reward is granted merely for collecting crops if other required rules fail.

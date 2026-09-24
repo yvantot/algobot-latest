@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
-import { CHALLENGES, recordExposure } from "../src/game/challenges/catalog.js";
+import { CHALLENGES, recordExposure, challengeMaxScore } from "../src/game/challenges/catalog.js";
 import { evaluateChallenge } from "../src/game/challenges/engine.js";
-import { openChallenge, submitChallenge, closeChallenge, claimChallengeReward } from "../src/game/challenges/records.js";
+import { openChallenge, submitChallenge, closeChallenge, claimChallengeReward, interruptChallenge } from "../src/game/challenges/records.js";
 import { challengeSamples } from "../scripts/collection-dataset.js";
 import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
 import { TelemetryTracker } from "../src/game/ml/telemetry.js";
@@ -27,10 +27,11 @@ const evaluate = (source, task=CHALLENGES[0], options={}) => evaluateChallenge(s
 
 test("one real program passes every layout and variable-length row", async () => {
   for (const task of CHALLENGES) {
-    const result = await evaluate(solve, task);
-    assert.equal(result.score, 9); assert.equal(result.passed, true);
-    assert.equal(result.results.length, 3);
-    for (const row of result.results) assert.ok(row.trace.length > 5);
+    const code=solve+(task.returnHome?"for(var x=1;x<columns();x++){bot.left();}":"");
+    const result = await evaluate(code, task);
+    assert.equal(result.score, challengeMaxScore(task)); assert.equal(result.passed, true);
+    assert.equal(result.results.length, task.cases.length);
+    for (const row of result.results) assert.ok(row.trace.length >= 4);
   }
 });
 test("blind harvesting, missing last tile, and fixed-length solutions fail", async () => {
@@ -110,7 +111,7 @@ test("unreached and abandoned challenges are reported without made-up labels", (
   let report = challengeSamples([session]);
   assert.equal(report.participation.participants_without_submission,1);
   assert.equal(report.participation.participants_opened_task,0);
-  session.challenge_attempts.push({assessment_id:"a",task_id:"ready-row-v2",first_exposure:true,status:"abandoned",started_at:"2026-09-24T00:00:00Z"});
+  session.challenge_attempts.push({assessment_id:"a",task_id:"ready-row-v3",first_exposure:true,status:"abandoned",started_at:"2026-09-24T00:00:00Z"});
   report = challengeSamples([session]);
   assert.equal(report.samples.length,0);
   assert.equal(report.participation.unfinished_attempts,1);
@@ -130,4 +131,32 @@ test('isolated farm restores exact visibility, pause state, camera and speed onl
   camera={x:999,y:999};zoom={x:1,y:1};restore();
   assert.deepEqual(objects,before);assert.deepEqual(camera,{x:12,y:34});assert.deepEqual(zoom,{x:.7,y:.7});assert.equal(engine.debug.timeScale,2);
   engine.debug.timeScale=3;restore();assert.equal(engine.debug.timeScale,3);
+});
+
+test('runaway movement and tight loops stop within a small execution budget',async()=>{
+ let actions=0,yields=0;
+ const result=await evaluate('while(true){bot.right();bot.left();}',CHALLENGES[0],{onAction:()=>actions++,yieldControl:async()=>{yields++;}});
+ assert.equal(result.passed,false);
+ assert.ok(actions<=30,`${actions} actions before detection`);
+ assert.ok(result.results.every(row=>row.error.includes('repeated')));
+ yields=0;
+ await evaluate('while(true){}',CHALLENGES[0],{yieldControl:async()=>{yields++;}});
+ assert.ok(yields<=24,`${yields} render yields before detection`);
+});
+
+test('return-trip challenges explicitly require returning to the starting tile',async()=>{
+ const task=CHALLENGES.find(task=>task.returnHome);
+ const result=await evaluate(solve,task);
+ assert.equal(result.passed,false);
+ assert.ok(result.results.every(row=>row.checks.harvested_all_ready&&!row.checks.returned_home));
+ assert.equal(result.max_score,12);
+});
+
+test('stopping a first run cannot turn a later practice solution into a first-score target',async()=>{
+ const tracker=new TelemetryTracker(),attempt=openChallenge(tracker,CHALLENGES[0],true);
+ interruptChallenge(tracker,attempt,'while(true){}','text');
+ submitChallenge(tracker,attempt,await evaluate(solve),solve,'text');
+ assert.equal(attempt.score,null);assert.equal(attempt.status,'abandoned');assert.equal(attempt.purpose,'practice');
+ assert.equal(attempt.submissions[0].status,'stopped');
+ assert.equal(claimChallengeReward(tracker,attempt,()=>{}),true);
 });

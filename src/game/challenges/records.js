@@ -1,4 +1,5 @@
 import { recentSequence } from "../ml/research-features.js";
+import { challengeMaxScore } from "./catalog.js";
 
 // Like the main farm, this survives a trip to the start menu but not a page reload.
 export const farmChallengeRewards = new Set();
@@ -14,9 +15,9 @@ export function challengeWindowReady(tracker, now = Date.now()) {
 export function openChallenge(tracker, task, firstExposure, now = Date.now()) {
   const attempt = {
     assessment_id: crypto.randomUUID(), student_id: tracker.participantId, session_id: tracker.sessionId,
-    task_id: task.id, rubric_version: task.rubric, assessor_id: "algobot-live-cases-2.0",
+    task_id: task.id, rubric_version: task.rubric, assessor_id: "algobot-live-cases-3.0",
     first_exposure: firstExposure, started_at: new Date(now).toISOString(), finished_at: null,
-    purpose: "practice", status: "in_progress", assistance: "unconfirmed", score: null, max_score: task.cases.length * 3,
+    purpose: "practice", status: "in_progress", assistance: "unconfirmed", score: null, max_score: challengeMaxScore(task),
     input_window_ready: challengeWindowReady(tracker, now), submissions: [], reward_claimed: false,
   };
   tracker.challengeAttempts.push(attempt);
@@ -40,6 +41,15 @@ export function submitChallenge(tracker, attempt, result, source, editor, indepe
 export function closeChallenge(tracker, attempt) {
   if (attempt.status === "in_progress") { attempt.status = "abandoned"; attempt.finished_at = new Date().toISOString(); }
   tracker._logRawEvent("challenge_closed", { assessment_id: attempt.assessment_id });
+}
+
+export function interruptChallenge(tracker, attempt, source, editor) {
+  attempt.submissions.push({ submitted_at: new Date().toISOString(), status: "stopped", source, editor, score: null, passed: false });
+  if (attempt.submissions.length === 1) {
+    attempt.status = "abandoned"; attempt.purpose = "practice";
+    attempt.finished_at = new Date().toISOString();
+  }
+  tracker._logRawEvent("challenge_program_stopped", { assessment_id: attempt.assessment_id });
 }
 
 export function claimChallengeReward(tracker, attempt, grant, rewardLedger = new Set()) {

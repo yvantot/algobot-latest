@@ -39,18 +39,18 @@ The live model still uses its original inference history and scaler. Independent
 
 ## Built-in Challenge Farm (current collection path)
 
-The hub appears in Quests & Mission Path. A separate Bot Teacher invitation appears below the mission panel after the introductory tutorial missions are claimed. Both tasks are available then; there is no extra waiting period or later-mission gate.
+The board appears in the dedicated Challenges menu beside Quests. A separate Bot Teacher invitation appears below the mission panel after the introductory tutorial missions are claimed. Both tasks are available then; there is no extra waiting period or later-mission gate.
 
-- `ready-row-v2`, rubric `ready-row-2.0`: visit a four-tile row and harvest only ready wheat, across three fixed layouts.
-- `changing-row-v2`, rubric `changing-row-2.0`: the same behavior on rows with 3, 5 and 6 tiles. The same program runs on all rows.
+- `ready-row-v3`, rubric `ready-row-3.0`: visit a four-tile row and harvest only ready wheat, across three fixed layouts.
+- `changing-row-v3`, rubric `changing-row-3.0`: the same behavior on rows with 3, 5 and 6 tiles. The same program runs on all rows.
 - Each row awards one point for visiting every tile, one for harvesting all ready wheat, and one for terminating without invalid harvests or out-of-bounds moves: 9 points total. This is behavioral scoring, not code-style scoring. A no-op would earn safety points but fail traversal and harvesting; empty submissions are blocked. Review whether these weights produce useful distinctions during the pilot.
 - Conditions do not vary with DDA. Crops never grow or spoil; no pests, fire, rain, hints or main-farm resources affect the tests. Programs run inside JS-Interpreter with bounded steps/actions and only the small challenge bot API. Programs drive the real robot, crop and soil components on an isolated KAPLAY farm. Main-farm entities and resources are preserved.
-- Feedback appears after submission. Every submission is retained, but only the first submission from the first exposure is a candidate training target. Task opening, not submission time, is the feature cutoff. There is no student declaration checkbox. The v2 assessor records standard_in_game assistance conditions: common instructions before the first run, feedback afterward. This does not verify absence of outside help; supervision and a consistent assistance policy remain necessary.
+- Feedback appears after submission. Every submission is retained, but only the first submission from the first exposure is a candidate training target. Task opening, not submission time, is the feature cutoff. There is no student declaration checkbox. The live assessor records standard_in_game assistance conditions: common instructions before the first run, feedback afterward. This does not verify absence of outside help; supervision and a consistent assistance policy remain necessary.
 - Coins, EXP and wheat seeds are granted for passing every row, once per challenge in the current farm session. Retries may earn the reward but cannot improve the saved first score.
 
 ### Short sessions and incomplete participation
 
-Challenge access does not guarantee a training-ready input window. The importer still requires 21 contiguous, normal-speed gameplay snapshots before task opening. Early scores are retained but excluded if that history is missing; never pad it with tutorial or challenge activity. The v2 task IDs separate these changed conditions from the previous trace-based tasks.
+Challenge access does not guarantee a training-ready input window. The importer still requires 21 contiguous, normal-speed gameplay snapshots before task opening. Early scores are retained but excluded if that history is missing; never pad it with tutorial or challenge activity. Versioned task IDs separate these changed conditions from previous tasks.
 
 Students do **not** have to finish the game or every challenge. A submitted program can supply a score even when some test rows fail. A never-opened or abandoned task has no score; its gameplay is retained but cannot become a supervised example for this target. The dataset preparation report counts participation and exclusions so these students do not silently disappear from reporting.
 
@@ -101,3 +101,22 @@ The experiment splits by participant, fits normalization only on training partic
 The current importer is deliberately conservative and uses the versioned recent 12-feature schema. The same transformation is implemented at runtime; the old ten features remain available for the deployed legacy model. New weights are candidates only and are not automatically deployed.
 
 Method references: [TensorFlow time-series windows](https://www.tensorflow.org/tutorials/structured_data/time_series) describes explicit input/label windows. [scikit-learn grouped cross-validation](https://scikit-learn.org/stable/modules/cross_validation.html#cross-validation-iterators-for-grouped-data) explains keeping dependent observations together. [Leakage prevention](https://scikit-learn.org/stable/common_pitfalls.html#data-leakage) explains training-only preprocessing.
+
+### Challenge board and runner protocol (v3)
+
+Challenges now have a dedicated menu beside Quests. Six tasks range from a single
+all-ripe row to checks, variable row sizes and returning to the starting tile.
+The return-trip tasks add a fourth point per row. Keep each task separate in
+training; their scores are not interchangeable. `ready-row-v3` remains the
+preparation default. `first-harvest-v1` is an introductory one-row practice task.
+
+The v3 versions of the earlier tasks separate the changed instructions, higher
+rewards and runner limits from v2 data. Each row stops on an invalid move or
+harvest. The runner allows at most 8,000 interpreter steps and 120 actions per
+row, and stops after four repetitions of the same action/position without new
+harvest or exploration progress. This is a safety heuristic, not proof that a
+program is infinite; a finite but highly repetitive program may also hit it.
+Pilot these limits with student programs before freezing the collection protocol.
+A manually stopped first submission remains unscored and later retries are
+practice. The submitted source and stop event are retained. Never silently
+substitute a successful retry as the original model target.

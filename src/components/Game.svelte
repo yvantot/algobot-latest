@@ -13,9 +13,10 @@
   import Document from "./Document.svelte";
   import Shop from "./Shop.svelte";
   import Quest from "./Quest.svelte";
+  import Challenges from "./Challenges.svelte";
   import ChallengeFarm from "./ChallengeFarm.svelte";
   import { CHALLENGES, recordExposure } from "../game/challenges/catalog.js";
-  import { openChallenge, submitChallenge, closeChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
+  import { openChallenge, submitChallenge, closeChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
   import { INVENTORY, PLAYER_DATA } from "../game/global/global.js";
   import { CropTypes } from "../game/global/enum.js";
   import { QUEST_STATE } from "./global.svelte.js";
@@ -61,6 +62,7 @@
     SHOP: 3,
     RESEARCH: 4,
     HELP: 5,
+    CHALLENGES: 6,
   };
 
   const menuButtons = [
@@ -86,6 +88,13 @@
       alt: "quest",
     },
     {
+      id: Menus.CHALLENGES,
+      title: "Challenges",
+      description: "Take on Bot Teacher. Choose a difficulty and win farm rewards.",
+      icon: "/sprites/icon_challenges.png",
+      alt: "challenges",
+    },
+    {
       id: Menus.RESEARCH,
       title: "Learning Progress",
       description: "Review practiced skills and choose what to learn next.",
@@ -102,8 +111,10 @@
   ];
 
   let current_menu = $state(Menus.COMMAND);
-  let challenge = $state(null), challengeReady = $state(false), challengeNotice = $state("");
+  let challenge = $state(null), challengeNotice = $state("");
+  let challengeReady = $derived(!challenge && !TUTORIAL.active && !!QUEST_STATE.intro_loop?.is_claimed);
   let challengeInvite = $state(null), challengeRewardAvailable = $state(true);
+  let rewardedChallenges=$state([...farmChallengeRewards]);
   let challengeAttempt, invitedChallenges = new Set();
   function persistChallenge() {
     if (!dataLogger.saveSessionLight()) storageWarning = "Research data could not be saved. Export it before closing this page.";
@@ -130,6 +141,9 @@
     submitChallenge(telemetry, challengeAttempt, result, source, editor);
     persistChallenge();
   }
+  function stopChallenge(source, editor) {
+    interruptChallenge(telemetry, challengeAttempt, source, editor); persistChallenge();
+  }
   function rewardChallenge() {
     const granted = claimChallengeReward(telemetry, challengeAttempt, () => {
       INVENTORY.changeCoins(challenge.coins);
@@ -137,13 +151,13 @@
       PLAYER_DATA.changeExp(challenge.exp);
     }, farmChallengeRewards);
     challengeRewardAvailable = false;
+    rewardedChallenges=[...farmChallengeRewards];
     persistChallenge();
     return granted;
   }
   onMount(() => {
     const timer = setInterval(() => {
-      challengeReady = !challenge && !TUTORIAL.active && !!QUEST_STATE.intro_loop?.is_claimed;
-      const available = CHALLENGES.find(task => QUEST_STATE[task.prerequisite]?.is_claimed && !invitedChallenges.has(task.id));
+      const available = [...CHALLENGES].sort((a,b)=>a.coins-b.coins).find(task => QUEST_STATE[task.prerequisite]?.is_claimed && !invitedChallenges.has(task.id));
       if (available && challengeReady && !challengeInvite && !ONBOARDING.isModalOpen) { invitedChallenges.add(available.id); challengeInvite = available; }
     }, 1000);
     return () => clearInterval(timer);
@@ -410,7 +424,7 @@
       <div class="flex gap-4">
         <PlayerInfo />
         <div class="pt-2 flex items-center gap-1">
-          {#each menuButtons.filter(btn => !TUTORIAL.active || [Menus.COMMAND, Menus.DOCUMENT, Menus.QUEST, Menus.RESEARCH].includes(btn.id)) as btn}
+          {#each menuButtons.filter(btn => !TUTORIAL.active || [Menus.COMMAND, Menus.DOCUMENT, Menus.QUEST, Menus.CHALLENGES, Menus.RESEARCH].includes(btn.id)) as btn}
             <button
               class="cursor-pointer group relative"
               id={btn.id === Menus.COMMAND ? "command-menu-button" : btn.id === Menus.DOCUMENT ? "documentation-menu-button" : undefined}
@@ -621,8 +635,10 @@
     {/if}
     {#if current_menu === Menus.QUEST}
       <div in:panelIn out:panelOut>
-        <Quest onChallenge={enterChallenge} {challengeReady} {challengeNotice}/>
+        <Quest/>
       </div>
+    {:else if current_menu === Menus.CHALLENGES}
+      <div in:panelIn out:panelOut><Challenges completed={rewardedChallenges} onChallenge={enterChallenge} {challengeReady} {challengeNotice} onClose={()=>toggleMenu(Menus.NONE)}/></div>
     {:else if current_menu === Menus.SHOP}
       <div in:panelIn out:panelOut>
         <Shop />
@@ -689,7 +705,7 @@
 {/if}
 
 {#if challenge}
-  <ChallengeFarm task={challenge} onSubmit={scoreChallenge} onClose={leaveChallenge} onReward={rewardChallenge} rewardAvailable={challengeRewardAvailable}/>
+  <ChallengeFarm task={challenge} onSubmit={scoreChallenge} onInterrupted={stopChallenge} onClose={leaveChallenge} onReward={rewardChallenge} rewardAvailable={challengeRewardAvailable}/>
 {/if}
 
 <style>

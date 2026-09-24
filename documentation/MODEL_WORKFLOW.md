@@ -36,7 +36,7 @@ The legacy ten-feature vector is still exported for traceability and retained fo
 
 ## Prepare the dataset
 
-Place new downloads in `training/data/raw/`. No manual score sheet is needed for Challenge Farm. Use the primary task, `ready-row-v2`, for the initial experiment; prepare the harder `changing-row-v2` separately. Do not pool the two tasks just because both have nine points. A score of zero is valid; null means unscored. Pre/post tests are separate from the model-target importer.
+Place new downloads in `training/data/raw/`. No manual score sheet is needed for Challenge Farm. Use the primary task, `ready-row-v3`, for the initial experiment; prepare the harder `changing-row-v3` separately. Do not pool the two tasks just because both have nine points. A score of zero is valid; null means unscored. Pre/post tests are separate from the model-target importer.
 
 From the repository root:
 
@@ -45,7 +45,7 @@ npm run audit:collection -- training/data/raw
 node scripts/prepare-challenges.js training/data/raw training/samples-v1.json
 ```
 
-Read the exclusion report and participation counts in `samples-v1.json`. The importer retains one first-exposure, first-submission score per participant for the chosen task, accepts standard_in_game conditions from the v2 live assessor, excludes reported/unconfirmed assistance, and never substitutes a better retry. Closing before submitting is unfinished, not zero. Browser exposure history prevents a reload from becoming another first exposure; the importer also checks across exported sessions. Keep the same participant code across devices and record any prior exposure that browser storage cannot detect. Preparation does not certify task validity. New output files must not already exist.
+Read the exclusion report and participation counts in `samples-v1.json`. The importer retains one first-exposure, first-submission score per participant for the chosen task, accepts standard_in_game conditions from the live assessor, excludes reported/unconfirmed assistance, and never substitutes a better retry. Closing before submitting is unfinished, not zero. Browser exposure history prevents a reload from becoming another first exposure; the importer also checks across exported sessions. Keep the same participant code across devices and record any prior exposure that browser storage cannot detect. Preparation does not certify task validity. New output files must not already exist.
 
 The older `prepare-assessments.js` and manual template remain available only for a separately administered, reviewed task protocol. They are not required for the built-in challenges.
 
