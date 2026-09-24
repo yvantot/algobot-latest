@@ -100,7 +100,7 @@
     use:drag
     in:popIn
     out:popOut
-    class="clay-menu clay-shell fixed z-[10000] w-80 bg-gray-100 text-slate-700 border-4 border-slate-500 rounded-xl shadow-2xl overflow-hidden select-none flex flex-col dyk-popup"
+    class="fixed z-[10000] w-80 bg-gray-100 text-slate-700 border-4 border-slate-500 rounded-xl shadow-2xl overflow-hidden select-none flex flex-col dyk-popup"
     style="left: {position.x}px; top: {position.y}px;"
   >
     <!-- Header (Draggable Handle) -->

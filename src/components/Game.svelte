@@ -496,7 +496,7 @@
     {#if Menus.COMMAND === current_menu || docOpen}
       <div in:panelIn out:panelOut class="relative editor-pane z-50">
         <button
-          class="clay-editor-switch absolute top-2 left-4 z-[110] bg-gray-300 border-2 border-gray-400"
+          class="absolute top-2 left-4 z-[110] bg-gray-300 border-2 border-gray-400"
           disabled={TUTORIAL.active}
           title={TUTORIAL.active ? "Text coding unlocks after your first loop" : "Switch editor"}
           aria-label={current_editor === Editors.BLOCK ? "Switch to text editor" : "Switch to block editor"}

@@ -89,7 +89,7 @@
   >
     <div
       in:fly={{y:24,duration:350}}
-      class="clay-menu clay-shell relative w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-gray-100 text-slate-700 border-4 border-slate-500 rounded-xl shadow-2xl overflow-hidden flex flex-col"
+      class="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-gray-100 text-slate-700 border-4 border-slate-500 rounded-xl shadow-2xl overflow-hidden flex flex-col"
     >
       <!-- Header -->
       <div
@@ -183,8 +183,7 @@
           <div class="flex gap-1.5">
             {#each SLIDES as _, i}
               <button
-                aria-pressed={currentSlide === i}
-                  onclick={() => (currentSlide = i)}
+                onclick={() => (currentSlide = i)}
                 class="w-2.5 h-2.5 rounded-full transition-all cursor-pointer {i ===
                 currentSlide
                   ? 'bg-slate-700 scale-110'

@@ -45,7 +45,7 @@
 </script>
 
 <div
-  class="clay-menu start-menu fixed inset-0 z-[9990] flex items-center justify-center bg-gray-900 text-slate-700 select-none transition-all duration-500 ease-in-out"
+  class="fixed inset-0 z-[9990] flex items-center justify-center bg-gray-900 text-slate-700 select-none transition-all duration-500 ease-in-out"
   class:opacity-0={isExiting}
   class:pointer-events-none={isExiting}
 >
@@ -67,21 +67,21 @@
     <div class="flex flex-col gap-4 w-64">
       <button
         onclick={handleStart}
-        class="clay-start-button w-full py-3.5 text-base cursor-pointer text-center select-none"
+        class="wood-button-25d w-full py-3.5 text-base cursor-pointer text-center select-none"
       >
         Start Game
       </button>
 
       <button
         onclick={() => (activeModal = "settings")}
-        class="clay-start-button w-full py-3.5 text-base cursor-pointer text-center select-none"
+        class="wood-button-25d w-full py-3.5 text-base cursor-pointer text-center select-none"
       >
         Settings
       </button>
 
       <button
         onclick={() => (activeModal = "about")}
-        class="clay-start-button w-full py-3.5 text-base cursor-pointer text-center select-none"
+        class="wood-button-25d w-full py-3.5 text-base cursor-pointer text-center select-none"
       >
         About
       </button>
@@ -94,7 +94,7 @@
       class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
     >
       <div
-        class="clay-shell w-full max-w-md bg-gray-100 border-4 border-slate-500 rounded-xl p-5 text-slate-700 space-y-4 shadow-xl"
+        class="w-full max-w-md bg-gray-100 border-4 border-slate-500 rounded-xl p-5 text-slate-700 space-y-4 shadow-xl"
       >
         <div
           class="flex justify-between items-center border-b-2 border-slate-300 pb-2"
@@ -254,7 +254,7 @@
       class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
     >
       <div
-        class="clay-shell w-full max-w-lg bg-gray-100 border-4 border-slate-500 rounded-xl p-5 text-slate-700 space-y-4 shadow-xl max-h-[85vh] overflow-y-auto custom-scrollbar"
+        class="w-full max-w-lg bg-gray-100 border-4 border-slate-500 rounded-xl p-5 text-slate-700 space-y-4 shadow-xl max-h-[85vh] overflow-y-auto custom-scrollbar"
       >
         <div
           class="flex justify-between items-center border-b-2 border-slate-300 pb-2"
@@ -326,4 +326,40 @@
     border-radius: 10px;
   }
 
+  .wood-button-25d {
+    background: #b8753b;
+    border-top: 2px solid #c8874a;
+    border-bottom: 5px solid #6b3d1f;
+    border-radius: 12px;
+    color: #fff6e5;
+
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    box-shadow:
+      0 6px 14px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+    transition:
+      transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 0.15s ease,
+      background 0.15s ease,
+      border-bottom-width 0.1s ease;
+  }
+
+  .wood-button-25d:hover {
+    background: #8f5828;
+    transform: translateY(-3px);
+    box-shadow:
+      0 10px 20px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 0 12px rgba(230, 160, 80, 0.2);
+  }
+
+  .wood-button-25d:active {
+    transform: translateY(2px);
+    border-bottom-width: 2px;
+    box-shadow:
+      0 3px 6px rgba(0, 0, 0, 0.4),
+      inset 0 2px 5px rgba(0, 0, 0, 0.4);
+  }
 </style>
