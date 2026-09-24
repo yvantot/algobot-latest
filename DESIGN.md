@@ -224,6 +224,6 @@ practice replay. A Bot Teacher header introduces the board; a real completion
 count reflects rewards earned on this farm. Tutorial-locked access stays readable.
 
 Challenge play repeats the winning checklist before Run. Results identify failed
-rules for each row. Coin, EXP and wheat-seed rewards have separate padded items;
+rules for each row. Coin and EXP rewards have separate padded items;
 the existing animated reward and confetti remain. Stop & edit keeps the program.
 No reward is granted merely for collecting crops if other required rules fail.

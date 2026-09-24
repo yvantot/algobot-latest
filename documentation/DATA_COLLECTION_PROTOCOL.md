@@ -46,7 +46,7 @@ The board appears in the dedicated Challenges menu beside Quests. A separate Bot
 - Each row awards one point for visiting every tile, one for harvesting all ready wheat, and one for terminating without invalid harvests or out-of-bounds moves: 9 points total. This is behavioral scoring, not code-style scoring. A no-op would earn safety points but fail traversal and harvesting; empty submissions are blocked. Review whether these weights produce useful distinctions during the pilot.
 - Conditions do not vary with DDA. Crops never grow or spoil; no pests, fire, rain, hints or main-farm resources affect the tests. Programs run inside JS-Interpreter with bounded steps/actions and only the small challenge bot API. Programs drive the real robot, crop and soil components on an isolated KAPLAY farm. Main-farm entities and resources are preserved.
 - Feedback appears after submission. Every submission is retained, but only the first submission from the first exposure is a candidate training target. Task opening, not submission time, is the feature cutoff. There is no student declaration checkbox. The live assessor records standard_in_game assistance conditions: common instructions before the first run, feedback afterward. This does not verify absence of outside help; supervision and a consistent assistance policy remain necessary.
-- Coins, EXP and wheat seeds are granted for passing every row, once per challenge in the current farm session. Retries may earn the reward but cannot improve the saved first score.
+- Coins and EXP are granted for passing every row, once per challenge in the current farm session. Retries may earn the reward but cannot improve the saved first score.
 
 ### Short sessions and incomplete participation
 

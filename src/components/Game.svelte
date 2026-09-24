@@ -18,7 +18,6 @@
   import { CHALLENGES, recordExposure } from "../game/challenges/catalog.js";
   import { openChallenge, submitChallenge, closeChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
   import { INVENTORY, PLAYER_DATA } from "../game/global/global.js";
-  import { CropTypes } from "../game/global/enum.js";
   import { QUEST_STATE } from "./global.svelte.js";
   import QuestHUD from "./QuestHUD.svelte";
   import PlayerInfo from "./PlayerInfo.svelte";
@@ -147,7 +146,6 @@
   function rewardChallenge() {
     const granted = claimChallengeReward(telemetry, challengeAttempt, () => {
       INVENTORY.changeCoins(challenge.coins);
-      INVENTORY.changeCrops(CropTypes.WHEAT, challenge.seeds);
       PLAYER_DATA.changeExp(challenge.exp);
     }, farmChallengeRewards);
     challengeRewardAvailable = false;
