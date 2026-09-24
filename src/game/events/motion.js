@@ -3,7 +3,7 @@
 export const RAIN_TIMING = Object.freeze({
   travelDuration: 2.65,
   rainDuration: 8,
-  exitDuration: 4,
+  exitDuration: 2.65,
   dropInterval: 0.8,
   dropDuration: 0.9,
 });
@@ -26,7 +26,7 @@ export function cloudPosition(cloud, outside, center, remainder = 0) {
   const x = cloud.phase === "entering"
     ? timedLerp(outside, center.x, elapsed - APPEAR - HOLD, cloud.travelDuration - APPEAR - HOLD, bounceOut)
     : cloud.phase === "leaving"
-      ? timedLerp(center.x, outside, elapsed, cloud.exitDuration - DISAPPEAR, t => t)
+      ? timedLerp(center.x, outside, elapsed, cloud.exitDuration - HOLD - DISAPPEAR, bounceOut)
       : center.x;
   return { x, y: center.y - 100 };
 }

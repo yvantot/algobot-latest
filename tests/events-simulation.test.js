@@ -400,7 +400,7 @@ test("spawner points scale fire pressure and rain intensity while travel remains
     assert.ok(fire.damage / fire.damageInterval <= 2.5);
     assert.ok(fire.matureBurnDuration >= 1.8 && fire.matureBurnDuration <= 2.2);
     assert.equal(rain.travelDuration, RAIN_TIMING.travelDuration);
-    assert.ok(rain.exitDuration >= 3);
+    assert.equal(rain.exitDuration, rain.travelDuration);
     const sim = new FarmEventSimulation(makeFarm());
     assert.deepEqual(sim.startFire(points).fires[0].settings, fire);
     const cloud = sim.startRain(points).clouds[0];
@@ -467,7 +467,8 @@ test("eased cloud motion stays continuous across arrival and departure", () => {
   assert.equal(cloud.progress, 0, "departure must not retain arrival's 100% progress");
   assert.ok(Math.abs(position().x - 300) < 1e-8, "no teleport on the transition frame");
   sim.update(0.05);
-  assert.ok(position().x < 300 && position().x > 290);
+  const arrival = cloudPosition({phase:"entering",phaseAge:.7,travelDuration:cloud.travelDuration},0,target);
+  assert.ok(Math.abs(position().x - (300 - arrival.x)) < 1e-8, "departure mirrors the entrance easing");
   sim.update(cloud.exitDuration - 0.05);
   assert.equal(position().x, 0);
   assert.equal(sim.clouds.size, 0);
