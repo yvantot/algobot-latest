@@ -10,7 +10,8 @@ export function inspectCollection(session) {
   if (!session.collection?.independent_of_inference) issues.push("legacy_or_prediction_dependent_sampling");
   if (JSON.stringify(session.feature_names) !== JSON.stringify(FEATURE_NAMES)) issues.push("unverified_feature_order");
   if (!Array.isArray(session.raw_events) || !session.raw_events.length) issues.push("no_raw_events");
-  if (snapshots.length < 20) issues.push("fewer_than_20_snapshots");
+  if (snapshots.length < 21) issues.push("fewer_than_21_snapshots");
+  if (session.source_type === "developer_test") issues.push("developer_test_excluded_from_training");
   let previous = -Infinity, gaps = 0, invalid = 0;
   for (const snapshot of snapshots) {
     if (!Number.isFinite(snapshot.timestamp_ms) || snapshot.timestamp_ms <= previous ||
@@ -34,5 +35,6 @@ export function inspectCollection(session) {
   return { issues, snapshot_count: snapshots.length, sampling_gaps: gaps, usable_recent_windows: recentWindows,
     unfinished_attempts: attempts.filter(a => !a.completed).length,
     proxy_category_support: support,
-    independent_assessment_linked: false };
+    scored_challenge_count: (session.challenge_attempts ?? []).filter(a => a.status === "scored").length,
+    independent_assessment_linked: (session.challenge_attempts ?? []).some(a => a.status === "scored" && a.purpose === "model_target") };
 }

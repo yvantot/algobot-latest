@@ -15,7 +15,11 @@ export function inspectFarm(grid) {
   }));
 }
 
-export async function executeDevAction(action) {
+export async function executeDevAction(action, { tracker, label, mutates = true } = {}) {
+  if (tracker && mutates) {
+    if (!tracker.researchExclusionReasons.includes("developer_action")) tracker.researchExclusionReasons.push("developer_action");
+    tracker._logRawEvent("developer_action", { action: label });
+  }
   const result = await action();
   if (result === false || result?.applied === false || result?.triggered === false) {
     return { ok: false, message: result?.reason || "No change / action rejected" };

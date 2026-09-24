@@ -33,13 +33,13 @@ The live model still uses its original inference history and scaler. Independent
 5. Confirm the displayed participant code in the DDA Research Panel. Record its session ID from the JSON export. The code persists locally; explicitly change it before the next person uses that browser. Invalid codes produce a warning and a temporary ID, which must be reconciled before using the data.
 6. Let the student finish guided practice, then play independently at normal speed. Do not coach them through the scored task. Record any deviations instead of silently omitting them.
 7. Collect at least 21 consecutive normal gameplay snapshots immediately before each model-target task (20 intervals, about 100 seconds; allow 110 seconds for timer alignment). This is a minimum window requirement, not a recommended total learning duration. Set the overall session length with the adviser. Pauses are allowed, but resume long enough to obtain a new uninterrupted window.
-8. Open **Quests & Mission Path → Challenge Farm**. The game records the opening timestamp, pauses the main farm, and scores the student's first submitted program automatically. Ask students to report whether they used outside help. Keep conditions and time allowance consistent across participants. A stale gameplay window blocks entry until enough normal play has been recorded.
+8. Open **Challenges (beside Quests) > Pick the ready crops** (`ready-row-v3`) after the gameplay window. Use this same task and task order for everyone. The game records the opening timestamp, pauses the main farm, and scores the first submitted program automatically. Record any outside help in the collection log. Keep conditions and time allowance consistent. Early entry is allowed by the game and can consume the first exposure without usable input history; do not open the task just to preview it.
 9. Use **Download Dataset JSON** after each player and retain the original download. Check storage warnings. Browser storage is a checkpoint, not a server or guaranteed backup; losing power can lose changes since the last successful 30-second save. Never clear storage before verifying the downloaded file.
 10. Audit each download before the player leaves. A sampling gap may be a legitimate pause; inspect context. A later retry cannot repair a lost first-exposure assessment. Retain the session and its exclusion reason rather than treating the retry as an unseen task.
 
 ## Built-in Challenge Farm (current collection path)
 
-The board appears in the dedicated Challenges menu beside Quests. A separate Bot Teacher invitation appears below the mission panel after the introductory tutorial missions are claimed. Both tasks are available then; there is no extra waiting period or later-mission gate.
+The board appears in the dedicated Challenges menu beside Quests. A separate Bot Teacher invitation appears below the mission panel after the introductory tutorial missions are claimed. All six tasks are available then; there is no extra waiting period or later-mission gate. The invitation initially offers a beginner task, not the primary research task. For the collection procedure, explicitly select Pick the ready crops in the menu.
 
 - `ready-row-v3`, rubric `ready-row-3.0`: visit a four-tile row and harvest only ready wheat, across three fixed layouts.
 - `changing-row-v3`, rubric `changing-row-3.0`: the same behavior on rows with 3, 5 and 6 tiles. The same program runs on all rows.
@@ -85,14 +85,14 @@ Keep downloaded JSON in a new collection directory, separate from historical art
 
 ```powershell
 npm run audit:collection -- path/to/download.json
-node scripts/prepare-assessments.js path/to/exports path/to/assessments.json path/to/NEW-samples.json
+node scripts/prepare-challenges.js path/to/exports path/to/NEW-samples.json ready-row-v3
 npm run model -- plan path/to/NEW-samples.json path/to/NEW-plan.json
 npm run model -- train path/to/NEW-samples.json path/to/NEW-plan.json training/runs/NEW-run
 npm run model -- evaluate path/to/NEW-samples.json training/runs/NEW-run
 npm run model -- bundle training/runs/NEW-run training/bundles/NEW-candidate
 ```
 
-Copy `training/templates/assessment-template.json` to a working file and replace the placeholders with real observations. Add an entry per assessment. Use ISO timestamps including `Z` or an explicit timezone. `score: null` means unscored; actual zero is a valid score. Use `status: "scored"` only after scoring, and `assistance: "none"` only if no assistance was provided. Do not fill missing results with zero.
+For the built-in challenges, no manual score sheet is needed. Only if using the separate external-task alternative, use `prepare-assessments.js` with `training/templates/assessment-template.json`. Use ISO timestamps including `Z` or an explicit timezone. `score: null` means unscored; actual zero is a valid score. Do not fill missing results with zero.
 
 The importer writes accepted samples plus an exclusion report and input hashes. It refuses to overwrite an existing output. Every accepted window has 21 actual consecutive normal-speed gameplay snapshots, all strictly before assessment start, yielding 20 recent-feature intervals. The training command uses recorded independent scores only; synthetic labels derived from the old formula are not mixed into this target. At least six distinct participant IDs are required mechanically for this workflow, but that is not evidence of an adequate sample size.
 

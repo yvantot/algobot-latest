@@ -9,6 +9,7 @@
   import { createResizable } from "./interface.svelte.js";
   import { createInit } from "../game/global/interpreter.js";
   import { telemetry } from "../game/ml/telemetry.js";
+  import { isBlocklyProgramEdit } from "../game/ml/editor-events.js";
 
   import { createCodeRunner } from "../game/global/code-runner.js";
   import { k } from "../lib/kaplay.js";
@@ -835,6 +836,15 @@
     });
   }
 
+  function restoreWorkspace(xml) {
+    const recordUndo = Blockly.Events.getRecordUndo();
+    Blockly.Events.setRecordUndo(false);
+    try {
+      workspace.clear();
+      Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(xml), workspace);
+    } finally { Blockly.Events.setRecordUndo(recordUndo); }
+  }
+
   function selectRobot(index) {
     if (workspace && robots_state[selected_robot]) {
       const dom = Blockly.Xml.workspaceToDom(workspace);
@@ -846,11 +856,7 @@
     selected_robot = index;
 
     if (workspace && robots_state[selected_robot]) {
-      workspace.clear();
-      Blockly.Xml.domToWorkspace(
-        Blockly.utils.xml.textToDom(robots_state[selected_robot].blockly_xml),
-        workspace,
-      );
+      restoreWorkspace(robots_state[selected_robot].blockly_xml);
     }
   }
 
@@ -880,6 +886,7 @@
     observer.observe(blocklyDiv);
 
     workspace.addChangeListener((event) => {
+      if (isBlocklyProgramEdit(event)) telemetry.recordCodeEdit();
       if (["intro_run", "intro_build"].includes(currentQuest()) && event.type === Blockly.Events.BLOCK_CREATE && event.recordUndo) {
         const created = (event.ids || []).some(id => ["bot_left", "bot_right", "bot_up", "bot_down"].includes(workspace.getBlockById(id)?.type));
         if (created) TUTORIAL.authoredBlocks.push(...(event.ids || []));
@@ -899,15 +906,9 @@
       robots_state[selected_robot] &&
       robots_state[selected_robot].blockly_xml
     ) {
-      Blockly.Xml.domToWorkspace(
-        Blockly.utils.xml.textToDom(robots_state[selected_robot].blockly_xml),
-        workspace,
-      );
+      restoreWorkspace(robots_state[selected_robot].blockly_xml);
     } else {
-      Blockly.Xml.domToWorkspace(
-        Blockly.utils.xml.textToDom(START_XML),
-        workspace,
-      );
+      restoreWorkspace(START_XML);
     }
     return () => observer.disconnect();
   });

@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { inspectCollection } from "../src/game/ml/collection-quality.js";
 import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
 import { RESEARCH_SCHEMA, RESEARCH_FEATURES, recentSequence } from "../src/game/ml/research-features.js";
-import { CHALLENGES } from "../src/game/challenges/catalog.js";
+import { CHALLENGES, challengeRules, challengeMaxScore } from "../src/game/challenges/catalog.js";
 
 export function readCollection(input) {
   const files = fs.statSync(input).isDirectory()
@@ -59,6 +59,10 @@ export function auditCollection(sessions) {
   const reports = sessions.map(s => ({ session_id: s.session_id, student_id: s.student_id, ...inspectCollection(s) }));
   return { session_count: sessions.length, participant_count: new Set(sessions.map(s => s.student_id)).size,
     proxy_category_support: [0, 1, 2].map(i => reports.reduce((n, r) => n + r.proxy_category_support[i], 0)),
+    challenge_targets: CHALLENGES.map(task => {
+      const result = challengeSamples(sessions, task.id);
+      return { task_id: task.id, title: task.title, ...result.participation, excluded: result.excluded };
+    }),
     reports, note: "A clean capture audit does not establish model accuracy or adequate participant diversity." };
 }
 
@@ -127,6 +131,14 @@ export function challengeSamples(sessions, taskId = "ready-row-v3") {
     const first = attempt.submissions?.[0];
     if (!first || first.score !== attempt.score || first.submitted_at !== attempt.finished_at || first.assistance !== attempt.assistance) {
       reject("first_submission_provenance_mismatch"); continue;
+    }
+    const task = CHALLENGES.find(task => task.id === taskId);
+    const keys = task && challengeRules(task).map(rule => rule.key);
+    if (!task || attempt.rubric_version !== task.rubric || attempt.max_score !== challengeMaxScore(task) ||
+        first.max_score !== attempt.max_score || !Array.isArray(first.cases) || first.cases.length !== task.cases.length ||
+        first.cases.some(row => keys.some(key => typeof row?.checks?.[key] !== "boolean")) ||
+        first.cases.reduce((sum, row) => sum + keys.filter(key => row.checks[key]).length, 0) !== attempt.score) {
+      reject("challenge_rubric_or_case_score_mismatch"); continue;
     }
     assessments.push(attempt);
   }

@@ -100,6 +100,12 @@ test("automatic task dataset uses only gameplay before opening; retries and assi
   assert.equal(prepared.samples[0].y,1);
   assert.equal(prepared.participation.participants_with_usable_first_score,1);
   assert.equal(attempt.assistance,"standard_in_game");
+  attempt.submissions[0].cases[0].checks.visited_every_tile = false;
+  assert.equal(challengeSamples([session]).excluded[0].reason,"challenge_rubric_or_case_score_mismatch");
+  attempt.submissions[0].cases[0].checks.visited_every_tile = true;
+  attempt.max_score = 10;
+  assert.equal(challengeSamples([session]).samples.length,0);
+  attempt.max_score = 9;
   attempt.first_exposure=false;
   assert.equal(challengeSamples([session]).samples.length,0);
   attempt.first_exposure=true; attempt.assistance="reported_or_unconfirmed";attempt.submissions[0].assistance=attempt.assistance;

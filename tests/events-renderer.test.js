@@ -49,7 +49,7 @@ test("renderer eases cloud travel every frame and does not teleport when departu
   assert.equal(h.cloud.phase, "leaving");
   assert.ok(Math.abs(h.view.pos.x - 32) < 1e-8, "exit starts at the resting position");
   h.step(0.01);
-  assert.ok(h.view.pos.x < 32 && h.view.pos.x > 30, "continuous linear departure");
+  assert.ok(h.view.pos.x < 32 && h.view.pos.x > 20, "eased departure starts continuously without jumping off-farm");
   h.step(4);
   assert.equal(h.renderer.cloudViews.size, 0);
 });

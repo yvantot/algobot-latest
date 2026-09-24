@@ -96,7 +96,7 @@ export class DataLogger {
       dataset_version: this.datasetVersion,
       export_date: new Date().toISOString(),
       feature_schema_version: "10f",
-      telemetry_revision: "v4-recent-counters",
+      telemetry_revision: "v4-blockly-edits-export-fix",
       build: typeof __BUILD_PROVENANCE__ === "undefined" ? { commit: "unknown", dirty: null } : __BUILD_PROVENANCE__,
       research_features: { schema: RESEARCH_SCHEMA, names: RESEARCH_FEATURES, snapshots_required: 21 },
       source_type: telemetry.researchExclusionReasons.length ? "developer_test" : "recorded",

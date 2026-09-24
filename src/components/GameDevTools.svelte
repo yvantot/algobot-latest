@@ -153,13 +153,11 @@
     log = [{ ts, msg, color }, ...log].slice(0, 80);
   }
 
-  async function run(label, fn, color = "text-gray-200") {
+  async function run(label, fn, color = "text-gray-200", mutates = true) {
     if (pending) return;
-    if (!telemetry.researchExclusionReasons.includes("developer_action")) telemetry.researchExclusionReasons.push("developer_action");
-    telemetry._logRawEvent("developer_action", { action: label });
     pending = true;
     try {
-      const result = await executeDevAction(fn);
+      const result = await executeDevAction(fn, { tracker: telemetry, label, mutates });
       push(`${result.ok ? "✓" : "!"} ${label}: ${result.message}`, result.ok ? color : "text-amber-300");
     } catch (e) {
       push(`✗ ${label}: ${e.message}`, "text-red-400");
@@ -1533,7 +1531,7 @@
             () =>
               run("Refresh Scheduler", () => {
                 schedulerInfo = eventScheduler.getState();
-              }),
+              }, "text-gray-200", false),
           )}
           {@render btn("Force Event Check", "text-red-400 font-bold", () =>
             run("Force Event Check", () => {
@@ -1547,7 +1545,7 @@
         {@render sec("Research Data")}
         <div class="grid grid-cols-2 gap-1">
           {@render btn("Download Dataset JSON", "text-sky-300 font-bold", () =>
-            run("Export JSON", () => dataLogger.exportAllSessionsJSON()),
+            run("Export JSON", () => dataLogger.exportAllSessionsJSON(), "text-gray-200", false),
           )}
           {@render btn("Clear Stored Data", "text-red-400", () =>
             run("Clear Data", () => dataLogger.clearAllData()),

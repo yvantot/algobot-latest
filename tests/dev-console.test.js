@@ -1,6 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {devInteger, inspectFarm, executeDevAction} from "../src/game/dev-console.js";
+import { TelemetryTracker } from "../src/game/ml/telemetry.js";
+
+test("research exports stay recorded while gameplay cheats exclude the session", async () => {
+ const tracker = new TelemetryTracker();
+ await executeDevAction(() => assert.deepEqual(tracker.researchExclusionReasons, []), { tracker, label: "Export JSON", mutates: false });
+ assert.equal(tracker.rawEvents.length, 0);
+ await executeDevAction(() => assert.deepEqual(tracker.researchExclusionReasons, ["developer_action"]), { tracker, label: "Finish tutorial" });
+ await executeDevAction(() => {}, { tracker, label: "Export JSON", mutates: false });
+ assert.deepEqual(tracker.researchExclusionReasons, ["developer_action"]);
+});
 
 test("developer input rejects blank, fractional and out of range values",()=>{
  for(const value of ["",null,undefined,"oops",1.2,-1,21]) assert.throws(()=>devInteger(value,0,20,"Bots"));
