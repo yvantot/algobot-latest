@@ -7,6 +7,7 @@ import { COLLECTION_INTERVAL_MS } from "./collection.js";
 import { inspectCollection } from "./collection-quality.js";
 import { sealDataset } from "./export-integrity.js";
 import { RESEARCH_SCHEMA, RESEARCH_FEATURES } from "./research-features.js";
+import { clearParticipant } from "./participant.js";
 
 const LABEL_FORMULA = "0.40*completion + 0.25*(1-min(1,errors/10)) + 0.20*(1-min(1,resets/5)) + 0.15*(1-min(1,hints/5))";
 const toISO = value => value ? new Date(value).toISOString() : null;
@@ -270,13 +271,14 @@ export class DataLogger {
     localStorage.removeItem(this.storageKey);
     localStorage.removeItem(this.rawStorageKey);
     localStorage.removeItem("algobot_replay_buffer");
+    clearParticipant(localStorage);
     this.pendingSessions.clear();
     this.clearedSessionIds.add(telemetry.sessionId);
     mlAgent.replayBuffer = [];
     mlAgent.prevState = null;
     mlAgent.prevAction = null;
     mlAgent.pendingCompletionReward = 0;
-    return "Stored research data cleared. Reload before collecting a new session.";
+    return "Research data and participant ID cleared. Reload to start with a new participant.";
   }
 
   _downloadFile(content, filename, mimeType) {

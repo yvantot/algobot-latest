@@ -6,7 +6,21 @@ export function resolveParticipant(search, storage, makeId = () => `p_${crypto.r
   const stored = storage.getItem("algobot_participant_id");
   const id = requested || stored || makeId();
   storage.setItem("algobot_participant_id", id);
-  if (requested) storage.setItem("algobot_participant_id_source", "researcher_assigned_code");
-  return { id, source: requested ? "researcher_assigned_code"
-    : storage.getItem("algobot_participant_id_source") || "browser_local_pseudonym" };
+  const source = requested ? "researcher_assigned_code"
+    : stored ? storage.getItem("algobot_participant_id_source") || "browser_local_pseudonym" : "browser_local_pseudonym";
+  storage.setItem("algobot_participant_id_source", source);
+  return { id, source };
+}
+
+export function clearParticipant(storage, browser = globalThis.window) {
+  storage.removeItem("algobot_participant_id");
+  storage.removeItem("algobot_participant_id_source");
+  // Otherwise reloading the same URL immediately restores the cleared code.
+  if (browser) {
+    const url = new URL(browser.location.href);
+    if (url.searchParams.has("study_participant")) {
+      url.searchParams.delete("study_participant");
+      browser.history.replaceState(browser.history.state, "", url.href);
+    }
+  }
 }

@@ -7,7 +7,7 @@ import { TelemetryTracker } from "../src/game/ml/telemetry.js";
 import { startCollection } from "../src/game/ml/collection.js";
 import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
 import { assessmentSamples, readCollection, auditCollection } from "../scripts/collection-dataset.js";
-import { resolveParticipant } from "../src/game/ml/participant.js";
+import { resolveParticipant, clearParticipant } from "../src/game/ml/participant.js";
 
 test("assigned participant codes persist across sessions and can change between players", () => {
   const values = new Map();
@@ -17,6 +17,22 @@ test("assigned participant codes persist across sessions and can change between 
   assert.equal(resolveParticipant("?study_participant=P002", storage).id, "P002");
   assert.throws(() => resolveParticipant("?study_participant=", storage), /participant code/);
   assert.equal(values.get("algobot_participant_id"), "P002");
+});
+
+test("clearing participant identity removes saved and URL codes while preserving unrelated settings", () => {
+  const values = new Map([["unrelated_preference", "keep"]]);
+  const storage = { getItem: k => values.get(k), setItem: (k, v) => values.set(k, v), removeItem: k => values.delete(k) };
+  resolveParticipant("?study_participant=P001", storage);
+  const browser = { location: { href: "http://localhost:5173/?study_participant=P001&view=farm#help" },
+    history: { state: { retained: true }, replaceState(state, title, url) { assert.deepEqual(state, { retained: true }); browser.location.href = url; } } };
+  clearParticipant(storage, browser);
+  assert.equal(storage.getItem("algobot_participant_id"), undefined);
+  assert.equal(storage.getItem("algobot_participant_id_source"), undefined);
+  assert.equal(storage.getItem("unrelated_preference"), "keep");
+  assert.equal(browser.location.href, "http://localhost:5173/?view=farm#help");
+  const next = resolveParticipant(new URL(browser.location.href).search, storage, () => "p_new");
+  assert.deepEqual(next, { id: "p_new", source: "browser_local_pseudonym" });
+  assert.equal(resolveParticipant("", storage, () => "must_not_change").id, "p_new");
 });
 
 test("collection includes practice without inference, excludes demos and pauses, and stops its timer", () => {

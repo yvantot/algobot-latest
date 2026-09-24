@@ -12,7 +12,7 @@ The separate Quest CSV and replay-buffer download buttons were removed. DQN repl
 
 Checksums detect accidental modification; they are not signatures or proof that a record represents a real student. The importer verifies the manifest, rejects unreadable-storage recovery exports for training, and detects conflicting overlapping histories. It deduplicates repeated session downloads without making extra students or samples.
 
-Browser persistence remains localStorage with 30-second checkpoints. This release does not add a backend or make browser storage unlimited. Download after each participant and check storage warnings. Keep original JSON files unchanged. **Clear Stored Data** now prevents the current in-memory session from returning through autosave or export; reload before beginning the next participant.
+Browser persistence remains localStorage with 30-second checkpoints. This release does not add a backend or make browser storage unlimited. Download after each participant and check storage warnings. Keep original JSON files unchanged. **Clear Stored Data** prevents the current in-memory session from returning through autosave or export, removes the saved participant ID and removes `study_participant` from the current URL. Reload to generate a fresh ID, or open a URL with the next researcher's assigned participant code. Ordinary reloads without clearing retain the participant ID for repeat sessions.
 
 For spreadsheet analysis, derive a summary from the JSON later:
 

@@ -152,9 +152,13 @@ test("collection exports preserve unfinished observation time without assigning 
 
 test("cleared current sessions cannot silently return through autosave or export", () => {
   const logger = new DataLogger();
+  localStorage.setItem("algobot_participant_id", "P001");
+  localStorage.setItem("algobot_participant_id_source", "researcher_assigned_code");
   telemetry.recordQuestStart("q");
   logger.saveSessionLight();
   logger.clearAllData();
+  assert.equal(localStorage.getItem("algobot_participant_id"), null);
+  assert.equal(localStorage.getItem("algobot_participant_id_source"), null);
   logger.saveSessionLight();
   assert.equal(logger.buildDatasetExport().sessions.length, 0);
   assert.equal(logger.getSessionCount(), 0);
