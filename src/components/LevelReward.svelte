@@ -45,7 +45,7 @@
     class="z-50 fixed inset-0 backdrop-blur-sm flex justify-center items-center"
   >
     <div
-      class="enter-anim relative flex flex-col gap-2 w-[30vw] max-h-[90vh] bg-gray-100 text-sm p-3 rounded-xl shadow-xl overflow-hidden text-slate-700 border-4 border-slate-500 select-none"
+      class="clay-menu clay-shell level-rewards enter-anim relative flex flex-col gap-2 w-[30vw] max-h-[90vh] bg-gray-100 text-sm p-3 rounded-xl shadow-xl overflow-hidden text-slate-700 border-4 border-slate-500 select-none"
     >
       <!-- Header -->
       <div

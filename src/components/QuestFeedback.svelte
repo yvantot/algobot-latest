@@ -42,7 +42,7 @@
 {#if item}
   {#each [item] as item (item.key)}
     {#if item.milestone}<Confetti/><div class="scrim" transition:fade|global={{duration:400}}></div>{/if}
-    <section in:rewardMotion|global={{enter:true}} out:rewardMotion|global={{enter:false}} data-quest-reward bind:this={panel} use:dialogFocus={item.milestone} class="completion" class:milestone={item.milestone} role="status" aria-live="polite">
+    <section in:rewardMotion|global={{enter:true}} out:rewardMotion|global={{enter:false}} data-quest-reward bind:this={panel} use:dialogFocus={item.milestone} class="clay-menu clay-shell completion" class:milestone={item.milestone} role="status" aria-live="polite">
       <img src="/sprites/bot.png" alt="" class="celebrate" />
       <p>{item.milestone ? "MILESTONE REACHED" : "MISSION COMPLETE"}</p>
       <h2>{item.title}</h2>
@@ -53,7 +53,7 @@
   {/each}
 {:else if QUEST_FEEDBACK.hazardsPending}
   <div class="scrim" transition:fade|global={{duration:400}}></div>
-  <div in:rewardMotion|global={{enter:true}} out:rewardMotion|global={{enter:false}} use:dialogFocus tabindex="-1" class="completion milestone" role="dialog" aria-modal="true" aria-label="Ready for normal farming">
+  <div in:rewardMotion|global={{enter:true}} out:rewardMotion|global={{enter:false}} use:dialogFocus tabindex="-1" class="clay-menu clay-shell completion milestone" role="dialog" aria-modal="true" aria-label="Ready for normal farming">
     <h2>Your farm is ready.</h2>
     <p>You’re ready to make this farm your own. Try your ideas, learn as you go, and enjoy the harvest.</p>
     <p>Good luck, and have fun!</p>

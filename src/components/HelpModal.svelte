@@ -161,7 +161,7 @@
 
 <div
   style="width: {resize.width}px;"
-  class="flex flex-col gap-2 h-[95vh] bg-gray-100 text-sm p-3 rounded-xl shadow-xl overflow-hidden text-slate-700 border-4 border-slate-500"
+  class="clay-menu clay-shell flex flex-col gap-2 h-[95vh] bg-gray-100 text-sm p-3 rounded-xl shadow-xl overflow-hidden text-slate-700 border-4 border-slate-500"
 >
   <div
     role="separator"
@@ -204,11 +204,13 @@
     <div class="flex flex-wrap gap-1 justify-center shrink-0">
       <button
         class="rounded-lg p-1.5 px-3 bg-gray-300 font-semibold cursor-pointer transition-colors"
+        aria-pressed={activeTab === "slides"}
         class:bg-green-300={activeTab === "slides"}
         onclick={() => (activeTab = "slides")}>Tutorial Slides</button
       >
       <button
         class="rounded-lg p-1.5 px-3 bg-gray-300 font-semibold cursor-pointer transition-colors"
+        aria-pressed={activeTab === "mechanics"}
         class:bg-green-300={activeTab === "mechanics"}
         onclick={() => (activeTab = "mechanics")}>Game Mechanics</button
       >
@@ -301,6 +303,8 @@
             <div class="flex gap-1">
               {#each SLIDES as _, i}
                 <button
+                  aria-pressed={currentSlide === i}
+                  aria-label="Go to slide {i + 1}"
                   onclick={() => (currentSlide = i)}
                   class="w-2.5 h-2.5 rounded-full {i === currentSlide
                     ? 'bg-slate-700'

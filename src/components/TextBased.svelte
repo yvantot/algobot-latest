@@ -389,7 +389,7 @@
 
 <div
   style="width: {resize.width}px;"
-  class="command-panel relative text-slate-700 h-[95vh] flex flex-col w-[30vw] bg-gray-100 border-4 border-slate-500 rounded-xl shadow-xl overflow-hidden text-sm"
+  class="clay-menu clay-shell command-panel relative text-slate-700 h-[95vh] flex flex-col w-[30vw] bg-gray-100 border-4 border-slate-500 rounded-xl shadow-xl overflow-hidden text-sm"
 >
   <button type="button" class="command-resize" class:resizing-active={resize.is_resizing}
     aria-label="Resize Bot Command" onpointerdown={resize.startResize} onkeydown={resize.resizeKey}></button>
@@ -407,6 +407,7 @@
             selected_robot = index;
             updateEditorContent(robots_state[selected_robot].text_code);
           }}
+          aria-pressed={selected_robot === index}
           class:opacity-100={selected_robot === index}
           class="opacity-80 border-r-2 border-slate-600 px-3 py-1 bg-[#262737] text-[#82F54C] flex-grow text-center cursor-pointer select-none bot-index-font"
           >BOT {robot.display_text}</button

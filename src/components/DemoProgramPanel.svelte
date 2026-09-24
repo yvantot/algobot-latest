@@ -33,7 +33,7 @@
   }
 </script>
 
-<aside class:leaving class="program" style:left="{x}px" style:top="{y}px" style:width="{width}px" style:height="{height}px" style:visibility={mounted?"visible":"hidden"}
+<aside class:leaving class="clay-menu clay-shell program" style:left="{x}px" style:top="{y}px" style:width="{width}px" style:height="{height}px" style:visibility={mounted?"visible":"hidden"}
   onoutrostart={()=>leaving=true} in:fly={{x:-20,duration:reduced?0:350,easing:cubicOut}} out:fly={{x:-20,duration:reduced?0:220,easing:cubicOut}}>
   <button class="handle" aria-label="Move Bot {program.bot} program; drag or use arrow keys" onpointerdown={start} onpointermove={move} onpointerup={()=>drag=null} onpointercancel={()=>drag=null} onkeydown={keyboard}>Robot program · Bot {program.bot}<span aria-hidden="true">⠿</span></button>
   <p>{program.role ?? "Follow the highlighted block"}</p>

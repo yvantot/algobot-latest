@@ -21,7 +21,7 @@
     class="z-50 fixed inset-0 backdrop-blur-sm flex justify-center items-center"
   >
     <div
-      class="enter-anim relative w-[33vw] h-fit bg-[#ab7440] text-sm rounded-lg border-3 border-[#5f4124] outline-3 outline-[#ffd6af] select-none shadow-lg"
+      class="clay-menu clay-shell personalize-menu enter-anim relative w-[33vw] h-fit bg-[#ab7440] text-sm rounded-lg border-3 border-[#5f4124] outline-3 outline-[#ffd6af] select-none shadow-lg"
     >
       <button
         onclick={handleExit}
@@ -38,6 +38,7 @@
           <div class="flex gap-2">
             {#each Object.keys(AvatarTypes) as avatar}
               <button
+                aria-pressed={selected_avatar === AvatarTypes[avatar]}
                 class:outline-4={selected_avatar === AvatarTypes[avatar]}
                 onclick={() => (selected_avatar = AvatarTypes[avatar])}
                 class="flex justify-center items-center p-2 border-lg cursor-pointer bg-[#824117] rounded-lg border-t-3 border-[#603514] outline-[#ffd6af] group flex-grow"
@@ -64,7 +65,7 @@
         </div>
 
         <button
-          class="text-sm ml-auto block p-2 border-b-4 border-[#815831] bg-[#c5864b] rounded-lg font-bold outline-3 outline-[#ffd6af] hover:rotate-3 transition-transform"
+          class="clay-primary text-sm ml-auto block p-2 border-b-4 border-[#815831] bg-[#c5864b] rounded-lg font-bold outline-3 outline-[#ffd6af] hover:rotate-3 transition-transform"
           onclick={handleConfirm}>Confirm Changes</button
         >
       </div>

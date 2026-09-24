@@ -3,7 +3,7 @@
   import { QUEST_STATE, currentQuest, claimQuest } from "./global.svelte.js";
   let active = $derived(currentQuest());
 </script>
-<section class="path" aria-label="Mission path">
+<section class="clay-menu clay-shell path" aria-label="Mission path">
 <header><img src="/sprites/bot_teacher.png" alt="Bot Teacher"/><div><h1>Quests & Mission Path</h1><p>Complete missions to unlock your next farming skill.</p></div></header>
   <ol>
     {#each Object.entries(QUEST_DATA) as [key, quest]}

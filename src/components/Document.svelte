@@ -51,7 +51,7 @@
   </article>
  {/each}
 {/snippet}
-<section class="documentation" style:width="{width}px" aria-label="Documentation">
+<section class="clay-menu clay-shell documentation" style:width="{width}px" aria-label="Documentation">
  <button class="resize" aria-label="Resize documentation" use:resize onkeydown={e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();width=Math.max(320,Math.min(540,width+(e.key==="ArrowLeft"?20:-20)));}}}></button>
  <header><img src="/sprites/bot_teacher.png" alt="Bot Teacher"/><h1>Documentation</h1><button aria-label="Close documentation" onclick={onClose}>✕</button></header>
  <div class="search"><input bind:this={search} bind:value={query} aria-label="Search command names" placeholder="Search commands…"/><button onclick={()=>query=""} aria-label="Clear search">Clear</button></div>

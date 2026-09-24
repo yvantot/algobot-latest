@@ -59,7 +59,7 @@
 </script>
 
 {#if isOpen}
-  <div class="live-cutscene" use:dialogFocus tabindex="-1" role="dialog" aria-modal="true" aria-label="Meet your farm" out:fade={{duration:reducedMotion ? 0 : 400}}>
+  <div class="clay-menu live-cutscene" use:dialogFocus tabindex="-1" role="dialog" aria-modal="true" aria-label="Meet your farm" out:fade={{duration:reducedMotion ? 0 : 400}}>
     <div class="curtain" class:closing></div>
     <header><span>Meet your farm · {chapter + 1} / {INTRODUCTION_STORY.length}</span><button onclick={close} disabled={closing}>Skip introduction</button></header>
     <div class="programs">
@@ -67,10 +67,10 @@
       <DemoProgramPanel {program} {index} count={programs.length} reduced={reducedMotion} line={ready?-1:(botLines[program.bot]??-1)} dynamicGrid={traversing} {working}/>
     {/each}
     </div>
-    {#if rewardVisible}<div class="earnings" in:fly={{y:24,duration:450}} out:fly={{y:-24,duration:450}} role="status"><img src="/sprites/icon_coin.png" alt=""/>+{coins} coins · +{exp} EXP</div>{/if}
+    {#if rewardVisible}<div class="clay-shell earnings" in:fly={{y:24,duration:450}} out:fly={{y:-24,duration:450}} role="status"><img src="/sprites/icon_coin.png" alt=""/>+{coins} coins · +{exp} EXP</div>{/if}
     {#if chapter === INTRODUCTION_STORY.length - 1 && ready && !error}<Confetti/>{/if}
     {#if ready || error}
-    <section class="teacher" out:fly={{y:24,duration:reducedMotion ? 0 : 200}} in:fly={{y:45,delay:350,duration:reducedMotion ? 0 : 500,easing:cubicOut}}>
+    <section class="clay-shell teacher" out:fly={{y:24,duration:reducedMotion ? 0 : 200}} in:fly={{y:45,delay:350,duration:reducedMotion ? 0 : 500,easing:cubicOut}}>
       <img class="portrait" class:surprised={step.action === "spoil" || step.action === "pest"} class:happy={step.action === "harvest" || step.action === "finish"} src="/sprites/bot_teacher.png" alt="Bot Teacher"/>
       <div class="speech">
         <span class="speaker">Bot Teacher</span>
@@ -89,8 +89,8 @@
         </footer>
       </div>
     </section>
-    {:else if purchase}<div class="purchase" in:fly={{y:20,duration:reducedMotion?0:250}}><p>Try it on this practice farm. Your coins are safe.</p><button class="primary" onclick={()=>controller?.purchase(purchase.id)}>{purchase.label}</button></div>
-    {:else}<div class="watch-cue" role="status">{traversing?"The loop visits every row and column…":"Watch what happens…"}</div>{/if}
+    {:else if purchase}<div class="clay-shell purchase" in:fly={{y:20,duration:reducedMotion?0:250}}><p>Try it on this practice farm. Your coins are safe.</p><button class="primary" onclick={()=>controller?.purchase(purchase.id)}>{purchase.label}</button></div>
+    {:else}<div class="clay-shell watch-cue" role="status">{traversing?"The loop visits every row and column…":"Watch what happens…"}</div>{/if}
   </div>
 {/if}
 <style>

@@ -1,3 +1,7 @@
+# Current menu skin: Soft Clay
+
+The menu skin follows [Soft Clay](DESIGN-SOFT-CLAY.md), supplied by the user. Quicksand remains the UI font. Preserve existing layouts, dimensions, features, resizing, dragging and entrance/exit animations. The earlier documentation specifications below remain the feature reference; Soft Clay replaces their color, surface, border and shadow choices.
+
 # Algobot Documentation menu design
 
 Status: design specification for the upcoming Documentation menu work. This file
