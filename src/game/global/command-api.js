@@ -90,7 +90,7 @@ export function createCommandAPI({
     receive: native("bot_farm_actions", "receive", () => {
       const value = robot.receiveMessage();
       record("recordInterpreterStep");
-      record("_logRawEvent", "bot_message_received", { bot:robot.bot_index, value });
+      record("_logRawEvent", "bot_message_received", { bot:robot.bot_index, value, sender:robot.messageReceipt?.()?.sender ?? null });
       return value;
     }, ""),
     say: native("bot_farm_actions", "say", text => {

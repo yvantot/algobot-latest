@@ -2,10 +2,11 @@ import * as Blockly from "blockly";
 import "blockly/blocks";
 import { JavascriptGenerator, javascriptGenerator, Order } from "blockly/javascript";
 import { registerInspectionBlocks, inspectionToolbox } from "../global/inspection-blocks.js";
+import { registerMessageBlocks, messageToolbox, MESSAGE_COMMANDS } from "../global/message-blocks.js";
 
 export function createChallengeWorkspace(element, task = {}) {
   const names = [...(task.commands ?? ["right","left","harvest","is_harvestable"]),"say","columns"];
-  const definitions = names.filter(name=>!name.startsWith("crop_")).map(name => {
+  const definitions = names.filter(name=>!name.startsWith("crop_")&&!MESSAGE_COMMANDS.includes(name)).map(name => {
     const output = name.startsWith("is_") || name === "columns";
     const inputs = name==="jump"?["X","Y"]:["say","wait","plant"].includes(name)?["VALUE"]:[];
     return { type: `assessment_${name}`, message0: name === "columns" ? "columns()" : `bot.${name}${inputs.length?inputs.map((_,i)=>` %${i+1}`).join(""):"()"}`,
@@ -17,7 +18,8 @@ export function createChallengeWorkspace(element, task = {}) {
   const generator = new JavascriptGenerator();
   Object.assign(generator.forBlock, javascriptGenerator.forBlock);
   registerInspectionBlocks(Blockly,generator);
-  for(const name of names.filter(name=>!name.startsWith("crop_"))) generator.forBlock[`assessment_${name}`]=(block,gen)=>{
+  registerMessageBlocks(Blockly,generator);
+  for(const name of names.filter(name=>!name.startsWith("crop_")&&!MESSAGE_COMMANDS.includes(name))) generator.forBlock[`assessment_${name}`]=(block,gen)=>{
     const inputs=name==="jump"?["X","Y"]:["say","wait","plant"].includes(name)?["VALUE"]:[];
     const args=inputs.map(key=>gen.valueToCode(block,key,Order.NONE)||(name==="plant"?'"corn"':name==="say"?'""':"1"));
     const code=name==="columns"?"columns()":`bot.${name}(${args.join(", ")})`;
@@ -32,6 +34,7 @@ export function createChallengeWorkspace(element, task = {}) {
         ...(d.type==="assessment_jump"?{inputs:{X:{shadow:{type:"math_number",fields:{NUM:0}}},Y:{shadow:{type:"math_number",fields:{NUM:0}}}}}:{}),
       })) },
       ...(names.some(name=>name.startsWith("crop_"))?[{kind:"category",name:"Crop readings",colour:160,contents:inspectionToolbox()}]:[]),
+      ...(names.includes("send")?[{kind:"category",name:"Messages",colour:210,contents:messageToolbox()}]:[]),
       { kind: "category", name: "Loops", colour: 120, contents: [block("controls_repeat_ext"), block("controls_for"),block("controls_whileUntil")] },
       { kind: "category", name: "If", colour: 210, contents: [block("controls_if"), block("logic_compare"), block("logic_boolean"),block("logic_operation"),block("logic_negate")] },
       { kind: "category", name: "Math", colour: 230, contents: [block("math_number"), block("math_arithmetic"),...(task.kind?[block("math_single")]:[])] },

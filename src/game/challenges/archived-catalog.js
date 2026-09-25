@@ -1,7 +1,6 @@
-import { SCENARIO_CHALLENGES } from "./scenarios.js";
-import { HISTORICAL_CHALLENGES } from "./archived-catalog.js";
+import { SCENARIO_CHALLENGES } from "./archived-scenarios.js";
 
-export const CHALLENGES = [
+export const HISTORICAL_CHALLENGES = [
   {
     id: "ready-row-v3", title: "Pick the ready crops", prerequisite: "intro_loop",
     rubric: "ready-row-3.0", tier: "Skilled", skill: "Check before harvesting", coins: 180, exp: 140,
@@ -39,32 +38,5 @@ export const CHALLENGES = [
     cases:[[1,0,1,0,1],[0,0,0,0,0,0,0],[0,1,0,1,1,0,1,0,1]],
   },
   ...SCENARIO_CHALLENGES,
-].filter(task => !["ready-row-v3", "changing-row-v3", "field-patrol-v1"].includes(task.id));
-
-// Retired rubrics remain readable in exports, but never appear on the board.
-export const ALL_CHALLENGES = [...CHALLENGES, ...HISTORICAL_CHALLENGES.filter(old => !CHALLENGES.some(task => task.id === old.id))];
-
-export const TIER_ORDER = ["Beginner","Skilled","Advanced","Expert"];
-export const challengeRules = task => task.rules ?? [
-  {key:"visited_every_tile",label:"Visit every tile, including the last one."},
-  {key:"harvested_all_ready",label:"Harvest every yellow, ready crop."},
-  {key:"safe_and_finished",label:"Finish without errors: leave young crops alone, stay inside the row, and end your loop."},
-  ...(task.returnHome ? [{key:"returned_home",label:"Finish on the first tile (where Bot 0 started)."}] : []),
 ];
-export const challengeMaxScore = task => task.cases.length * challengeRules(task).length;
 
-export const CHALLENGE_STORAGE = "algobot_challenge_exposure_v1";
-
-export function hasExposure(storage, participant, task) {
-  const ledger = JSON.parse(storage.getItem(CHALLENGE_STORAGE) || "{}");
-  if (!ledger || typeof ledger !== "object" || Array.isArray(ledger)) throw Error("Challenge history is unreadable. Export your data before clearing storage.");
-  return Boolean(ledger[JSON.stringify([participant, task])]);
-}
-
-export function recordExposure(storage, participant, task) {
-  const first = !hasExposure(storage, participant, task);
-  const ledger = JSON.parse(storage.getItem(CHALLENGE_STORAGE) || "{}");
-  ledger[JSON.stringify([participant, task])] = true;
-  storage.setItem(CHALLENGE_STORAGE, JSON.stringify(ledger));
-  return first;
-}

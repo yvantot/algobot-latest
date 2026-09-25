@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { inspectCollection } from "../src/game/ml/collection-quality.js";
 import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
 import { RESEARCH_SCHEMA, RESEARCH_FEATURES, recentSequence } from "../src/game/ml/research-features.js";
-import { CHALLENGES, challengeRules, challengeMaxScore } from "../src/game/challenges/catalog.js";
+import { ALL_CHALLENGES as CHALLENGES, challengeRules, challengeMaxScore } from "../src/game/challenges/catalog.js";
 
 export function readCollection(input) {
   const files = fs.statSync(input).isDirectory()

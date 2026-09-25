@@ -21,7 +21,16 @@ test("inboxes preserve order, false and zero; isolate farms and remove departed 
   for(let i=0;i<32;i++)a.send(1,i);
   assert.throws(()=>a.send(1,"overflow"),/full/);
   b.leave(); assert.throws(()=>a.send(1,"gone"),/not on/);
+  assert.throws(()=>b.send(0,"late"),/left/);
   assert.equal(joinBotInbox(farm,1).hasMessage(),false);
+});
+
+test("receipts identify the actual sender and distinguish repeated values",()=>{
+  const farm=new Map(),a=joinBotInbox(farm,0),b=joinBotInbox(farm,1);
+  b.send(1,0);a.send(1,0);const announced=a.sentId();
+  b.receive();assert.equal(b.receipt().sender,1);assert.notEqual(b.receipt().id,announced);
+  b.receive();assert.equal(b.receipt().sender,0);assert.equal(b.receipt().id,announced);
+  b.receive();assert.equal(b.receipt(),null);
 });
 
 test("main-game API and Blockly messages cross separate interpreter instances", () => {

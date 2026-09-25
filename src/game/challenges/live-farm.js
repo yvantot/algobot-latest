@@ -3,6 +3,7 @@ import { CONFIG } from "../global/global.js";
 import { CropStates, SoilStates } from "../global/enum.js";
 import { addFarmbot } from "../components-kaplay/robot.js";
 import { addCrop } from "../components-kaplay/crop.js";
+import { addBug } from "../components-kaplay/pest.js";
 import { addSoilToGrid } from "../components-kaplay/soil.js";
 import { addLandBackground } from "../land-background.js";
 import { isolateScene } from "./scene-session.js";
@@ -12,12 +13,13 @@ export function startChallengeFarm(getViewport) {
   const farm = new Map();
   // Reuse the demonstration's resource and telemetry isolation.
   farm.isDemonstration = true;
+  farm.isChallenge = true;
   farm.freezeCropLifecycle = true;
   farm.demoEffects = [];
-  let owned = [], robot = null, disposed = false;
+  let owned = [], robot = null, robots = [], disposed = false;
   function clear() {
-    robot?.destroy(); robot = null;
-    for (const tile of farm.values()) { tile.crop?.destroy(); tile.soil?.destroy(); }
+    for (const bot of robots) bot.destroy(); robots = []; robot = null;
+    for (const tile of [...farm.values()]) { tile.bug?.destroy(); tile.crop?.destroy(); tile.soil?.destroy(); }
     for (const object of [...owned, ...farm.demoEffects]) if (object.exists()) object.destroy();
     owned = []; farm.demoEffects = []; farm.clear();
   }
@@ -36,6 +38,7 @@ export function startChallengeFarm(getViewport) {
   function reset(layout, task = {}) {
     if (disposed) throw Error("Challenge farm has closed.");
     clear(); farm.demoBounds = { columns: layout.length, rows: 1 };
+    farm.freezeCropLifecycle = !["sequence", "team"].includes(task.kind);
     owned.push(...addLandBackground(k, { ...CONFIG.FARM, ...farm.demoBounds }));
     for (let x=0; x<layout.length; x++) {
       const spec = typeof layout[x] === "object" ? layout[x] : {type:"wheat",state:layout[x] ? "ready" : "young"};
@@ -48,17 +51,28 @@ export function startChallengeFarm(getViewport) {
       }
     }
     robot = addFarmbot(0, farm, 0, 0);
+    robots = [robot];
+    if (task.kind === "team") robots.push(addFarmbot(1, farm, 0, 0));
     robot.botmove_duration = .45; robot.botact_duration = .45; robot.botcheck_duration = .3;
     fit(); return robot;
   }
   function dispose() { if (disposed) return; disposed = true; clear(); restore(); }
-  return { reset, fit, dispose, get robot() { return robot; },
+  return { reset, fit, dispose, get robot() { return robot; }, get robots() { return robots; },
+    progress: () => JSON.stringify([...farm.values()].filter(tile=>tile.soil).map(tile=>[tile.crop?.crop_state,tile.crop?.crop_grow_time,tile.soil.water_remaining,tile.crop?.crop_health])),
     inspect: () => [...farm.values()].map(tile => ({ watered:tile.soil.isWatered(), planted:!!tile.crop })),
-    advanceWait(seconds) {
-      for (const tile of farm.values()) if (tile.crop) {
-        tile.crop.crop_duration = 1; tile.crop.crop_grow_duration = 1;
-        tile.crop.advanceGrowth(seconds);
+    async pestEnding({signal,yieldControl}) {
+      const targets = [...farm.values()].filter(tile => tile.crop);
+      for (const tile of targets) {
+        const x = tile.crop.grid_x;
+        const pest = addBug(farm, {spawnAt:{x,y:-1},stationary:true,damage:tile.crop.damageToKill("bug") / 2,attack_interval:.7});
+        owned.push(pest);
+        pest.updateGridIndex(x,0);
+        pest.gridJump(x,0,.45);
       }
+      let elapsed=0;
+      const timer=k.onUpdate(()=>{elapsed+=k.dt();});
+      try { while(elapsed<2.2){signal?.throwIfAborted();await yieldControl();} }
+      finally { timer.cancel(); }
     },
   };
 }

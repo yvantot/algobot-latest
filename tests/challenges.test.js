@@ -2,13 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
-import { CHALLENGES, recordExposure, challengeMaxScore } from "../src/game/challenges/catalog.js";
+import {  recordExposure, challengeMaxScore } from "../src/game/challenges/catalog.js";
 import { evaluateChallenge } from "../src/game/challenges/engine.js";
 import { openChallenge, submitChallenge, closeChallenge, claimChallengeReward, interruptChallenge } from "../src/game/challenges/records.js";
 import { challengeSamples } from "../scripts/collection-dataset.js";
 import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
 import { TelemetryTracker } from "../src/game/ml/telemetry.js";
 
+import { HISTORICAL_CHALLENGES as CHALLENGES } from "../src/game/challenges/archived-catalog.js";
 const context = vm.createContext({ console, setTimeout, clearTimeout });
 vm.runInContext(fs.readFileSync(new URL("../public/js-interpreter.js", import.meta.url), "utf8"), context);
 const solve = "for(var i=0;i<columns();i++){if(bot.is_harvestable()){bot.harvest();}if(i<columns()-1){bot.right();}}";

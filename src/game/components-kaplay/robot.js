@@ -33,6 +33,8 @@ export function botact(id, farm_grid_index) {
     sendMessage(target, value) { return this.inbox.send(target, value); },
     hasMessage() { return this.inbox.hasMessage(); },
     receiveMessage() { return this.inbox.receive(); },
+    sentMessageId() { return this.inbox.sentId(); },
+    messageReceipt() { return this.inbox.receipt(); },
 
     update() {
       const bots = farm_grid_index.get(`${this.grid_y}-${this.grid_x}`)?.bots ?? [];

@@ -202,7 +202,7 @@ export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
       if (this.is_harvesting) return;
       if (!Number.isFinite(seconds) || seconds <= 0) return;
       if (this.crop_state === CropStates.HARVESTABLE) {
-        if (tutorialPolicy.protected && !farm_grid_index.freezeCropLifecycle && !(farm_grid_index.isDemonstration && this.demonstrateSpoilage)) return;
+        if (tutorialPolicy.protected && !farm_grid_index.isChallenge && !farm_grid_index.freezeCropLifecycle && !(farm_grid_index.isDemonstration && this.demonstrateSpoilage)) return;
         this.spoilage_remaining = Math.max(0, this.spoilage_remaining - seconds);
         if (this.spoilage_remaining === 0) this.markDead();
         return;

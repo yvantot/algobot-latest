@@ -1,3 +1,5 @@
+> September 25 update: the earlier primary task was retired from the menu. The examples below use Two careful steps. Pilot and fix the chosen task and build before collection; do not combine its scores with retired-task scores.
+
 # LSTM collection review, 24 September 2026
 
 ## Decision for the next session
@@ -37,9 +39,9 @@ Collection starts independently of model loading. Guided practice is recorded bu
 3. After backing up the previous player's JSON, use **Clear Stored Data**, then fully reload with `?study_participant=P001` (change the code for each student). Clearing does not itself restart the farm. Never let two students share an active session. Do not use multiple active tabs for one browser profile.
 4. Start a fresh farm. Let the student finish the tutorial normally. Do not use Finish tutorial, free coins, speed changes or other developer actions in participant sessions. Opening the console and downloading data are safe; gameplay cheats exclude the whole session.
 5. After tutorial completion, allow **110 seconds of normal-speed, uninterrupted main-farm play** before any opening of the target challenge. After a pause, demonstration or another challenge, obtain a fresh window. Do not open the target to inspect it early.
-6. Open **Challenges > Pick the ready crops**. Use the same task order, instructions and assistance policy for everyone. Let them submit their own attempt, including imperfect solutions. They do not need to pass or finish every challenge. Do not give the solution. Record outside help separately.
+6. Open **Challenges > Two careful steps**. Use the same task order, instructions and assistance policy for everyone. Let them submit their own attempt, including imperfect solutions. They do not need to pass or finish every challenge. Do not give the solution. Record outside help separately.
 7. Download **Dataset JSON** from the Dev Console DDA tab after the attempt. Keep the original file unchanged in a backed-up collection folder. Check the participant code, source type and audit before clearing. Keep other analysis files out of that folder.
-8. Run `npm run audit:collection -- "path/to/download.json"`. Under `challenge_targets`, find `ready-row-v3`: check `participants_with_usable_first_score`, developer exclusions and exclusion reasons. A file with many snapshots is not automatically a usable labelled sample.
+8. Run `npm run audit:collection -- "path/to/download.json"`. Under `challenge_targets`, find `careful-steps-v1`: check `participants_with_usable_first_score`, developer exclusions and exclusion reasons. A file with many snapshots is not automatically a usable labelled sample.
 9. Record code, computer, session duration, tutorial completion, task attempted/submitted, assistance/interruption and export filename. Keep incomplete sessions too. Then export/verify/clear/reload for the next student.
 
 Ten minutes is a minimum opportunity, not a proven sufficient duration. The tutorial, 110-second input window and challenge all take time. If the staff pilot or first students cannot reach the task, extend the session consistently and document it. Do not remove slower students or use cheats to make the dataset look complete. The existing requirement to unlock challenges through tutorial progress is preserved.

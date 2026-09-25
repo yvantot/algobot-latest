@@ -1,46 +1,50 @@
-# Algorithm challenge expansion
+# Algorithm challenges
 
-The original six challenge IDs and their rubrics remain. Six new challenges cover five kinds of reasoning, bringing the board to twelve tasks. The board shows the skill before expansion as well as difficulty and rewards.
+The board has ten challenges. Pick the ready crops, A row of any size, and The master patrol are retired from the menu. Their original definitions remain available only for reading historical exports.
 
-| Task | Skill and scored behavior | Coins / EXP |
+| Task | Scored behavior | Coins / EXP |
 | --- | --- | --- |
-| From soil to supper | Sequence: till, plant corn, water/wait twice, then harvest | 150 / 120 |
-| Supper for the whole row | Repeat the corn sequence on two bare tiles | 240 / 180 |
-| The crop clinic | Conditional decisions: harvest ready crops, water young crops, remove dead crops across changed arrangements | 260 / 210 |
-| One loop, any field | Execute a loop and water rows of 2, 4 and 6 tiles within a work budget | 300 / 240 |
-| Which crop first? | Greedy selection: repeatedly maximize current value divided by remaining freshness time | 420 / 340 |
-| Before the storm | Plan the route with maximum total value within four work steps | 650 / 500 |
+| Your first harvest | Visit the row and harvest ripe wheat safely | 90 / 80 |
+| Two careful steps | Check crops across three two-tile arrangements | 120 / 100 |
+| Back to the barn | Harvest safely and return home | 360 / 280 |
+| From soil to supper | Grow and harvest corn using normal farming behavior | 150 / 120 |
+| Supper for the whole row | Grow and harvest corn on two bare tiles | 240 / 180 |
+| The crop clinic | Choose treatment for ripe, young and dead crops | 260 / 210 |
+| One loop, any field | Water changing row sizes within the action budget using a loop | 300 / 240 |
+| Which crop first? | Repeatedly choose the greatest current value / freshness time | 420 / 340 |
+| Before the pests | Maximize harvested value within four work steps | 650 / 500 |
+| Pass it on | Coordinate a grower and harvester through messages | 500 / 380 |
 
-All use the game's actual robot, crop and soil components in an isolated farm. Main-farm resources and telemetry are not changed by test actions. Coins and EXP are awarded through the existing claim mechanism only after passing. Students can use blocks or text, stop a run, retry, preview cases, and inspect individual failed rules.
+All farms use the existing robot, soil, crop, harvest reward effects and pest components. Challenge actions cannot spend main-farm resources or enter normal-gameplay telemetry. Coins and EXP are granted once through the existing reward claim mechanism.
 
-## Student crop readings
+## Normal growth
 
-Available in normal gameplay and relevant challenges, through text, Blockly and Documentation:
+The two corn challenges use normal frame-driven growth and water absorption, with timing information read from CROP_DATA. Corn has two 30-second stages; neighboring corn provides the same speed benefit as on the main farm. Ripe corn spoils after 13 seconds. One water dose feeds one stage. No challenge calls advanceGrowth from bot.wait, changes crop durations, or prescribes an exact command sequence. Checks, movement and waiting all allow the engine clock to advance. Dry crops cannot grow.
 
-- `bot.crop_value(column, row)`: current coin value if harvestable, otherwise 0. Expiring crops use their actual half-value reward.
-- `bot.crop_time_left(column, row)`: remaining seconds before a ready crop spoils, otherwise -1.
-- `bot.crop_type(column, row)`: living crop name or empty text.
+Pass it on uses the same lifecycle for wheat (two one-second stages, then 20 seconds before spoilage). The player writes two separate programs, in Blockly or text. Both run together; Bot 0 waters, Bot 1 harvests, and each ready column must be received before its harvest. Both sources are retained in the submitted JSON program bundle.
 
-Coordinates start at zero. Readings do not move the bot or consume a challenge work step. They read the robot's own farm, so challenge code cannot inspect the main farm. Normal-play readings are logged as crop_inspection events, without changing the frozen LSTM feature schema.
+## Main-game bot communication
 
-## Timing and scoring choices
+Available in the Farming Blockly category, text coding and Documentation:
 
-The sequence tasks deliberately use one-second growth stages. Time advances through the shared crop lifecycle when bot.wait completes. As in normal gameplay, the crop needs a water dose for each of its two stages. Waiting alone cannot grow a dry crop.
+- bot.send(botNumber, message): send text, a finite number, or a boolean to an existing bot on the same farm.
+- bot.has_message(): test whether this bot has a queued message.
+- bot.receive(): remove and return the oldest message; return empty text when none exists.
 
-Clinic, irrigation, greedy and planning crops stay in their initial states while students think. The greedy exercise freezes freshness numbers and explicitly teaches one priority rule; value/time is an exercise heuristic, not a claim of universally optimal farming.
+Each bot has a 32-message inbox. Text is limited to 200 characters. Inboxes reset on farm reload or bot removal. A waiting loop should include bot.wait so another bot can work. Use Start All for collaborating main-farm programs. Challenge farms have separate inboxes, cleared between attempts and cases.
 
-The planning task uses a fixed storm deadline measured in work steps, not random wall-clock hazards. Harvest costs one, movement costs tile distance, including jump. A dynamic-programming scoring oracle searches position, remaining budget and harvested subset. It accepts any program that achieves the best total yield. Students are not required to implement dynamic programming; the assessed skill is state optimization and planning ahead. The first case makes a greedy choice of the most valuable individual crop lose to a better combination. The storm is represented by the work-step deadline; it does not spawn the main game's random rain or pest events.
+## Crop readings and fixed exercises
 
-Loop and condition tasks observe executed interpreter nodes rather than searching submitted text. All tasks retain instruction/action limits and immediate cancellation. Invalid moves/actions fail the current case; missing or stopped submissions are not invented zero scores.
+bot.crop_value(column, row), bot.crop_time_left(column, row) and bot.crop_type(column, row) read actual objects on the robot's farm. Expiring crops use the normal half-value reward. They are available in main-game text, Blockly and Documentation.
 
-## Research use
+Clinic, irrigation, greedy and planning exercises explicitly freeze crop lifecycle while the student thinks and runs the fixed test cases. The greedy rule is an exercise heuristic, not a claim of universally optimal farming.
 
-Each new task has its own task ID and rubric. Automatic exports retain first-submission checks and, for planning, earned value, optimum and work steps. The existing importer validates them against the selected task's rubric. Prepare and evaluate one task at a time; a normalized score on one task is not interchangeable with another skill or difficulty.
+Before the pests uses a work-step budget, not random arrival timing: harvest costs one; movement costs tile distance, including jump. A dynamic-programming oracle scores the best achievable value without requiring a particular implementation. Finishing the program ends the available work period. Real pests then jump in and damage the remaining crops twice over about 1.4 seconds. This ending lasts about 2.2 seconds and can be stopped. The challenge uses susceptible crops; potato immunity is not overridden. This hazard configuration belongs only to the challenge scene.
 
-`ready-row-v3` remains the default model-training target. This expansion does not replace deployed weights, train a model, or establish validity of a general programming-skills assessment. Use a consistent build and task order during collection.
+## Research and verification
 
-## Verification
+Corn tasks now use corn-sequence-v2 and corn-row-v2; the pest task uses pest-planner-v1; team coordination uses team-harvest-v1. Earlier IDs and rubrics remain readable through the historical catalog. Never pool different tasks or rubric versions merely because their normalized scores look comparable.
 
-Automated tests run solutions for all new tasks through the real interpreter and actual crop/soil/robot methods, with the engine clock controlled for testing. They also reject wrong action order, blind treatment, unrolled watering, wrong greedy order, over-budget movement, long waits and endless loops. Separate tests check crop-reading values and the planning optimum. UI checks use the isolated fixture, which does not save participant sessions.
+The preparation CLI requires an explicit task ID. For example, use careful-steps-v1 for Two careful steps after choosing and piloting a consistent task for the collection protocol. Previously documented ready-row-v3 is retired from the menu and is only an option for historical data. No model weights are changed by this work.
 
-All 207 tests passed and the production build passed. Browser checks completed the sequence task (3/3, reward claimed) and both planning layouts (6/6, 20/20 and 30/30 possible value). Existing bundle-size warnings remain.
+Tests exercise normal absorption without bot.wait, actual live-farm setup and soil survival after harvest, pest damage and cleanup, both team programs, syntax failures, missing communication, stuck loops, interruption, exports and historical rubrics. UI verification uses the isolated fixture and does not save participant records.
