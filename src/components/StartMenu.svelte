@@ -3,6 +3,9 @@
   import { k } from "../lib/kaplay.js";
   import { onMount } from "svelte";
   import { getAudioVolumes, setCategoryVolume } from "../game/utils/sound.js";
+  import { version } from "../../package.json";
+
+  const displayVersion = version.replace(/\.0$/, "");
 
   let { onStart } = $props();
 
@@ -87,6 +90,10 @@
       </button>
     </div>
   </div>
+
+  <p class="absolute bottom-4 right-4 z-10 rounded-md bg-gray-100 px-3 py-1.5 text-sm font-bold text-slate-700 border-2 border-slate-500">
+    Version {displayVersion}
+  </p>
 
   <!-- Settings Modal (Resolution pixelDensity 1 & 2 + Sound On/Off) -->
   {#if activeModal === "settings"}
