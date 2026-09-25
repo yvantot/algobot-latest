@@ -17,6 +17,11 @@ export function canStartChallenge(tracker, now = Date.now()) {
   return context?.phase === "gameplay" && context.game_speed === 1 && challengeWindowReady(tracker,now);
 }
 
+export function challengeAccess(tracker, wasUnlocked, tutorialComplete, now = Date.now()) {
+  const ready = tutorialComplete && canStartChallenge(tracker, now);
+  return { unlocked: tutorialComplete && (wasUnlocked || ready), ready };
+}
+
 export function openChallenge(tracker, task, firstExposure, now = Date.now()) {
   const attempt = {
     assessment_id: crypto.randomUUID(), student_id: tracker.participantId, session_id: tracker.sessionId,

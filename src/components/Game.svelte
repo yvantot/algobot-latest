@@ -16,7 +16,7 @@
   import Challenges from "./Challenges.svelte";
   import ChallengeFarm from "./ChallengeFarm.svelte";
   import { CHALLENGES, recordExposure } from "../game/challenges/catalog.js";
-  import { canStartChallenge, openChallenge, submitChallenge, closeChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
+  import { canStartChallenge, challengeAccess, openChallenge, submitChallenge, closeChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
   import { INVENTORY, PLAYER_DATA } from "../game/global/global.js";
   import { QUEST_STATE } from "./global.svelte.js";
   import QuestHUD from "./QuestHUD.svelte";
@@ -111,8 +111,9 @@
 
   let current_menu = $state(Menus.COMMAND);
   let challenge = $state(null), challengeNotice = $state("");
-  let challengeWindowAvailable = $state(false);
-  let challengeReady = $derived(challengeWindowAvailable && !challenge && !TUTORIAL.active && !!QUEST_STATE.intro_loop?.is_claimed);
+  let challengeAvailability = $state({ unlocked: false, ready: false });
+  let challengeVisible = $derived(challengeAvailability.unlocked && !challenge && !TUTORIAL.active && !!QUEST_STATE.intro_loop?.is_claimed);
+  let challengeReady = $derived(challengeVisible && challengeAvailability.ready);
   let challengeInvite = $state(null), challengeRewardAvailable = $state(true);
   let rewardedChallenges=$state([...farmChallengeRewards]);
   let challengeAttempt, invitedChallenges = new Set();
@@ -122,7 +123,7 @@
   function enterChallenge(task) {
     if (TUTORIAL.active || !QUEST_STATE[task.prerequisite]?.is_claimed) return;
     if (!canStartChallenge(telemetry)) {
-      challengeWindowAvailable=false;
+      challengeAvailability.ready=false;
       challengeNotice="Keep farming a little longer before starting a challenge.";
       return;
     }
@@ -161,7 +162,8 @@
   }
   onMount(() => {
     const timer = setInterval(() => {
-      challengeWindowAvailable=canStartChallenge(telemetry);
+      challengeAvailability=challengeAccess(telemetry, challengeAvailability.unlocked, !TUTORIAL.active && !!QUEST_STATE.intro_loop?.is_claimed);
+      if (challengeAvailability.ready) challengeNotice="";
       const available = [...CHALLENGES].sort((a,b)=>a.coins-b.coins).find(task => QUEST_STATE[task.prerequisite]?.is_claimed && !invitedChallenges.has(task.id));
       if (available && challengeReady && !challengeInvite && !ONBOARDING.isModalOpen) { invitedChallenges.add(available.id); challengeInvite = available; }
     }, 1000);
@@ -429,7 +431,7 @@
       <div class="flex gap-4">
         <PlayerInfo />
         <div class="pt-2 flex items-center gap-1">
-          {#each menuButtons.filter(btn => (btn.id !== Menus.CHALLENGES || challengeReady) && (!TUTORIAL.active || [Menus.COMMAND, Menus.DOCUMENT, Menus.QUEST, Menus.RESEARCH].includes(btn.id))) as btn}
+          {#each menuButtons.filter(btn => (btn.id !== Menus.CHALLENGES || challengeVisible) && (!TUTORIAL.active || [Menus.COMMAND, Menus.DOCUMENT, Menus.QUEST, Menus.RESEARCH].includes(btn.id))) as btn}
             <button
               class="cursor-pointer group relative"
               id={btn.id === Menus.COMMAND ? "command-menu-button" : btn.id === Menus.DOCUMENT ? "documentation-menu-button" : undefined}
@@ -575,11 +577,12 @@
             current_editor = Editors.BLOCK;
           }}
         />
-        {#if challengeInvite && challengeReady && !ONBOARDING.isModalOpen}
+        {#if challengeInvite && challengeVisible && !ONBOARDING.isModalOpen}
           <aside class="challenge-invite" in:fly={{y:20,duration:350}} out:fly={{y:15,duration:220}}>
             <div class="challenge-teacher"><img src="/sprites/bot_teacher.png" alt="Bot Teacher"/><div><strong>A challenge for you!</strong><p>Think you can out-farm your teacher? Let's find out!</p></div></div>
             <p>{challengeInvite.title} · {challengeInvite.coins} coins + {challengeInvite.exp} EXP</p>
-            <button onclick={()=>enterChallenge(challengeInvite)}>Challenge accepted!</button><button onclick={()=>challengeInvite=null}>Later</button>
+            {#if !challengeReady}<p role="status">Keep farming for a little while. Your challenge will be ready soon.</p>{/if}
+            <button disabled={!challengeReady} onclick={()=>enterChallenge(challengeInvite)}>{challengeReady ? "Challenge accepted!" : "Getting ready…"}</button><button onclick={()=>challengeInvite=null}>Later</button>
           </aside>
         {/if}
         </div>
@@ -642,7 +645,7 @@
       <div in:panelIn out:panelOut>
         <Quest/>
       </div>
-    {:else if current_menu === Menus.CHALLENGES && challengeReady}
+    {:else if current_menu === Menus.CHALLENGES && challengeVisible}
       <div in:panelIn out:panelOut><Challenges completed={rewardedChallenges} onChallenge={enterChallenge} {challengeReady} {challengeNotice} onClose={()=>toggleMenu(Menus.NONE)}/></div>
     {:else if current_menu === Menus.SHOP}
       <div in:panelIn out:panelOut>
@@ -714,6 +717,7 @@
 {/if}
 
 <style>
+  .challenge-invite button:disabled{background:#e5e7eb;cursor:default}
   .challenge-hidden{visibility:hidden}.challenge-invite{position:relative;margin-top:12px;padding:12px;background:#f0fdf4;border:3px solid #64748b;border-radius:10px;color:#334155;box-shadow:0 6px 16px #0003;font-size:15px}.challenge-invite button{background:#bbf7d0;padding:8px 10px;border:2px solid #94a3b8;margin:10px 6px 0 0;cursor:pointer}.challenge-invite strong{font-size:17px}.challenge-teacher{display:flex;align-items:center;gap:10px;margin-bottom:10px}.challenge-teacher img{width:44px;image-rendering:pixelated;animation:challenge-nod .7s ease-in-out 2}@keyframes challenge-nod{50%{transform:translateY(-6px) rotate(-5deg)}}@media(prefers-reduced-motion:reduce){.challenge-teacher img{animation:none}}
   button {
     border-radius: 0.2rem;

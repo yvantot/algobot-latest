@@ -4,7 +4,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 import {  recordExposure, challengeMaxScore } from "../src/game/challenges/catalog.js";
 import { evaluateChallenge } from "../src/game/challenges/engine.js";
-import { canStartChallenge, openChallenge, submitChallenge, closeChallenge, claimChallengeReward, interruptChallenge } from "../src/game/challenges/records.js";
+import { canStartChallenge, challengeAccess, openChallenge, submitChallenge, closeChallenge, claimChallengeReward, interruptChallenge } from "../src/game/challenges/records.js";
 import { challengeSamples } from "../scripts/collection-dataset.js";
 import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
 import { TelemetryTracker } from "../src/game/ml/telemetry.js";
@@ -30,6 +30,33 @@ test('challenge access requires a fresh full gameplay window and normal-speed ac
   phase='gameplay';speed=2;assert.equal(canStartChallenge(tracker,now),false);
   speed=1;snapshots[10].context.phase='guided_practice';assert.equal(canStartChallenge(tracker,now),false);
   snapshots[10].context.phase='gameplay';snapshots[10].timestamp_ms+=9000;assert.equal(canStartChallenge(tracker,now),false);
+});
+test('unlocked challenges stay visible through tab gaps and recover without consuming an attempt',()=>{
+  const start=1700000000000;
+  let phase='gameplay';
+  const snapshot=i=>({timestamp_ms:start+i*5000,stage:1,
+    context:{phase:'gameplay',game_speed:1,robot_count:1},
+    counters:{errors:0,edits:i,completed_runs:0,failed_runs:0,stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0}});
+  const tracker={collectionSnapshots:Array.from({length:20},(_,i)=>snapshot(i)),challengeAttempts:[],getCollectionContext:()=>({phase,game_speed:1})};
+  let access=challengeAccess(tracker,false,true,start+95001);
+  assert.deepEqual(access,{unlocked:false,ready:false});
+  tracker.collectionSnapshots.push(snapshot(20));
+  access=challengeAccess(tracker,access.unlocked,true,start+100001);
+  assert.deepEqual(access,{unlocked:true,ready:true});
+  phase='hidden';
+  access=challengeAccess(tracker,access.unlocked,true,start+105001);
+  assert.deepEqual(access,{unlocked:true,ready:false});
+  phase='gameplay';
+  for(let i=22;i<=41;i++) tracker.collectionSnapshots.push(snapshot(i));
+  access=challengeAccess(tracker,access.unlocked,true,start+205001);
+  assert.deepEqual(access,{unlocked:true,ready:false});
+  tracker.collectionSnapshots.push(snapshot(42));
+  access=challengeAccess(tracker,access.unlocked,true,start+210001);
+  assert.deepEqual(access,{unlocked:true,ready:true});
+  phase='modal';
+  assert.deepEqual(challengeAccess(tracker,access.unlocked,true,start+210002),{unlocked:true,ready:false});
+  assert.deepEqual(challengeAccess(tracker,access.unlocked,false,start+210002),{unlocked:false,ready:false});
+  assert.equal(tracker.challengeAttempts.length,0);
 });
 function testWorld() {
   return {reset(layout) {

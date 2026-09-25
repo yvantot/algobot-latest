@@ -14,7 +14,7 @@
   <div class="teacher"><img src="/sprites/bot_teacher.png" alt="Bot Teacher"/><p>Small farm. Big rewards. Pick your challenge and show me your best program!</p></div>
   <div class="progress"><strong>{completed.length} / {CHALLENGES.length} rewards earned</strong><span>Your main farm stays safe.</span></div>
   <label>Difficulty <select bind:value={tier}><option>All</option>{#each TIER_ORDER as value}<option>{value}</option>{/each}</select></label>
-  {#if !challengeReady}<p class="locked">Finish your introductory tutorial missions to enter. You can explore the challenges now.</p>{/if}
+  {#if !challengeReady}<p class="locked" role="status">Keep farming at normal speed for a little while. Challenges will be ready soon; you can browse them here while you wait.</p>{/if}
   {#if challengeNotice}<p role="alert">{challengeNotice}</p>{/if}
   <ol>
     {#each visible as task}
