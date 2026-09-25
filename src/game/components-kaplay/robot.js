@@ -112,7 +112,7 @@ export function botact(id, farm_grid_index) {
     },
 
     checkTilled(callback = null, x = this.grid_x, y = this.grid_y) {
-      triggerDidYouKnow("bot_check");
+      if (!farm_grid_index.isDemonstration) triggerDidYouKnow("bot_check");
       return this.inspectTile(callback, x, y, tile => !!tile.soil && tile.soil.soil_state !== SoilStates.INITIAL);
     },
     checkWatered(callback = null, x = this.grid_x, y = this.grid_y) {

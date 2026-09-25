@@ -198,6 +198,24 @@ test("farming tutorial cannot be completed by repeating the same action", () => 
   assert.deepEqual(completions, ["tut_2"]);
 });
 
+test("every main-farm tip is deferred behind blocking scenes without consuming its first appearance",()=>{
+  const source=fs.readFileSync(new URL('../src/components/global.svelte.js',import.meta.url),'utf8');
+  const tipSource=source.slice(source.indexOf('export const DID_YOU_KNOW_TIPS'),source.indexOf('export const EVENT_BANNER_STATE')).replaceAll('export ','');
+  const context=vm.createContext({$state:value=>value,TUTORIAL:{active:false},ONBOARDING:{isModalOpen:true}});
+  vm.runInContext(tipSource+'\nglobalThis.tips=DID_YOU_KNOW_TIPS;globalThis.state=DID_YOU_KNOW_STATE;',context);
+  for(const id of Object.keys(context.tips)){
+    context.ONBOARDING.isModalOpen=true;
+    context.triggerDidYouKnow(id);
+    assert.equal(context.state.activeTip,null,id);
+    assert.equal(context.state.shown[id],undefined,id);
+    context.ONBOARDING.isModalOpen=false;
+    context.triggerDidYouKnow(id);
+    assert.equal(context.state.activeTip,context.tips[id],id);
+    assert.equal(context.state.shown[id],true,id);
+    context.state.activeTip=null;
+  }
+});
+
 test("optional preferences tolerate inaccessible browser storage", () => {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
   Object.defineProperty(globalThis, "localStorage", { configurable: true, get() { throw new Error("Storage blocked"); } });

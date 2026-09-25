@@ -303,7 +303,8 @@ export const DID_YOU_KNOW_STATE = $state({
 });
 
 export function triggerDidYouKnow(id) {
-  if (TUTORIAL.active) return;
+  // A hidden tip still pauses the engine, so never open one behind a blocking scene.
+  if (TUTORIAL.active || ONBOARDING.isModalOpen) return;
 	if (DID_YOU_KNOW_STATE.shown[id]) return;
 	const tip = DID_YOU_KNOW_TIPS[id];
 	if (!tip) return;

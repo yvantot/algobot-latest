@@ -17,6 +17,8 @@ The board has ten challenges. Pick the ready crops, A row of any size, and The m
 
 All farms use the existing robot, soil, crop, harvest reward effects and pest components. Challenge actions cannot spend main-farm resources or enter normal-gameplay telemetry. Coins and EXP are granted once through the existing reward claim mechanism.
 
+Main-farm tips are suppressed by isolated crop, robot and pest components. As a second guard, `triggerDidYouKnow` refuses to open tips while a blocking scene is active, without marking those tips as seen. This prevents a hidden tip from pausing the challenge engine. Regression coverage runs successful and failed programs across all ten active challenges, checks pest endings, and verifies that normal-farm tips remain available. The browser fixture explicitly disables introductory practice so tutorial suppression cannot mask a leaked tip.
+
 ## Normal growth
 
 The two corn challenges use normal frame-driven growth and water absorption, with timing information read from BASE_CROP_DATA. This frozen copy of the game's original crop data is scoped to the challenge farm; main-farm DDA changes cannot alter assessment conditions. Corn has two 30-second stages; neighboring corn provides the same speed benefit as on the main farm. Ripe corn spoils after 13 seconds. One water dose feeds one stage. No challenge calls advanceGrowth from bot.wait or prescribes an exact command sequence. Checks, movement and waiting all allow the engine clock to advance. Dry crops cannot grow.

@@ -581,12 +581,13 @@ function scenarioHarness() {
   Object.assign(h.context.CROP_DATA,structuredClone(deployedCropData));
   const interpreterContext=vm.createContext({console,setTimeout,clearTimeout});
   vm.runInContext(fs.readFileSync(new URL('../public/js-interpreter.js',import.meta.url),'utf8'),interpreterContext);
-  const world={robots:[],reset(layout,task){
+  const world={robots:[],reset(layout,task={}){
     for(const object of [...h.roots])object.destroy();h.farm.clear();
     h.farm.freezeCropLifecycle=!["sequence","team"].includes(task.kind);
     h.farm.isChallenge=true;
     h.farm.demoBounds={rows:1,columns:layout.length};
-    layout.forEach((spec,x)=>{
+    layout.forEach((value,x)=>{
+      const spec=typeof value==='object'?value:{type:'wheat',state:value?'ready':'young'};
       h.addSoil(x,0,spec.state==='bare'?SoilStates.INITIAL:SoilStates.READY);
       if(spec.type){const crop=h.plant(spec.type,spec.state==='ready'?CropStates.HARVESTABLE:CropStates.YOUNG,x);
         if(spec.state==='dead')crop.markDead();if(spec.timeLeft)crop.spoilage_remaining=spec.timeLeft;}
@@ -601,12 +602,26 @@ function scenarioHarness() {
   return {h,run};
 }
 
-test("all new algorithm challenges can be solved with actual soil, crop and robot components",async()=>{
+test("all ten challenges succeed without triggering main-farm tips or rewards",async()=>{
   const {h,run}=scenarioHarness();
-  for(const task of CHALLENGES.filter(task=>task.kind)){
-    const result=await run(scenarioSolutions[task.kind],task);
+  const tips=[];h.context.triggerDidYouKnow=id=>tips.push(id);
+  const harvest='for(var x=0;x<columns();x++){if(bot.is_harvestable())bot.harvest();if(x<columns()-1)bot.right();}';
+  for(const task of CHALLENGES){
+    const solution=task.kind?scenarioSolutions[task.kind]:harvest+(task.returnHome?'for(var x=1;x<columns();x++)bot.left();':'');
+    const result=await run(solution,task);
     assert.equal(result.passed,true,task.id+JSON.stringify(result));
+    assert.deepEqual(tips,[],task.id);
     assert.deepEqual(h.rewards,{coins:0,exp:0,seeds:0,spoiled:0});
+  }
+});
+
+test("failed programs in every challenge cannot open main-farm tips",async()=>{
+  const {h,run}=scenarioHarness(),tips=[];h.context.triggerDidYouKnow=id=>tips.push(id);
+  for(const task of CHALLENGES){
+    const source=task.kind==='team'?JSON.stringify({programs:['bot.jump(-1,0);','bot.harvest();']}):'bot.left();bot.harvest();';
+    const result=await run(source,task);
+    assert.equal(result.passed,false,task.id);
+    assert.deepEqual(tips,[],task.id);
   }
 });
 
@@ -663,8 +678,10 @@ test("live challenge factory keeps real soil after harvest and real pests destro
     assert.equal(farm.get('0-0').crop,null);assert.equal(farm.get('0-0').soil.exists(),true);
   }
   const planner=CHALLENGES.find(t=>t.kind==='planning');
+  const tips=[];h.context.triggerDidYouKnow=id=>tips.push(id);
   world.reset(planner.cases[0],planner);h.advance(1);
   await world.pestEnding({yieldControl:async()=>{h.advance(.05);}});
+  assert.deepEqual(tips,[]);
   assert.equal([...farm.values()].filter(tile=>tile.crop).length,0);
   assert.equal([...farm.values()].filter(tile=>tile.soil?.exists()).length,4);
   const corn=CHALLENGES.find(t=>t.id==='corn-sequence-v2');
@@ -697,6 +714,8 @@ test("isolated farms keep freshness and corn effects without opening main-farm t
     h.context.triggerDidYouKnow=id=>tips.push(id);
     h.farm.isDemonstration=isolated;
     h.addSoil();const ripe=h.plant(CropTypes.WHEAT,CropStates.HARVESTABLE);
+    h.bot().checkTilled();
+    assert.equal(tips.includes('bot_check'),!isolated);
     ripe.spoilage_remaining=ripe.crop_spoilage_time/4;
     h.advance(.01);
     assert.equal(ripe.freshness_state,FreshnessStates.EXPIRING);
