@@ -9,6 +9,8 @@ import { FarmEventSimulation, fireSettings } from "../src/game/events/simulation
 import { getDifficultyParams } from "../src/game/events/difficulty.js";
 import { evaluateChallenge } from "../src/game/challenges/engine.js";
 import { CHALLENGES } from "../src/game/challenges/catalog.js";
+import { cropReading } from "../src/game/global/crop-inspection.js";
+import { scenarioSolutions } from "./scenario-solutions.js";
 import { CropStates, CropTypes, FreshnessStates, SoilStates, IconTypes, OrbTypes } from "../src/game/global/enum.js";
 
 const dataHook = registerHooks({
@@ -84,7 +86,7 @@ function harness() {
   }]));
   const CONFIG = { FARM: { tile_size: 64, cell_size: 70, grid_origin: vec2(), columns: 2, rows: 2 }, BOT: { move_duration: 0.7, action_duration: 0.8, check_duration: 0.5 } };
   const context = vm.createContext({
-    tutorialPolicy: { protected: false }, k, CONFIG, CROP_DATA, CropStates, CropTypes, SoilStates, FreshnessStates, IconTypes, OrbTypes, console,
+    tutorialPolicy: { protected: false }, cropReading, k, CONFIG, CROP_DATA, CropStates, CropTypes, SoilStates, FreshnessStates, IconTypes, OrbTypes, console,
     robots: [], triggerDidYouKnow() {}, play_sfx() {},
     telemetry: { recordCropHarvestOutcome(spoiled) { if (spoiled) rewards.spoiled++; }, recordError() {}, recordEventResponse() {} },
     INVENTORY: { crops: { wheat: 100 }, changeCoins(value) { rewards.coins += value; }, changeCrops(type, value) { rewards.seeds += value; } },
@@ -570,4 +572,49 @@ test("challenge interpreter harvests real crop objects without changing main-far
   assert.deepEqual(h.rewards,{coins:0,exp:0,seeds:0,spoiled:0});
   assert.equal([...h.farm.values()].filter(tile=>tile.crop).length,1);
   assert.ok([...h.farm.values()].filter(tile=>tile.crop).every(tile=>tile.crop.crop_state===CropStates.YOUNG));
+});
+
+function scenarioHarness() {
+  const h=harness();h.farm.isDemonstration=true;h.farm.freezeCropLifecycle=true;
+  Object.assign(h.context.CROP_DATA,structuredClone(deployedCropData));
+  const interpreterContext=vm.createContext({console,setTimeout,clearTimeout});
+  vm.runInContext(fs.readFileSync(new URL('../public/js-interpreter.js',import.meta.url),'utf8'),interpreterContext);
+  const world={reset(layout){
+    for(const object of [...h.roots])object.destroy();h.farm.clear();
+    h.farm.demoBounds={rows:1,columns:layout.length};
+    layout.forEach((spec,x)=>{
+      h.addSoil(x,0,spec.state==='bare'?SoilStates.INITIAL:SoilStates.READY);
+      if(spec.type){const crop=h.plant(spec.type,spec.state==='ready'?CropStates.HARVESTABLE:CropStates.YOUNG,x);
+        if(spec.state==='dead')crop.markDead();if(spec.timeLeft)crop.spoilage_remaining=spec.timeLeft;}
+    });
+    return h.bot();
+  },inspect:()=>[...h.farm.values()].map(tile=>({watered:tile.soil.isWatered()})),
+    advanceWait(seconds){for(const tile of h.farm.values())if(tile.crop){tile.crop.crop_duration=1;tile.crop.crop_grow_duration=1;tile.crop.advanceGrowth(seconds);}}
+  };
+  const run=(code,task,extra={})=>evaluateChallenge(code,task,interpreterContext.Interpreter,{world,yieldControl:async()=>{h.advance(.05);},...extra});
+  return {h,run};
+}
+
+test("all new algorithm challenges can be solved with actual soil, crop and robot components",async()=>{
+  const {h,run}=scenarioHarness();
+  for(const task of CHALLENGES.filter(task=>task.kind)){
+    const result=await run(scenarioSolutions[task.kind],task);
+    assert.equal(result.passed,true,task.id+JSON.stringify(result));
+    assert.deepEqual(h.rewards,{coins:0,exp:0,seeds:0,spoiled:0});
+  }
+});
+
+test("new rubrics reject wrong ordering, blind treatment, unrolled watering and greedy route traps",async()=>{
+  const {run}=scenarioHarness();const task=kind=>CHALLENGES.find(t=>t.kind===kind);
+  assert.equal((await run('bot.plant("corn");',task('sequence'))).passed,false);
+  assert.equal((await run('bot.water();bot.right();bot.water();bot.right();bot.water();',task('clinic'))).passed,false);
+  const unrolled=await run('bot.water();bot.right();bot.water();',task('irrigation'));
+  assert.equal(unrolled.results[0].checks.watered_every_crop,true);assert.equal(unrolled.results[0].checks.used_loop,false);
+  assert.equal((await run('for(var x=0;x<columns();x++){bot.harvest();if(x<columns()-1)bot.right();}',task('greedy'))).passed,false);
+  const greedyTrap=await run('bot.jump(3,0);bot.harvest();',task('planning'));
+  assert.equal(greedyTrap.results[0].earned,18);assert.equal(greedyTrap.results[0].optimal_value,20);assert.equal(greedyTrap.passed,false);
+  assert.equal((await run('bot.jump(3,0);bot.harvest();bot.left();',task('planning'))).passed,false);
+  for(const code of ['while(true){}','bot.wait(3600);'])assert.equal((await run(code,task('sequence'))).passed,false);
+  const controller=new AbortController();
+  await assert.rejects(run('bot.till();bot.plant("corn");',task('sequence'),{signal:controller.signal,onAction:event=>{if(event.command==='till')controller.abort();}}),{name:'AbortError'});
 });

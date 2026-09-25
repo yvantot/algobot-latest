@@ -3,6 +3,8 @@
 // accessed here. Robot actions complete with callback(result), or a Promise:
 // bool for actions/checks and a crop-type string (or false) for harvesting.
 // Immediate return values only indicate acceptance; they never award quests.
+import { CROP_READINGS } from "./crop-inspection.js";
+
 export function createCommandAPI({
   robot,
   inventory = { crops: {}, coins: 0 },
@@ -122,6 +124,11 @@ export function createCommandAPI({
     is_dead: "checkDead", is_tilled: "checkTilled", is_watered: "checkWatered",
     is_planted: "checkPlanted", is_harvestable: "isHarvestable", is_bug: "isBug", is_fire: "checkFire",
   })) bot[name] = command(name, method, { category: "bot_checks", check: true });
+  for (const name of CROP_READINGS) bot[name] = native("bot_checks", name, (x, y) => {
+    const value = robot.readCrop(name, x, y);
+    observe(telemetry._logRawEvent?.bind(telemetry), "crop_inspection", { sensor:name, x:x ?? robot.grid_x, y:y ?? robot.grid_y, value });
+    return value;
+  }, name === "crop_type" ? "" : name === "crop_time_left" ? -1 : 0);
 
   function bounds(lower, upper, integer) {
     lower = Number(lower);

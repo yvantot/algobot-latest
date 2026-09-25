@@ -33,19 +33,32 @@ export function startChallengeFarm(getViewport) {
     k.setCamPos(CONFIG.FARM.grid_origin.x + (farm.demoBounds.columns * CONFIG.FARM.cell_size - CONFIG.FARM.gap) / 2 - (x - k.width() / 2) / scale,
       CONFIG.FARM.grid_origin.y - 25 - (y - k.height() / 2) / scale);
   }
-  function reset(layout) {
+  function reset(layout, task = {}) {
     if (disposed) throw Error("Challenge farm has closed.");
     clear(); farm.demoBounds = { columns: layout.length, rows: 1 };
     owned.push(...addLandBackground(k, { ...CONFIG.FARM, ...farm.demoBounds }));
     for (let x=0; x<layout.length; x++) {
-      const soil = addSoilToGrid(x, 0, SoilStates.READY, farm);
+      const spec = typeof layout[x] === "object" ? layout[x] : {type:"wheat",state:layout[x] ? "ready" : "young"};
+      const soil = addSoilToGrid(x, 0, spec.state === "bare" ? SoilStates.INITIAL : SoilStates.READY, farm);
       const tile = { soil, crop: null, bots: [] }; farm.set(`0-${x}`, tile);
-      tile.crop = addCrop(farm, "wheat", x, 0, layout[x] ? CropStates.HARVESTABLE : CropStates.YOUNG);
+      if (spec.type) {
+        tile.crop = addCrop(farm, spec.type, x, 0, spec.state === "ready" ? CropStates.HARVESTABLE : CropStates.YOUNG);
+        if (spec.state === "dead") tile.crop.markDead();
+        if (spec.timeLeft) tile.crop.spoilage_remaining = spec.timeLeft;
+      }
     }
     robot = addFarmbot(0, farm, 0, 0);
     robot.botmove_duration = .45; robot.botact_duration = .45; robot.botcheck_duration = .3;
     fit(); return robot;
   }
   function dispose() { if (disposed) return; disposed = true; clear(); restore(); }
-  return { reset, fit, dispose, get robot() { return robot; } };
+  return { reset, fit, dispose, get robot() { return robot; },
+    inspect: () => [...farm.values()].map(tile => ({ watered:tile.soil.isWatered(), planted:!!tile.crop })),
+    advanceWait(seconds) {
+      for (const tile of farm.values()) if (tile.crop) {
+        tile.crop.crop_duration = 1; tile.crop.crop_grow_duration = 1;
+        tile.crop.advanceGrowth(seconds);
+      }
+    },
+  };
 }

@@ -3,6 +3,7 @@ import { CONFIG, INVENTORY, DOCUMENT_DATA, SAY_DATA, CROP_DATA } from "../global
 import { CropStates, SoilStates, IconTypes } from "../global/enum.js";
 import { robots, triggerDidYouKnow } from "../../components/global.svelte.js";
 import { telemetry } from "../ml/telemetry.js";
+import { cropReading } from "../global/crop-inspection.js";
 import { play_sfx } from "../utils/sound.js";
 import { addCrop } from "./crop.js";
 import { gridpos, gridmove } from "./grid.js";
@@ -128,6 +129,11 @@ export function botact(id, farm_grid_index) {
 
     isCurrentCropDead() {
       return farm_grid_index.get(`${this.grid_y}-${this.grid_x}`)?.crop?.crop_state === CropStates.DEAD;
+    },
+
+    readCrop(field, x = this.grid_x, y = this.grid_y) {
+      if (!this.isWithinBounds(x, y)) throw Error("Choose a column and row inside the farm (starting at 0).");
+      return cropReading(farm_grid_index.get(`${y}-${x}`)?.crop, field);
     },
     getHarvestChoice() {
       const current = farm_grid_index.get(`${this.grid_y}-${this.grid_x}`)?.crop;

@@ -145,8 +145,8 @@ export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
       this.cropWait(1, () => {
         if (farm_grid_index.isDemonstration) {
           const visuals = [
-            ...(this.dropOrbs(this, this.crop_exp, OrbTypes.EXP) || []),
-            ...(this.dropOrbs(this, this.crop_reward, OrbTypes.COIN) || []),
+            ...(this.dropOrbs(this, this.crop_exp / (fresh ? 1 : 2), OrbTypes.EXP) || []),
+            ...(this.dropOrbs(this, this.crop_reward / (fresh ? 1 : 2), OrbTypes.COIN) || []),
             ...(dropSeed ? this.dropOrbs(this, 1, "icon_seedpack", 0.4) || [] : []),
           ];
           farm_grid_index.demoEffects?.push(...visuals);
@@ -192,15 +192,17 @@ export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
     },
 
     update() {
+      if (!farm_grid_index.freezeCropLifecycle) this.advanceGrowth(k.dt());
+    },
+
+    advanceGrowth(seconds) {
       if (this.crop_removed) return;
       const tile = farm_grid_index.get(`${this.grid_y}-${this.grid_x}`);
       if (tile?.crop !== this) { this.cropDestroy("replaced"); return; }
       if (this.is_harvesting) return;
-      if (farm_grid_index.freezeCropLifecycle) return;
-      let seconds = k.dt();
       if (!Number.isFinite(seconds) || seconds <= 0) return;
       if (this.crop_state === CropStates.HARVESTABLE) {
-        if (tutorialPolicy.protected && !(farm_grid_index.isDemonstration && this.demonstrateSpoilage)) return;
+        if (tutorialPolicy.protected && !farm_grid_index.freezeCropLifecycle && !(farm_grid_index.isDemonstration && this.demonstrateSpoilage)) return;
         this.spoilage_remaining = Math.max(0, this.spoilage_remaining - seconds);
         if (this.spoilage_remaining === 0) this.markDead();
         return;

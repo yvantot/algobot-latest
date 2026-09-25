@@ -1,3 +1,5 @@
+import { SCENARIO_CHALLENGES } from "./scenarios.js";
+
 export const CHALLENGES = [
   {
     id: "ready-row-v3", title: "Pick the ready crops", prerequisite: "intro_loop",
@@ -35,10 +37,11 @@ export const CHALLENGES = [
     description:"Patrol rows of 5, 7 and 9 tiles. One row has no ready crops. Check every tile and always return to the first tile.",
     cases:[[1,0,1,0,1],[0,0,0,0,0,0,0],[0,1,0,1,1,0,1,0,1]],
   },
+  ...SCENARIO_CHALLENGES,
 ];
 
 export const TIER_ORDER = ["Beginner","Skilled","Advanced","Expert"];
-export const challengeRules = task => [
+export const challengeRules = task => task.rules ?? [
   {key:"visited_every_tile",label:"Visit every tile, including the last one."},
   {key:"harvested_all_ready",label:"Harvest every yellow, ready crop."},
   {key:"safe_and_finished",label:"Finish without errors: leave young crops alone, stay inside the row, and end your loop."},

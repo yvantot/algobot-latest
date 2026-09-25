@@ -1,29 +1,40 @@
 import * as Blockly from "blockly";
 import "blockly/blocks";
 import { JavascriptGenerator, javascriptGenerator, Order } from "blockly/javascript";
+import { registerInspectionBlocks, inspectionToolbox } from "../global/inspection-blocks.js";
 
-export function createChallengeWorkspace(element) {
-  const definitions = ["right", "left", "harvest", "say", "is_harvestable", "columns"].map(name => {
-    const output = name === "is_harvestable" || name === "columns";
-    return { type: `assessment_${name}`, message0: name === "say" ? "bot.say %1" : name === "columns" ? "columns()" : `bot.${name}()`,
-      ...(name === "say" ? { args0: [{ type: "input_value", name: "VALUE" }] } : {}),
+export function createChallengeWorkspace(element, task = {}) {
+  const names = [...(task.commands ?? ["right","left","harvest","is_harvestable"]),"say","columns"];
+  const definitions = names.filter(name=>!name.startsWith("crop_")).map(name => {
+    const output = name.startsWith("is_") || name === "columns";
+    const inputs = name==="jump"?["X","Y"]:["say","wait","plant"].includes(name)?["VALUE"]:[];
+    return { type: `assessment_${name}`, message0: name === "columns" ? "columns()" : `bot.${name}${inputs.length?inputs.map((_,i)=>` %${i+1}`).join(""):"()"}`,
+      ...(inputs.length ? { args0: inputs.map(name=>({type:"input_value",name})) } : {}),
       ...(output ? { output: name === "columns" ? "Number" : "Boolean" } : { previousStatement: null, nextStatement: null }),
       colour: output ? 160 : 210, tooltip: name.replaceAll("_", " "), helpUrl: "" };
   });
   for (const definition of definitions) if (!Blockly.Blocks[definition.type]) Blockly.defineBlocksWithJsonArray([definition]);
   const generator = new JavascriptGenerator();
   Object.assign(generator.forBlock, javascriptGenerator.forBlock);
-  for (const name of ["right", "left", "harvest"]) generator.forBlock[`assessment_${name}`] = () => `bot.${name}();\n`;
-  generator.forBlock.assessment_say = (block, gen) => `bot.say(${gen.valueToCode(block, "VALUE", Order.NONE) || '""'});\n`;
-  generator.forBlock.assessment_is_harvestable = () => ["bot.is_harvestable()", Order.FUNCTION_CALL];
-  generator.forBlock.assessment_columns = () => ["columns()", Order.FUNCTION_CALL];
+  registerInspectionBlocks(Blockly,generator);
+  for(const name of names.filter(name=>!name.startsWith("crop_"))) generator.forBlock[`assessment_${name}`]=(block,gen)=>{
+    const inputs=name==="jump"?["X","Y"]:["say","wait","plant"].includes(name)?["VALUE"]:[];
+    const args=inputs.map(key=>gen.valueToCode(block,key,Order.NONE)||(name==="plant"?'"corn"':name==="say"?'""':"1"));
+    const code=name==="columns"?"columns()":`bot.${name}(${args.join(", ")})`;
+    return name.startsWith("is_")||name==="columns"?[code,Order.FUNCTION_CALL]:code+";\n";
+  };
   const block = type => ({ kind: "block", type });
   const workspace = Blockly.inject(element, {
     toolbox: { kind: "categoryToolbox", contents: [
-      { kind: "category", name: "Bot", colour: 210, contents: definitions.map(d => block(d.type)) },
-      { kind: "category", name: "Loops", colour: 120, contents: [block("controls_repeat_ext"), block("controls_for")] },
-      { kind: "category", name: "If", colour: 210, contents: [block("controls_if"), block("logic_compare"), block("logic_boolean")] },
-      { kind: "category", name: "Math", colour: 230, contents: [block("math_number"), block("math_arithmetic")] },
+      { kind: "category", name: "Bot", colour: 210, contents: definitions.map(d => ({...block(d.type),
+        ...(d.type==="assessment_wait"?{inputs:{VALUE:{shadow:{type:"math_number",fields:{NUM:1}}}}}:{}),
+        ...(d.type==="assessment_plant"?{inputs:{VALUE:{shadow:{type:"text",fields:{TEXT:"corn"}}}}}:{}),
+        ...(d.type==="assessment_jump"?{inputs:{X:{shadow:{type:"math_number",fields:{NUM:0}}},Y:{shadow:{type:"math_number",fields:{NUM:0}}}}}:{}),
+      })) },
+      ...(names.some(name=>name.startsWith("crop_"))?[{kind:"category",name:"Crop readings",colour:160,contents:inspectionToolbox()}]:[]),
+      { kind: "category", name: "Loops", colour: 120, contents: [block("controls_repeat_ext"), block("controls_for"),block("controls_whileUntil")] },
+      { kind: "category", name: "If", colour: 210, contents: [block("controls_if"), block("logic_compare"), block("logic_boolean"),block("logic_operation"),block("logic_negate")] },
+      { kind: "category", name: "Math", colour: 230, contents: [block("math_number"), block("math_arithmetic"),...(task.kind?[block("math_single")]:[])] },
       { kind: "category", name: "Variables", colour: 330, custom: "VARIABLE" },
       { kind: "category", name: "Text", colour: 160, contents: [block("text")] },
     ] },

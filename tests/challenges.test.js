@@ -26,7 +26,7 @@ function testWorld() {
 const evaluate = (source, task=CHALLENGES[0], options={}) => evaluateChallenge(source, task, context.Interpreter, {world:testWorld(), yieldControl: async()=>{}, ...options});
 
 test("one real program passes every layout and variable-length row", async () => {
-  for (const task of CHALLENGES) {
+  for (const task of CHALLENGES.filter(task=>!task.kind)) {
     const code=solve+(task.returnHome?"for(var x=1;x<columns();x++){bot.left();}":"");
     const result = await evaluate(code, task);
     assert.equal(result.score, challengeMaxScore(task)); assert.equal(result.passed, true);

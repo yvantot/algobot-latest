@@ -1,11 +1,13 @@
 import { createCommandAPI } from "../global/command-api.js";
 import { createInterpreterInit } from "../global/interpreter-bindings.js";
 import { challengeMaxScore } from "./catalog.js";
+import { evaluateScenario } from "./scenario-engine.js";
 
 export async function evaluateChallenge(source, task, Interpreter, { world, signal, onCase = () => {}, onAction = () => {}, yieldControl = () => new Promise(resolve => setTimeout(resolve, 16)) } = {}) {
   if (typeof Interpreter !== "function") throw Error("The code runner is still loading. Try again in a moment.");
   if (!world) throw Error("The challenge farm is not ready.");
   if (typeof source !== "string" || source.length > 12000) throw Error("That program is huge! Keep it below 12,000 characters.");
+  if (task.kind) return evaluateScenario(source, task, Interpreter, {world,signal,onCase,onAction,yieldControl});
   const results = [];
   for (const [index, layout] of task.cases.entries()) {
     signal?.throwIfAborted();

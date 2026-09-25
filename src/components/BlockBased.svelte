@@ -10,6 +10,7 @@
   import { createInit } from "../game/global/interpreter.js";
   import { telemetry } from "../game/ml/telemetry.js";
   import { isBlocklyProgramEdit } from "../game/ml/editor-events.js";
+  import { registerInspectionBlocks, inspectionToolbox } from "../game/global/inspection-blocks.js";
 
   import { createCodeRunner } from "../game/global/code-runner.js";
   import { k } from "../lib/kaplay.js";
@@ -582,6 +583,7 @@
           { kind: "block", type: "bot_is_bug" },
           { kind: "block", type: "bot_is_fire" },
           { kind: "block", type: "bot_is_dead" },
+          ...inspectionToolbox(),
         ],
       },
       {
@@ -864,6 +866,7 @@
     setTimeout(() => (is_command_ready = true), 2000);
     registerBlocks();
     registerGenerators();
+    registerInspectionBlocks(Blockly, javascriptGenerator);
 
     workspace = Blockly.inject(blocklyDiv, {
       toolbox: buildToolbox(),

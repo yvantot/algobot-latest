@@ -864,6 +864,22 @@ export const DOCUMENT_DATA = {
     },
   },
   bot_checks: {
+    crop_value: {
+      type:"function", arguments:"column, row (starting at 0)", is_unlocked:true, tier:2,
+      definition:"Reads the coins a ready crop would give now. Returns 0 for young, dead or empty tiles. Reading does not move the bot.",
+      example:"bot.say(bot.crop_value(0, 0));", note:"Expiring crops give half their fresh value. Compare tiles before choosing where to harvest.",
+    },
+    crop_time_left: {
+      type:"function", arguments:"column, row (starting at 0)", is_unlocked:true, tier:2,
+      definition:"Reads seconds left before a ready crop spoils. Returns -1 when there is no ready crop.",
+      example:"if (bot.crop_time_left(1, 0) > 0) {\n  bot.say(bot.crop_time_left(1, 0));\n}",
+      note:"Read again as time passes. A small positive number means the crop needs attention soon.",
+    },
+    crop_type: {
+      type:"function", arguments:"column, row (starting at 0)", is_unlocked:true, tier:2,
+      definition:"Reads the living crop's name, such as corn. Returns empty text for dead or empty tiles.",
+      example:'bot.say(bot.crop_type(0, 0));',
+    },
     is_tilled: {
       type: "function",
       arguments: `None`,

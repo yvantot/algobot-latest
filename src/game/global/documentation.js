@@ -3,6 +3,9 @@ const simple = ["up","down","left","right","till","water","harvest","destroy","k
 const checks = {is_tilled:"bot_check_tilled",is_watered:"bot_check_watered",is_planted:"bot_check_planted",is_harvestable:"bot_is_harvestable",is_bug:"bot_is_bug",is_fire:"bot_is_fire",is_dead:"bot_is_dead"};
 const number = value => ({shadow:{type:"math_number",fields:{NUM:value}}});
 export function commandExample(category, name) {
+  if (category === "bot_checks" && ["crop_value","crop_time_left","crop_type"].includes(name)) return {
+    code:`bot.say(bot.${name}(0, 0));`, block:{type:"bot_say",inputs:{TEXT:{block:{type:`bot_${name}`,inputs:{X:number(0),Y:number(0)}}}}}, requires:["say"],
+  };
   if (category.startsWith("bot_") && simple.includes(name)) return {code:`bot.${name}();`,block:{type:`bot_${name}`}};
   if (category === "bot_checks" && checks[name]) return {code:`bot.${name}()`,block:{type:checks[name]}};
   if (category === "bot_farm_actions" && name === "plant") return {code:'bot.plant("wheat");',block:{type:"bot_plant",fields:{TYPE:"wheat"}}};
