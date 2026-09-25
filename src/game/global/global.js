@@ -781,6 +781,18 @@ export const DOCUMENT_DATA = {
     },
   },
   bot_farm_actions: {
+    send: {
+      type:"function", arguments:"bot.send(botNumber, message)", is_unlocked:true, tier:0,
+      definition:"Sends text, a number, or true/false to another bot on this farm. Bot numbers start at 0.",
+      example:'bot.send(1, "Ready!");',
+      note:"Run both bots with Start All. Each bot has its own inbox (32 messages). A message stays until received; sending to a missing bot fails. Messages reset when the farm reloads.",
+    },
+    receive: {
+      type:"function", arguments:"bot.receive()", is_unlocked:true, tier:0,
+      definition:"Takes the oldest message from this bot's inbox. Returns empty text if its inbox is empty.",
+      example:'while (!bot.has_message()) { bot.wait(0.2); }\nvar message = bot.receive();\nbot.say(message);',
+      note:"Check has_message() before receiving. Use wait() inside a waiting loop so the other bot has time to work. Messages are read once, in the order sent.",
+    },
     say: {
       type: "function",
       arguments: "bot.say(text: String)",
@@ -864,6 +876,12 @@ export const DOCUMENT_DATA = {
     },
   },
   bot_checks: {
+    has_message: {
+      type:"function", arguments:"bot.has_message()", is_unlocked:true, tier:0,
+      definition:"Returns true when this bot has a message waiting in its inbox, otherwise false.",
+      example:'if (bot.has_message()) { bot.say(bot.receive()); }',
+      note:"This check does not remove the message. Use bot.receive() to read it.",
+    },
     crop_value: {
       type:"function", arguments:"column, row (starting at 0)", is_unlocked:true, tier:2,
       definition:"Reads the coins a ready crop would give now. Returns 0 for young, dead or empty tiles. Reading does not move the bot.",

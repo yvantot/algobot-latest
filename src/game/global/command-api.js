@@ -80,6 +80,19 @@ export function createCommandAPI({
   }
 
   const bot = {
+    send: native("bot_farm_actions", "send", (target, value) => {
+      const sent = robot.sendMessage(target, value);
+      record("recordInterpreterStep");
+      record("_logRawEvent", "bot_message_sent", { sender:robot.bot_index, target, value });
+      return sent;
+    }),
+    has_message: native("bot_checks", "has_message", () => robot.hasMessage()),
+    receive: native("bot_farm_actions", "receive", () => {
+      const value = robot.receiveMessage();
+      record("recordInterpreterStep");
+      record("_logRawEvent", "bot_message_received", { bot:robot.bot_index, value });
+      return value;
+    }, ""),
     say: native("bot_farm_actions", "say", text => {
       record("recordInterpreterStep");
       const result = speak(text);

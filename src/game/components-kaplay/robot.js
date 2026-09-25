@@ -4,6 +4,7 @@ import { CropStates, SoilStates, IconTypes } from "../global/enum.js";
 import { robots, triggerDidYouKnow } from "../../components/global.svelte.js";
 import { telemetry } from "../ml/telemetry.js";
 import { cropReading } from "../global/crop-inspection.js";
+import { joinBotInbox } from "../global/bot-messages.js";
 import { play_sfx } from "../utils/sound.js";
 import { addCrop } from "./crop.js";
 import { gridpos, gridmove } from "./grid.js";
@@ -27,7 +28,11 @@ export function botact(id, farm_grid_index) {
     bot_action_result: true,
     bot_move_timer: null,
 
-    add() { this.botJump(this.grid_x, this.grid_y); },
+    add() { this.inbox = joinBotInbox(farm_grid_index, id); this.botJump(this.grid_x, this.grid_y); },
+
+    sendMessage(target, value) { return this.inbox.send(target, value); },
+    hasMessage() { return this.inbox.hasMessage(); },
+    receiveMessage() { return this.inbox.receive(); },
 
     update() {
       const bots = farm_grid_index.get(`${this.grid_y}-${this.grid_x}`)?.bots ?? [];
@@ -268,6 +273,7 @@ export function botact(id, farm_grid_index) {
     destroy() {
       if (this.bot_removed) return;
       this.bot_removed = true;
+      this.inbox?.leave();
       this.bot_action_timer?.cancel();
       this.bot_move_timer?.cancel();
       this.bot_action_version++;
