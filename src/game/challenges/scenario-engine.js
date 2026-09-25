@@ -11,14 +11,16 @@ export async function evaluateScenario(source, task, Interpreter, {world,signal,
     const trace=[], harvested=new Set(), treatments=new Map();
     const initialValues=layout.map((_,x)=>robot.readCrop("crop_value",x,0));
     const optimum=task.kind === "planning" ? bestRouteValue(initialValues,task.budget) : 0;
-    let used=0, earned=0, calls=0, fatal=null, error=null, loops=0, conditions=0, greedy=true;
+    let used=0, earned=0, calls=0, sensorCalls=0, fatal=null, error=null, loops=0, conditions=0, greedy=true;
     const repeated=new Map();let progress=world.progress?.();
+    let interpreter;
+    const loopWatered=new Set(), conditionalTreatments=new Map();
     const budget=task.kind === "planning" ? task.budget : task.kind === "irrigation" ? 2*layout.length-1 : Infinity;
     const bot={say:value=>api.bot.say(String(value).slice(0,120))};
     for (const name of task.commands) {
       if (name.startsWith("crop_")) {
         bot[name]=(x,y)=>{
-          if(++calls>1200)throw Error("Too many checks. Stop your loop when the plan is ready.");
+          if(++sensorCalls>1200)throw Error("Too many checks. Stop your loop when the plan is ready.");
           return robot.readCrop(name,x,y);
         };
         continue;
@@ -31,6 +33,9 @@ export async function evaluateScenario(source, task, Interpreter, {world,signal,
         if (!Number.isFinite(cost) || used+cost>budget) {fatal="That action goes over the work-step budget. Choose a shorter plan.";done(false);return;}
         if (task.kind==="sequence" && name==="plant" && args[0]!=="corn") {fatal="This order is for corn. Plant corn on each tile.";done(false);return;}
         const valueBefore=robot.readCrop("crop_value",x,0);
+        const frames=interpreter?.getStateStack() ?? [];
+        const inLoop=frames.some(frame=>["ForStatement","WhileStatement","DoWhileStatement","ForInStatement"].includes(frame.node?.type));
+        const inCondition=frames.some(frame=>frame.node?.type==="IfStatement");
         if(name==="harvest" && task.kind==="greedy") {
           const priorities=layout.map((_,i)=>{
             const seconds=robot.readCrop("crop_time_left",i,0);
@@ -49,6 +54,8 @@ export async function evaluateScenario(source, task, Interpreter, {world,signal,
           if(repeated.get(key)>4)fatal="Your program repeats the same work without changing the farm. Check what should end the loop.";
           if(value&&!check){
             if(["harvest","water","destroy"].includes(name))treatments.set(x,name);
+            if(inCondition&&["harvest","water","destroy"].includes(name))conditionalTreatments.set(x,name);
+            if(inLoop&&name==="water")loopWatered.add(x);
             if(name==="harvest"){harvested.add(x);earned+=valueBefore;}
           }
           const event={command:name,args,value,position:robot.grid_x,work_steps:used,earned};
@@ -61,7 +68,7 @@ export async function evaluateScenario(source, task, Interpreter, {world,signal,
     try {
       while(!robot.is_available){signal?.throwIfAborted();await yieldControl();}
       const init=createInterpreterInit({bot,globals:{columns:api.globals.columns,rows:api.globals.rows},hooks:{},shop:{},inventory:{},console:{}});
-      const interpreter=new Interpreter(source,(runner,scope)=>{
+      interpreter=new Interpreter(source,(runner,scope)=>{
         init(runner,scope); runner.setProperty(scope,"Date",runner.UNDEFINED);
         runner.setProperty(runner.getProperty(scope,"Math"),"random",runner.createNativeFunction(()=>{throw Error("Use the same plan for every test farm, without random numbers.");}));
       });
@@ -84,15 +91,16 @@ export async function evaluateScenario(source, task, Interpreter, {world,signal,
     }
     if(task.kind==="clinic") {
       checks.treated_every_crop=layout.every((tile,x)=>treatments.get(x)===(tile.state==="ready"?"harvest":tile.state==="dead"?"destroy":"water"));
-      checks.used_condition=conditions>0;
+      checks.used_condition=task.actionLinkedSyntax?layout.every((tile,x)=>conditionalTreatments.get(x)===(tile.state==="ready"?"harvest":tile.state==="dead"?"destroy":"water")):conditions>0;
     }
     if(task.kind==="irrigation") {
       checks.watered_every_crop=world.inspect().every(tile=>tile.watered);
-      checks.used_loop=loops>0;checks.within_budget=used<=budget&&!fatal;
+      checks.used_loop=task.actionLinkedSyntax?loopWatered.size===layout.length:loops>0;checks.within_budget=used<=budget&&!fatal;
     }
     if(task.kind==="greedy"){checks.harvested_every_crop=harvested.size===layout.length;checks.greedy_order=greedy&&harvested.size===layout.length;}
     if(task.kind==="planning"){checks.best_yield=Math.abs(earned-optimum)<1e-9;checks.within_budget=used<=budget&&!fatal;}
     checks.safe_and_finished=!error;
+    if(task.requireYield&&earned===0)for(const key of Object.keys(checks))checks[key]=false;
     results.push({checks,passed:Object.values(checks).every(Boolean),error,mistakes:error?1:0,trace,
       ...(task.kind==="planning"?{earned,optimal_value:optimum,work_steps:used}:{} )});
     if (task.kind === "planning") {

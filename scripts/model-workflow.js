@@ -76,6 +76,7 @@ export async function trainWorkflow(datasetPath, planPath, output) {
   const scaler = fitStandardScaler(train);
   const baseline = train.reduce((sum, s) => sum + s.y, 0) / train.length;
   const report = { dataset_sha256: digest(data), plan_sha256: digest(plan), target: "independent_scored_task",
+    task_id:data.samples[0].task_id, rubric_version:data.samples[0].rubric_version, assessor_id:data.samples[0].assessor_id,
     feature_schema: RESEARCH_SCHEMA, node: process.version, tensorflowjs: tf.version.tfjs, backend: tf.getBackend(),
     baseline_mean: baseline, test_evaluated: false, training_samples: train.length, validation_samples: validation.length,
     mean_validation: regressionMetrics(validation, validation.map(() => baseline), plan.cutoffs), candidates: [], selected: {},
@@ -108,6 +109,7 @@ export async function evaluateWorkflow(datasetPath, run) {
   write(path.join(run, "evaluation-started.json"), { at: new Date().toISOString(), development_sha256: digest(report) });
   await tf.setBackend("cpu"); await tf.ready();
   const evaluation = { dataset_sha256: digest(data), development_sha256: digest(report),
+    task_id:report.task_id, rubric_version:report.rubric_version, assessor_id:report.assessor_id,
     test_participant_ids: plan.split.test, cutoff_status: plan.cutoff_status, cutoffs: plan.cutoffs,
     deployment_ready: false, results: { mean: regressionMetrics(test, test.map(() => report.baseline_mean), plan.cutoffs) }, predictions: {} };
   for (const kind of ["lstm", "mlp"]) {
@@ -155,6 +157,7 @@ export function bundleWorkflow(run, output) {
   freshDirectory(output);
   for (const file of artifactFiles) fs.copyFileSync(path.join(source, file), path.join(output, file));
   write(path.join(output, "model-card.json"), { target: "independent_scored_task", output: "score / maximum",
+    task_id:development.task_id, rubric_version:development.rubric_version, assessor_id:development.assessor_id,
     feature_schema: RESEARCH_SCHEMA, input_shape: [20, 12], collection_interval_ms: 5000,
     dataset_sha256: development.dataset_sha256, plan_sha256: development.plan_sha256,
     files: selected.files, file_hash_encoding: "SHA-256 of file bytes",

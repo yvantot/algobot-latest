@@ -109,13 +109,13 @@ export class MLDiffAgent {
 
   async _predict(stage, generation) {
     await this.init();
-    if (generation !== this._sessionGeneration || this._sessionEnded) return null;
+    if (generation !== this._sessionGeneration || this._sessionEnded || !this._isGameplay()) return null;
     const safeStage = Number.isInteger(stage) && stage >= 1 && stage <= 5 ? stage : telemetry.currentStage;
     telemetry.sampleHistory();
     try {
       if (this.mode === "hybrid") return await this._mlUpdate(safeStage, generation);
     } catch (error) {
-      if (generation !== this._sessionGeneration || this._sessionEnded) return null;
+      if (generation !== this._sessionGeneration || this._sessionEnded || !this._isGameplay()) return null;
       this.mode = "bootstrap";
       this.fallbackReason = `Inference: ${error.message}`;
       console.warn("DDA inference failed; applying bootstrap fallback:", error);
@@ -130,6 +130,12 @@ export class MLDiffAgent {
     const state = [0.5, stage / 5, telemetry.frustrationScore, telemetry.flowScore];
     this._applyDecision(state, action, stage);
     return { proficiency: null, action, mode: "bootstrap", fallbackReason: this.fallbackReason };
+  }
+
+  _isGameplay() {
+    // Inference can finish after the player has opened an isolated challenge.
+    const context=telemetry.getCollectionContext?.();
+    return !context || (context.phase === "gameplay" && context.game_speed > 0);
   }
 
   async _predictValues(model, values, shape) {
@@ -170,7 +176,7 @@ export class MLDiffAgent {
     }
     const proficiency = proficiencyValues[0];
     const state = [proficiency, stage / 5, frustration, flow];
-    if (generation !== this._sessionGeneration || this._sessionEnded) return null;
+    if (generation !== this._sessionGeneration || this._sessionEnded || !this._isGameplay()) return null;
     this.predictedProficiency = proficiency;
     this.predictionAvailable = true;
     const action = this._chooseAction(stage, proficiency);

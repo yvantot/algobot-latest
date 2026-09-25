@@ -289,6 +289,25 @@ test("concurrent prediction requests coalesce and session end cancels in-flight 
   assert.equal(telemetry.ddaActionsLog.length, 0);
 });
 
+test("inference finishing after a challenge opens cannot change main-farm difficulty",async()=>{
+  let release,phase="gameplay";
+  const blocked=new Promise(resolve=>{release=resolve;});
+  const {agent}=makeAgent({modelOverrides:{lstm:{predict(){
+    const tensor=tf.tensor2d([[.2]]);
+    tensor.data=async()=>{await blocked;return new Float32Array([.2]);};return tensor;
+  }}}});
+  const previous=telemetry.getCollectionContext;
+  telemetry.getCollectionContext=()=>({phase,game_speed:1});
+  try {
+    await agent.init();
+    const pending=agent.updateAndPredict(1);
+    await new Promise(resolve=>setImmediate(resolve));
+    phase="challenge";release();
+    assert.equal(await pending,null);
+    assert.equal(telemetry.ddaActionsLog.length,0);
+  } finally {release();agent.endSession();telemetry.getCollectionContext=previous;}
+});
+
 test("replay assigns completion to the pending action, marks terminal, and isolates sessions", () => {
   const { agent } = makeAgent();
   agent.mode = "hybrid";

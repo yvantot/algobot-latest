@@ -21,7 +21,7 @@ const dataHook = registerHooks({
     return nextLoad(url, context);
   },
 });
-const { CROP_DATA: deployedCropData } = await import("../src/game/global/global.js");
+const { CROP_DATA: deployedCropData, BASE_CROP_DATA } = await import("../src/game/global/global.js");
 dataHook.deregister();
 
 // Exercise the actual component methods with a small engine boundary. Destruction
@@ -652,7 +652,7 @@ test("live challenge factory keeps real soil after harvest and real pests destro
   Object.assign(h.k,{get:()=>[...h.roots],debug:{timeScale:1},getCamPos:()=>h.k.vec2(),getCamScale:()=>h.k.vec2(1),setCamPos(){},setCamScale(){},
     onUpdate(fn){const object=h.make([{update:fn}]);return {cancel:()=>object.destroy()};}});
   let farm;
-  Object.assign(h.context,{document:{getElementById:()=>null},isolateScene,addLandBackground,
+  Object.assign(h.context,{document:{getElementById:()=>null},isolateScene,addLandBackground,BASE_CROP_DATA,
     addFarmbot(id,map,x,y){farm=map;return h.make([{display_obj:{},setDisplayColor(){},sayText(){},showIcon(){}},h.context.gridpos(x,y),h.context.gridmove(),h.context.botact(id,map)]);}});
   vm.runInContext(fs.readFileSync('src/game/challenges/live-farm.js','utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export function','function'),h.context);
   const world=h.context.startChallengeFarm(()=>null),greedy=CHALLENGES.find(t=>t.kind==='greedy');
@@ -667,6 +667,32 @@ test("live challenge factory keeps real soil after harvest and real pests destro
   await world.pestEnding({yieldControl:async()=>{h.advance(.05);}});
   assert.equal([...farm.values()].filter(tile=>tile.crop).length,0);
   assert.equal([...farm.values()].filter(tile=>tile.soil?.exists()).length,4);
+  const corn=CHALLENGES.find(t=>t.id==='corn-sequence-v2');
+  h.context.CROP_DATA.corn.duration=21;h.context.CROP_DATA.corn.spoilage_time=19.5;
+  world.reset(corn.cases[0],corn);h.advance(1);
+  world.robot.botTill();h.advance(1);world.robot.botPlant('corn');h.advance(1);
+  assert.equal(farm.get('0-0').crop.crop_duration,30);
+  assert.equal(farm.get('0-0').crop.crop_spoilage_time,13);
   world.dispose();assert.equal(farm.size,0);assert.equal(h.roots.size,0);
+  assert.equal(h.context.CROP_DATA.corn.duration,21);
+  assert.equal(h.context.CROP_DATA.corn.spoilage_time,19.5);
   assert.deepEqual(h.rewards,{coins:0,exp:0,seeds:0,spoiled:0});
+});
+
+test("rubrics require productive work inside control structures and no-yield planning earns zero",async()=>{
+  const {run}=scenarioHarness(),task=kind=>CHALLENGES.find(t=>t.kind===kind);
+  const unrolled=await run('for(var i=0;i<1;i++){}bot.water();bot.right();bot.water();',task('irrigation'));
+  assert.equal(unrolled.results[0].checks.watered_every_crop,true);
+  assert.equal(unrolled.results[0].checks.used_loop,false);
+  const unrelatedIf=await run('if(true){}for(var x=0;x<columns();x++){bot.is_dead()?bot.destroy():bot.is_harvestable()?bot.harvest():bot.water();if(x<columns()-1)bot.right();}',task('clinic'));
+  assert.equal(unrelatedIf.results[0].checks.treated_every_crop,true);
+  assert.equal(unrelatedIf.results[0].checks.used_condition,false);
+  assert.equal((await run('bot.say("Hello");',task('planning'))).score,0);
+  assert.equal((await run('bot.right();',task('planning'))).score,0);
+});
+
+test("crop inspections do not consume the separate robot action allowance",async()=>{
+  const {run}=scenarioHarness(),task=CHALLENGES.find(t=>t.kind==='greedy');
+  const result=await run('for(var scan=0;scan<121;scan++){bot.crop_value(0,0);}'+scenarioSolutions.greedy,task);
+  assert.equal(result.passed,true,JSON.stringify(result));
 });

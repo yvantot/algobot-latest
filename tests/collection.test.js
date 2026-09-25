@@ -114,3 +114,31 @@ test("overlapping exports keep more observations even without additional complet
     assert.equal(Object.keys(read.source_sha256).length, 2);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("overlapping exports retain new challenge submissions and developer exclusions in either order",()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"algobot-export-merge-"));
+  try {
+    const old=fixture().session;
+    old.challenge_attempts=[{assessment_id:"challenge-1",started_at:"2026-09-24T01:02:00Z",task_id:"task",rubric_version:"1",first_exposure:true,submissions:[]}];
+    old.source_type="developer_test";old.research_exclusion_reasons=["developer_console"];
+    const newer=structuredClone(old);newer.source_type="recorded";delete newer.research_exclusion_reasons;
+    newer.challenge_attempts[0].submissions.push({score:2});
+    for(const records of [[old,newer],[newer,old]]){
+      records.forEach((record,i)=>fs.writeFileSync(path.join(dir,`${i}.json`),JSON.stringify({sessions:[record]})));
+      const merged=readCollection(dir).sessions[0];
+      assert.equal(merged.challenge_attempts[0].submissions.length,1);
+      assert.equal(merged.source_type,"developer_test");
+      assert.deepEqual(merged.research_exclusion_reasons,["developer_console"]);
+    }
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test("crossed partial exports are rejected instead of discarding one history",()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"algobot-export-conflict-"));
+  try {
+    const first=fixture().session,second=structuredClone(first);
+    first.raw_events.push({event:"code_run"});first.feature_timeseries=first.feature_timeseries.slice(0,3);
+    [first,second].forEach((record,i)=>fs.writeFileSync(path.join(dir,`${i}.json`),JSON.stringify({sessions:[record]})));
+    assert.throws(()=>readCollection(dir),/neither export contains the other/);
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});

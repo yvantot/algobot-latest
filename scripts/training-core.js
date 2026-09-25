@@ -21,6 +21,8 @@ export function validateDataset(data) {
     sessions.set(s.session_id, s.student_id); ids.add(s.assessment_id); windows.add(window);
   }
   if (new Set(data.samples.map(s => s.rubric_version)).size !== 1) throw Error("Use one reviewed rubric version per experiment");
+  if (new Set(data.samples.map(s => s.task_id)).size !== 1) throw Error("Use one task per experiment; equal rubric names do not make tasks interchangeable");
+  if (new Set(data.samples.map(s => s.assessor_id)).size !== 1) throw Error("Use one assessor protocol per experiment");
   return data;
 }
 
@@ -32,7 +34,8 @@ export function makePlan(data, { seed = 42, epochs = 60, cutoffs = [.3, .6] } = 
   if (ids.length < 6) throw Error("This holdout workflow requires at least 6 participant IDs (a software minimum, not adequate study power)");
   const heldout = Math.max(2, Math.floor(ids.length * .2));
   return { version: 1, dataset_sha256: digest(data), feature_schema: RESEARCH_SCHEMA,
-    target: "independent_scored_task", rubric_version: data.samples[0].rubric_version,
+    target: "independent_scored_task", task_id: data.samples[0].task_id, rubric_version: data.samples[0].rubric_version,
+    assessor_id: data.samples[0].assessor_id,
     seed, epochs, candidate_seeds: [seed, seed + 1], cutoffs, cutoff_status: "provisional",
     split: { test: ids.slice(0, heldout), validation: ids.slice(heldout, heldout * 2), train: ids.slice(heldout * 2) },
     selection: "LSTM seed chosen by participant-macro validation RMSE; test opened separately",

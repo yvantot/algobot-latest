@@ -8,14 +8,14 @@
   import {challengeRules} from "../game/challenges/catalog.js";
   import ChallengeRewards from "./ChallengeRewards.svelte";
   import Confetti from "./Confetti.svelte";
-  import { CROP_DATA } from "../game/global/global.js";
+  import { BASE_CROP_DATA } from "../game/global/global.js";
 
   let { task, onSubmit, onClose, onReward, onInterrupted = () => {}, rewardAvailable = true } = $props();
   let activeSource = null;
   let rules=$derived(challengeRules(task));
   let host, secondHost, dialog, farmWindow, editor, secondEditor, world, controller, closingTimer;
   let secondSource=$state(""), secondTextEdited=false;
-  let growthInfo=$derived(CROP_DATA[task.kind==="team"?"wheat":"corn"]);
+  let growthInfo=$derived(BASE_CROP_DATA[task.kind==="team"?"wheat":"corn"]);
   let mode = $state("blocks"), source = $state(""), running = $state(false), result = $state(null);
   let error = $state(""), reward = $state(false), caseIndex = $state(0), closing = $state(false), ready = $state(false);
   let speech = $state(task.description + (task.kind ? "" : " Every rule counts, not just the harvest!"));

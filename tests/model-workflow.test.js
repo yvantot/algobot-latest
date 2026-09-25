@@ -83,6 +83,17 @@ test("frozen participant splits, train-only scaling and missing-class metrics", 
   assert.equal(m.r2, null);
 });
 
+test("training cannot pool different tasks or assessor protocols under the same rubric",()=>{
+  const data=dataset(),plan=makePlan(data);
+  assert.equal(plan.task_id,"fixture-task");
+  assert.equal(plan.assessor_id,"fixture-assessor");
+  data.samples[0].task_id="different-task";
+  assert.throws(()=>makePlan(data),/one task/);
+  data.samples[0].task_id="fixture-task";
+  data.samples[0].assessor_id="different-protocol";
+  assert.throws(()=>makePlan(data),/one assessor protocol/);
+});
+
 test("local train/evaluate/bundle pipeline runs and blocks reevaluation and modified artifacts", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-workflow-fixture-"));
   try {
@@ -99,6 +110,11 @@ test("local train/evaluate/bundle pipeline runs and blocks reevaluation and modi
     await assert.rejects(() => evaluateWorkflow(input, run), /already been evaluated/);
     const bundle = path.join(dir, "bundle"); bundleWorkflow(run, bundle);
     const card = JSON.parse(fs.readFileSync(path.join(bundle, "model-card.json")));
+    for(const report of [development,evaluation,card]){
+      assert.equal(report.task_id,"fixture-task");
+      assert.equal(report.rubric_version,"test-fixture");
+      assert.equal(report.assessor_id,"fixture-assessor");
+    }
     assert.equal(card.files["weights.bin"], digest(fs.readFileSync(path.join(bundle, "weights.bin"))));
     const model = await loadDeployedModel(path.join(bundle, "model.json"));
     const scaler = JSON.parse(fs.readFileSync(path.join(bundle, "scaler_params.json")));

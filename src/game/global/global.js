@@ -343,6 +343,13 @@ export const CROP_DATA = {
   }),
 };
 
+// Assessments use the original crop rules, regardless of the main farm's DDA.
+export const BASE_CROP_DATA = Object.freeze(Object.fromEntries(
+  Object.entries(CROP_DATA).map(([type, data]) => [type, Object.freeze({
+    ...data, resistance: Object.freeze({ ...data.resistance }),
+  })]),
+));
+
 export const SAY_DATA = {
   farm: {
     error: {

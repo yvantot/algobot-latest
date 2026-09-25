@@ -15,7 +15,8 @@ export function challengeWindowReady(tracker, now = Date.now()) {
 export function openChallenge(tracker, task, firstExposure, now = Date.now()) {
   const attempt = {
     assessment_id: crypto.randomUUID(), student_id: tracker.participantId, session_id: tracker.sessionId,
-    task_id: task.id, rubric_version: task.rubric, assessor_id: "algobot-live-cases-3.0",
+    task_id: task.id, rubric_version: task.rubric, assessor_id: "algobot-live-cases-4.0",
+    crop_profile: "baseline",
     first_exposure: firstExposure, started_at: new Date(now).toISOString(), finished_at: null,
     purpose: "practice", status: "in_progress", assistance: "unconfirmed", score: null, max_score: challengeMaxScore(task),
     input_window_ready: challengeWindowReady(tracker, now), submissions: [], reward_claimed: false,

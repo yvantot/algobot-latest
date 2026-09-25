@@ -1,5 +1,5 @@
 import { k } from "../../lib/kaplay.js";
-import { CONFIG } from "../global/global.js";
+import { BASE_CROP_DATA, CONFIG } from "../global/global.js";
 import { CropStates, SoilStates } from "../global/enum.js";
 import { addFarmbot } from "../components-kaplay/robot.js";
 import { addCrop } from "../components-kaplay/crop.js";
@@ -14,6 +14,7 @@ export function startChallengeFarm(getViewport) {
   // Reuse the demonstration's resource and telemetry isolation.
   farm.isDemonstration = true;
   farm.isChallenge = true;
+  farm.cropData = BASE_CROP_DATA;
   farm.freezeCropLifecycle = true;
   farm.demoEffects = [];
   let owned = [], robot = null, robots = [], disposed = false;
@@ -53,7 +54,9 @@ export function startChallengeFarm(getViewport) {
     robot = addFarmbot(0, farm, 0, 0);
     robots = [robot];
     if (task.kind === "team") robots.push(addFarmbot(1, farm, 0, 0));
-    robot.botmove_duration = .45; robot.botact_duration = .45; robot.botcheck_duration = .3;
+    for (const bot of robots) {
+      bot.botmove_duration = .45; bot.botact_duration = .45; bot.botcheck_duration = .3;
+    }
     fit(); return robot;
   }
   function dispose() { if (disposed) return; disposed = true; clear(); restore(); }

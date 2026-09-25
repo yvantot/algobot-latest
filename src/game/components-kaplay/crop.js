@@ -10,7 +10,7 @@ import { gridpos } from "./grid.js";
 import { ysort, popupicon, dropOrbs, effects } from "./presentation.js";
 
 export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
-  const data = CROP_DATA[type];
+  const data = (farm_grid_index.cropData ?? CROP_DATA)[type];
   if (!data) throw new Error(`Unknown crop: ${type}`);
   return {
     id: "crop",

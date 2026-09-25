@@ -19,7 +19,7 @@ All farms use the existing robot, soil, crop, harvest reward effects and pest co
 
 ## Normal growth
 
-The two corn challenges use normal frame-driven growth and water absorption, with timing information read from CROP_DATA. Corn has two 30-second stages; neighboring corn provides the same speed benefit as on the main farm. Ripe corn spoils after 13 seconds. One water dose feeds one stage. No challenge calls advanceGrowth from bot.wait, changes crop durations, or prescribes an exact command sequence. Checks, movement and waiting all allow the engine clock to advance. Dry crops cannot grow.
+The two corn challenges use normal frame-driven growth and water absorption, with timing information read from BASE_CROP_DATA. This frozen copy of the game's original crop data is scoped to the challenge farm; main-farm DDA changes cannot alter assessment conditions. Corn has two 30-second stages; neighboring corn provides the same speed benefit as on the main farm. Ripe corn spoils after 13 seconds. One water dose feeds one stage. No challenge calls advanceGrowth from bot.wait or prescribes an exact command sequence. Checks, movement and waiting all allow the engine clock to advance. Dry crops cannot grow.
 
 Pass it on uses the same lifecycle for wheat (two one-second stages, then 20 seconds before spoilage). The player writes two separate programs, in Blockly or text. Both run together; Bot 0 waters, Bot 1 harvests, and each ready column must be received before its harvest. Both sources are retained in the submitted JSON program bundle.
 
@@ -43,7 +43,9 @@ Before the pests uses a work-step budget, not random arrival timing: harvest cos
 
 ## Research and verification
 
-Corn tasks now use corn-sequence-v2 and corn-row-v2; the pest task uses pest-planner-v1; team coordination uses team-harvest-v1. Earlier IDs and rubrics remain readable through the historical catalog. Never pool different tasks or rubric versions merely because their normalized scores look comparable.
+Corn tasks use corn-sequence-v2 and corn-row-v2; team coordination uses team-harvest-v1. Crop clinic and irrigation now use crop-clinic-v2 and irrigation-loop-v2: the successful treatment must execute inside an if statement, and each successful watering must execute inside a loop, respectively. An unrelated empty statement does not earn that point. The pest task uses pest-planner-v2: no harvested yield earns zero points, including safety and budget criteria.
+
+New attempts use assessor protocol algobot-live-cases-4.0 and crop_profile baseline, with fixed robot timings for both team members. Earlier IDs and rubrics remain readable through the historical catalog. Training rejects mixed task IDs, rubric versions or assessor protocols; normalized scores alone do not make these interchangeable. Use exports from one reviewed build for a new collection.
 
 The preparation CLI requires an explicit task ID. For example, use careful-steps-v1 for Two careful steps after choosing and piloting a consistent task for the collection protocol. Previously documented ready-row-v3 is retired from the menu and is only an option for historical data. No model weights are changed by this work.
 

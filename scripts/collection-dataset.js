@@ -38,18 +38,29 @@ export function readCollection(input) {
       if (old) for (const previous of old.challenge_attempts ?? []) {
         const current = session.challenge_attempts?.find(a => a.assessment_id === previous.assessment_id);
         if (!current) continue;
-        for (const key of ["started_at", "task_id", "rubric_version", "first_exposure"]) {
+        for (const key of ["started_at", "task_id", "rubric_version", "assessor_id", "crop_profile", "first_exposure"]) {
           if (previous[key] !== current[key]) throw Error(`Conflicting challenge provenance for ${session.session_id}`);
         }
         for (let i = 0; i < Math.min(previous.submissions?.length ?? 0, current.submissions?.length ?? 0); i++) {
           if (JSON.stringify(previous.submissions[i]) !== JSON.stringify(current.submissions[i])) throw Error(`Conflicting challenge submission for ${session.session_id}`);
         }
       }
-      // Periodic downloads overlap. Keep the most complete observation, not the
-      // one with the most completed missions (which would discard failed work).
-      const rank = s => (s.raw_events?.length ?? 0) + (s.feature_timeseries?.length ?? 0);
-      if (!old || rank(session) > rank(old) || (rank(session) === rank(old) &&
-          Date.parse(session.export_date) > Date.parse(old.export_date))) sessions.set(session.session_id, session);
+      if (!old) { sessions.set(session.session_id, session); continue; }
+      const a = old.challenge_attempts ?? [], b = session.challenge_attempts ?? [];
+      for (let i=0;i<Math.min(a.length,b.length);i++) {
+        if(a[i].assessment_id!==b[i].assessment_id) throw Error(`Conflicting challenge order for ${session.session_id}`);
+      }
+      const extent = s => [s.raw_events?.length ?? 0, s.feature_timeseries?.length ?? 0,
+        s.challenge_attempts?.length ?? 0, ...Array.from({length:Math.max(a.length,b.length)},(_,i)=>s.challenge_attempts?.[i]?.submissions?.length ?? 0)];
+      const before=extent(old), after=extent(session);
+      const extendsOld=after.every((n,i)=>n>=before[i]), extendsNew=before.every((n,i)=>n>=after[i]);
+      if(!extendsOld&&!extendsNew) throw Error(`Conflicting incomplete histories for ${session.session_id}; neither export contains the other`);
+      const selected=extendsOld&&(!extendsNew||Date.parse(session.export_date)>Date.parse(old.export_date))?session:old;
+      // A developer exclusion must never disappear when overlapping files are read.
+      const reasons=[...new Set([...(old.research_exclusion_reasons??[]),...(session.research_exclusion_reasons??[])])];
+      sessions.set(session.session_id, {...selected,
+        ...(old.source_type==="developer_test"||session.source_type==="developer_test"?{source_type:"developer_test"}:{}),
+        ...(reasons.length?{research_exclusion_reasons:reasons}:{})});
     }
   }
   return { sessions: [...sessions.values()], source_sha256 };
@@ -76,7 +87,7 @@ export function assessmentSamples(sessions, assessments, { schema = "10f" } = {}
     const reject = reason => excluded.push({ assessment_id: a.assessment_id, reason });
     const session = index.get(a.session_id);
     if (!session || !a.student_id || session.student_id !== a.student_id) { reject("unmatched_participant_or_session"); continue; }
-    const standardChallenge = a.assistance === "standard_in_game" && ["algobot-live-cases-2.0", "algobot-live-cases-3.0"].includes(a.assessor_id);
+    const standardChallenge = a.assistance === "standard_in_game" && ["algobot-live-cases-2.0", "algobot-live-cases-3.0", "algobot-live-cases-4.0"].includes(a.assessor_id);
     if (a.purpose !== "model_target" || a.status !== "scored" || (a.assistance !== "none" && !standardChallenge) ||
         !a.rubric_version || !a.task_id || !a.assessor_id) { reject("missing_scoring_provenance_or_not_model_target"); continue; }
     if (!Number.isFinite(a.score) || !Number.isFinite(a.max_score) || a.max_score <= 0 || a.score < 0 || a.score > a.max_score) {
