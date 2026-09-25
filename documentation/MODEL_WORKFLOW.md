@@ -2,6 +2,8 @@
 
 # Local model workflow
 
+For collection day, use [the short operational checklist](COLLECTION_DAY_CHECKLIST.md). Dev Console now provides a read-only **Check Collection** button showing the current observation-window readiness and per-task usable labels using the same validator as the preparation CLI.
+
 This is the recommended workflow for the next collection. It replaces the legacy experiment command for new data. The model target is the first submitted program's score on a fixed Challenge Farm task, divided by its maximum. The game scores actual behavior on predefined test rows and includes the score in the dataset automatically. The old gameplay completion formula is retained only as historical/proxy telemetry, not as the target for this workflow.
 
 There is no new real training dataset yet. The workflow has been exercised with temporary automated-test fixtures, which are not research results. Deployed weights remain the original model until a candidate is separately reviewed and installed.

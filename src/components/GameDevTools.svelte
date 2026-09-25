@@ -39,6 +39,9 @@
   import { mlAgent } from "../game/ml/agent.js";
   import { dataLogger } from "../game/ml/data-logger.js";
   import { eventScheduler } from "../game/ml/event-scheduler.js";
+  import { CHALLENGES } from "../game/challenges/catalog.js";
+  import { challengeWindowReady } from "../game/challenges/records.js";
+  import { challengeSamples } from "../game/ml/challenge-quality.js";
 
   let { showDDADashboard = $bindable(false), gameSpeed = $bindable(1) } = $props();
 
@@ -51,6 +54,20 @@
   let stackCount = $state(3);
   let pending = $state(false);
   let snapshot = $state([]);
+  let collectionCheck = $state(null);
+  function checkCollection() {
+    const session=dataLogger.buildSessionExport();
+    const context=telemetry.getCollectionContext?.();
+    const cleared=dataLogger.clearedSessionIds.has(session.session_id);
+    const tasks=CHALLENGES.filter(task=>session.challenge_attempts.some(a=>a.task_id===task.id)).map(task=>{
+      const report=challengeSamples([session],task.id);
+      return {title:task.title,usable:report.samples.length,reasons:report.excluded.map(e=>e.reason)};
+    });
+    collectionCheck={participant:session.student_id,source:session.source_type,cleared,
+      ready:!cleared && session.source_type==='recorded' && context?.phase==='gameplay' && context.game_speed===1 && challengeWindowReady(telemetry),
+      tasks,storageError:dataLogger.lastPersistenceError};
+    return `${session.student_id}: ${tasks.reduce((n,t)=>n+t.usable,0)} usable challenge labels in this session.`;
+  }
 
   function refresh() {
     snapshot = inspectFarm(farm_grid_index);
@@ -1543,6 +1560,23 @@
         </div>
 
         {@render sec("Research Data")}
+        {@render btn("Check Collection", "text-sky-300 font-bold", () =>
+          run("Collection check", checkCollection, "text-gray-200", false),
+        )}
+        {#if collectionCheck}
+          <div class="p-2 my-2 border border-gray-600 rounded text-sm text-gray-100" aria-live="polite">
+            <p class="font-bold">Participant: {collectionCheck.participant}</p>
+            {#if collectionCheck.cleared}<p class="text-red-300">Data was cleared. Reload before the next student plays.</p>
+            {:else if collectionCheck.source==='developer_test'}<p class="text-red-300">Developer actions were used. This session is excluded from training.</p>
+            {:else}<p>{collectionCheck.ready ? "Gameplay window ready for a first challenge attempt." : "Gameplay window not ready. Allow about 110 seconds of uninterrupted normal-speed play after the tutorial, then check again."}</p>{/if}
+            {#if collectionCheck.storageError}<p class="text-red-300">Storage problem: {collectionCheck.storageError}. Download the JSON before leaving.</p>{/if}
+            {#each collectionCheck.tasks as task}
+              <p class="mt-2 font-bold">{task.title}: {task.usable ? "usable training label" : "no usable training label"}</p>
+              {#each task.reasons as reason}<p class="break-words text-amber-200">{reason.replaceAll('_',' ')}</p>{/each}
+            {:else}<p class="mt-2">No challenge attempts yet. Gameplay alone does not provide a scored label.</p>{/each}
+            <p class="mt-2 text-gray-300">Snapshot at last check. Check again after submission. Download JSON before clearing data.</p>
+          </div>
+        {/if}
         <div class="grid grid-cols-2 gap-1">
           {@render btn("Download Dataset JSON", "text-sky-300 font-bold", () =>
             run("Export JSON", () => dataLogger.exportAllSessionsJSON(), "text-gray-200", false),

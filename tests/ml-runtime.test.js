@@ -2,6 +2,15 @@ import assert from "node:assert/strict";
 import { test, beforeEach } from "node:test";
 import { registerHooks } from "node:module";
 import * as tf from "@tensorflow/tfjs";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { execFileSync } from "node:child_process";
+import { startCollection } from "../src/game/ml/collection.js";
+import { CHALLENGES, challengeRules, challengeMaxScore } from "../src/game/challenges/catalog.js";
+import { openChallenge, submitChallenge } from "../src/game/challenges/records.js";
+import { challengeSamples } from "../src/game/ml/challenge-quality.js";
+import { makePlan } from "../scripts/training-core.js";
 
 globalThis.__mlTestFarm = new Map();
 globalThis.__mlTestRainApplied = false;
@@ -60,6 +69,56 @@ beforeEach(() => {
   mlAgent.resetSession();
   __mlTestFarm.clear();
   globalThis.__mlTestRainApplied = false;
+});
+
+test("recording, autosave, canonical download and preparation CLI preserve six fixture participants",async()=>{
+  // These fabricated sessions test transport and validation, not model accuracy.
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'algobot-roundtrip-'));
+  const originalNow=Date.now;
+  let clock=Date.parse('2026-09-25T00:00:00Z'),stop;
+  Date.now=()=>clock;
+  try {
+    const logger=new DataLogger(),task=CHALLENGES.find(t=>t.id==='careful-steps-v1');
+    for(let student=0;student<6;student++){
+      telemetry.resetSession();mlAgent.resetSession();
+      telemetry.setParticipantId(`fixture-participant-${student}`);
+      let tick,phase='gameplay';
+      stop=startCollection({tracker:telemetry,getContext:()=>({phase,game_speed:1,robot_count:1}),schedule:fn=>{tick=fn;return 1;},cancel(){}});
+      for(let interval=0;interval<20;interval++){clock+=5000;telemetry.recordCodeEdit();tick();}
+      clock+=1000;
+      const attempt=openChallenge(telemetry,task,true);
+      assert.equal(attempt.input_window_ready,true);
+      phase='challenge';tick();
+      const keys=challengeRules(task).map(rule=>rule.key),points=[0,1,3][student%3];
+      const results=task.cases.map(()=>({checks:Object.fromEntries(keys.map((key,i)=>[key,i<points])),error:null,mistakes:0}));
+      clock+=10000;
+      submitChallenge(telemetry,attempt,{score:points*task.cases.length,max_score:challengeMaxScore(task),passed:points===3,results},'fixture program','text');
+      assert.equal(telemetry.collectionSnapshots.length,21);
+      const browserCheck=challengeSamples([logger.buildSessionExport()],task.id);
+      assert.equal(browserCheck.samples.length,1,JSON.stringify(browserCheck.excluded));
+      assert.equal(browserCheck.samples[0].x[0][1],12);
+      telemetry.endCollection();stop();stop=null;
+      assert.equal(logger.saveSessionLight(),true);
+      clock+=10000;
+    }
+    let exported;
+    logger._downloadFile=content=>{exported=JSON.parse(content);};
+    await logger.exportAllSessionsJSON();
+    assert.equal(exported.session_count,6);
+    assert.equal(exported.participant_count,6);
+    assert.equal(exported.integrity.sessions.length,6);
+    const raw=path.join(directory,'collection.json'),output=path.join(directory,'samples.json');
+    fs.writeFileSync(raw,JSON.stringify(exported));
+    execFileSync(process.execPath,['scripts/prepare-challenges.js',raw,output,task.id]);
+    const prepared=JSON.parse(fs.readFileSync(output));
+    assert.equal(prepared.samples.length,6,JSON.stringify(prepared.excluded));
+    assert.equal(prepared.excluded.length,0);
+    assert.deepEqual(prepared.samples.map(s=>s.y).sort(),[0,0,1/3,1/3,1,1].sort());
+    const plan=makePlan(prepared);
+    assert.equal(new Set(Object.values(plan.split).flat()).size,6);
+    assert.equal(plan.assessor_id,'algobot-live-cases-4.0');
+    assert.deepEqual(challengeSamples(exported.sessions,task.id).samples,prepared.samples);
+  } finally {stop?.();Date.now=originalNow;fs.rmSync(directory,{recursive:true,force:true});}
 });
 
 test("normalization matches training, validates order, and does not clip extrapolation", () => {
