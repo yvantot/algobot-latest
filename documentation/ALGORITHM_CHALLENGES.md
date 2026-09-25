@@ -49,8 +49,12 @@ Before the pests uses a work-step budget, not random arrival timing: harvest cos
 
 Corn tasks use corn-sequence-v2 and corn-row-v2; team coordination uses team-harvest-v1. Crop clinic and irrigation now use crop-clinic-v2 and irrigation-loop-v2: the successful treatment must execute inside an if statement, and each successful watering must execute inside a loop, respectively. An unrelated empty statement does not earn that point. The pest task uses pest-planner-v2: no harvested yield earns zero points, including safety and budget criteria.
 
-New attempts use assessor protocol algobot-live-cases-4.0 and crop_profile baseline, with fixed robot timings for both team members. Earlier IDs and rubrics remain readable through the historical catalog. Training rejects mixed task IDs, rubric versions or assessor protocols; normalized scores alone do not make these interchangeable. Use exports from one reviewed build for a new collection.
+New attempts use assessor protocol algobot-live-cases-5.0 and crop_profile baseline, with fixed robot timings for both team members. Earlier IDs and rubrics remain readable through the historical catalog. Training rejects mixed task IDs, rubric versions or assessor protocols; normalized scores alone do not make these interchangeable. Use exports from one reviewed build for a new collection.
 
 The preparation CLI requires an explicit task ID. For example, use careful-steps-v1 for Two careful steps after choosing and piloting a consistent task for the collection protocol. Previously documented ready-row-v3 is retired from the menu and is only an option for historical data. No model weights are changed by this work.
 
 Tests exercise normal absorption without bot.wait, actual live-farm setup and soil survival after harvest, pest damage and cleanup, both team programs, syntax failures, missing communication, stuck loops, interruption, exports and historical rubrics. UI verification uses the isolated fixture and does not save participant records.
+
+## Availability and stopped runs
+
+Challenge navigation and invitations appear only after the tutorial and a usable recent normal-gameplay window. Opening rechecks readiness before recording exposure. New attempts use assessor protocol 5: Stop & Edit keeps the same attempt open; the first fully evaluated submission fixes the label even if it fails. Stops and later scored retries remain in the export. Closing before any evaluated submission leaves an unscored attempt. Historical assessor protocols remain unchanged.

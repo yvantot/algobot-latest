@@ -40,7 +40,7 @@
   import { dataLogger } from "../game/ml/data-logger.js";
   import { eventScheduler } from "../game/ml/event-scheduler.js";
   import { CHALLENGES } from "../game/challenges/catalog.js";
-  import { challengeWindowReady } from "../game/challenges/records.js";
+  import { canStartChallenge } from "../game/challenges/records.js";
   import { challengeSamples } from "../game/ml/challenge-quality.js";
 
   let { showDDADashboard = $bindable(false), gameSpeed = $bindable(1) } = $props();
@@ -57,14 +57,13 @@
   let collectionCheck = $state(null);
   function checkCollection() {
     const session=dataLogger.buildSessionExport();
-    const context=telemetry.getCollectionContext?.();
     const cleared=dataLogger.clearedSessionIds.has(session.session_id);
     const tasks=CHALLENGES.filter(task=>session.challenge_attempts.some(a=>a.task_id===task.id)).map(task=>{
       const report=challengeSamples([session],task.id);
       return {title:task.title,usable:report.samples.length,reasons:report.excluded.map(e=>e.reason)};
     });
     collectionCheck={participant:session.student_id,source:session.source_type,cleared,
-      ready:!cleared && session.source_type==='recorded' && context?.phase==='gameplay' && context.game_speed===1 && challengeWindowReady(telemetry),
+      ready:!cleared && session.source_type==='recorded' && canStartChallenge(telemetry),
       tasks,storageError:dataLogger.lastPersistenceError};
     return `${session.student_id}: ${tasks.reduce((n,t)=>n+t.usable,0)} usable challenge labels in this session.`;
   }

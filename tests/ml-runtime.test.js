@@ -8,7 +8,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { startCollection } from "../src/game/ml/collection.js";
 import { CHALLENGES, challengeRules, challengeMaxScore } from "../src/game/challenges/catalog.js";
-import { openChallenge, submitChallenge } from "../src/game/challenges/records.js";
+import { openChallenge, submitChallenge, interruptChallenge } from "../src/game/challenges/records.js";
 import { challengeSamples } from "../src/game/ml/challenge-quality.js";
 import { makePlan } from "../scripts/training-core.js";
 
@@ -89,6 +89,8 @@ test("recording, autosave, canonical download and preparation CLI preserve six f
       const attempt=openChallenge(telemetry,task,true);
       assert.equal(attempt.input_window_ready,true);
       phase='challenge';tick();
+      interruptChallenge(telemetry,attempt,'fixture stopped program','text');
+      assert.equal(attempt.status,'in_progress');
       const keys=challengeRules(task).map(rule=>rule.key),points=[0,1,3][student%3];
       const results=task.cases.map(()=>({checks:Object.fromEntries(keys.map((key,i)=>[key,i<points])),error:null,mistakes:0}));
       clock+=10000;
@@ -97,6 +99,7 @@ test("recording, autosave, canonical download and preparation CLI preserve six f
       const browserCheck=challengeSamples([logger.buildSessionExport()],task.id);
       assert.equal(browserCheck.samples.length,1,JSON.stringify(browserCheck.excluded));
       assert.equal(browserCheck.samples[0].x[0][1],12);
+      assert.equal(browserCheck.samples[0].stopped_runs_before_score,1);
       telemetry.endCollection();stop();stop=null;
       assert.equal(logger.saveSessionLight(),true);
       clock+=10000;
@@ -116,7 +119,7 @@ test("recording, autosave, canonical download and preparation CLI preserve six f
     assert.deepEqual(prepared.samples.map(s=>s.y).sort(),[0,0,1/3,1/3,1,1].sort());
     const plan=makePlan(prepared);
     assert.equal(new Set(Object.values(plan.split).flat()).size,6);
-    assert.equal(plan.assessor_id,'algobot-live-cases-4.0');
+    assert.equal(plan.assessor_id,'algobot-live-cases-5.0');
     assert.deepEqual(challengeSamples(exported.sessions,task.id).samples,prepared.samples);
   } finally {stop?.();Date.now=originalNow;fs.rmSync(directory,{recursive:true,force:true});}
 });

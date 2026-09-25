@@ -5,17 +5,22 @@ import { challengeMaxScore } from "./catalog.js";
 export const farmChallengeRewards = new Set();
 
 export function challengeWindowReady(tracker, now = Date.now()) {
-  const snapshots = tracker.collectionSnapshots?.slice(-21) ?? [];
+  const snapshots = (tracker.collectionSnapshots ?? []).filter(snapshot=>snapshot.timestamp_ms < now).slice(-21);
   try {
     recentSequence(snapshots);
     return now - snapshots.at(-1).timestamp_ms < 15000;
   } catch { return false; }
 }
 
+export function canStartChallenge(tracker, now = Date.now()) {
+  const context=tracker.getCollectionContext?.();
+  return context?.phase === "gameplay" && context.game_speed === 1 && challengeWindowReady(tracker,now);
+}
+
 export function openChallenge(tracker, task, firstExposure, now = Date.now()) {
   const attempt = {
     assessment_id: crypto.randomUUID(), student_id: tracker.participantId, session_id: tracker.sessionId,
-    task_id: task.id, rubric_version: task.rubric, assessor_id: "algobot-live-cases-4.0",
+    task_id: task.id, rubric_version: task.rubric, assessor_id: "algobot-live-cases-5.0",
     crop_profile: "baseline",
     first_exposure: firstExposure, started_at: new Date(now).toISOString(), finished_at: null,
     purpose: "practice", status: "in_progress", assistance: "unconfirmed", score: null, max_score: challengeMaxScore(task),
@@ -27,12 +32,14 @@ export function openChallenge(tracker, task, firstExposure, now = Date.now()) {
 }
 
 export function submitChallenge(tracker, attempt, result, source, editor, independent = null, now = Date.now()) {
+  const firstEvaluated=attempt.assessor_id === "algobot-live-cases-5.0"
+    ? !attempt.submissions.some(s=>s.status !== "stopped") : attempt.submissions.length === 0;
   const submission = { submitted_at: new Date(now).toISOString(), score: result.score, max_score: result.max_score,
     passed: result.passed, source, editor, assistance: independent === null ? "standard_in_game" : independent ? "none" : "reported_or_unconfirmed",
     cases: result.results.map(({ checks, error, mistakes, earned, optimal_value, work_steps }) => ({ checks, error, mistakes,
       ...(optimal_value === undefined ? {} : {earned,optimal_value,work_steps}) })) };
   attempt.submissions.push(submission);
-  if (attempt.submissions.length === 1) {
+  if (firstEvaluated) {
     Object.assign(attempt, { finished_at: submission.submitted_at, status: "scored", score: result.score,
       assistance: submission.assistance, purpose: attempt.first_exposure && independent !== false ? "model_target" : "practice" });
   }
@@ -47,7 +54,7 @@ export function closeChallenge(tracker, attempt) {
 
 export function interruptChallenge(tracker, attempt, source, editor) {
   attempt.submissions.push({ submitted_at: new Date().toISOString(), status: "stopped", source, editor, score: null, passed: false });
-  if (attempt.submissions.length === 1) {
+  if (attempt.submissions.length === 1 && attempt.assessor_id !== "algobot-live-cases-5.0") {
     attempt.status = "abandoned"; attempt.purpose = "practice";
     attempt.finished_at = new Date().toISOString();
   }

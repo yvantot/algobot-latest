@@ -16,7 +16,7 @@
   import Challenges from "./Challenges.svelte";
   import ChallengeFarm from "./ChallengeFarm.svelte";
   import { CHALLENGES, recordExposure } from "../game/challenges/catalog.js";
-  import { openChallenge, submitChallenge, closeChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
+  import { canStartChallenge, openChallenge, submitChallenge, closeChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
   import { INVENTORY, PLAYER_DATA } from "../game/global/global.js";
   import { QUEST_STATE } from "./global.svelte.js";
   import QuestHUD from "./QuestHUD.svelte";
@@ -111,7 +111,8 @@
 
   let current_menu = $state(Menus.COMMAND);
   let challenge = $state(null), challengeNotice = $state("");
-  let challengeReady = $derived(!challenge && !TUTORIAL.active && !!QUEST_STATE.intro_loop?.is_claimed);
+  let challengeWindowAvailable = $state(false);
+  let challengeReady = $derived(challengeWindowAvailable && !challenge && !TUTORIAL.active && !!QUEST_STATE.intro_loop?.is_claimed);
   let challengeInvite = $state(null), challengeRewardAvailable = $state(true);
   let rewardedChallenges=$state([...farmChallengeRewards]);
   let challengeAttempt, invitedChallenges = new Set();
@@ -120,6 +121,11 @@
   }
   function enterChallenge(task) {
     if (TUTORIAL.active || !QUEST_STATE[task.prerequisite]?.is_claimed) return;
+    if (!canStartChallenge(telemetry)) {
+      challengeWindowAvailable=false;
+      challengeNotice="Keep farming a little longer before starting a challenge.";
+      return;
+    }
     try {
       const firstExposure = recordExposure(localStorage, telemetry.participantId, task.id);
       challengeAttempt = openChallenge(telemetry, task, firstExposure);
@@ -155,6 +161,7 @@
   }
   onMount(() => {
     const timer = setInterval(() => {
+      challengeWindowAvailable=canStartChallenge(telemetry);
       const available = [...CHALLENGES].sort((a,b)=>a.coins-b.coins).find(task => QUEST_STATE[task.prerequisite]?.is_claimed && !invitedChallenges.has(task.id));
       if (available && challengeReady && !challengeInvite && !ONBOARDING.isModalOpen) { invitedChallenges.add(available.id); challengeInvite = available; }
     }, 1000);
@@ -422,7 +429,7 @@
       <div class="flex gap-4">
         <PlayerInfo />
         <div class="pt-2 flex items-center gap-1">
-          {#each menuButtons.filter(btn => !TUTORIAL.active || [Menus.COMMAND, Menus.DOCUMENT, Menus.QUEST, Menus.CHALLENGES, Menus.RESEARCH].includes(btn.id)) as btn}
+          {#each menuButtons.filter(btn => (btn.id !== Menus.CHALLENGES || challengeReady) && (!TUTORIAL.active || [Menus.COMMAND, Menus.DOCUMENT, Menus.QUEST, Menus.RESEARCH].includes(btn.id))) as btn}
             <button
               class="cursor-pointer group relative"
               id={btn.id === Menus.COMMAND ? "command-menu-button" : btn.id === Menus.DOCUMENT ? "documentation-menu-button" : undefined}
@@ -635,7 +642,7 @@
       <div in:panelIn out:panelOut>
         <Quest/>
       </div>
-    {:else if current_menu === Menus.CHALLENGES}
+    {:else if current_menu === Menus.CHALLENGES && challengeReady}
       <div in:panelIn out:panelOut><Challenges completed={rewardedChallenges} onChallenge={enterChallenge} {challengeReady} {challengeNotice} onClose={()=>toggleMenu(Menus.NONE)}/></div>
     {:else if current_menu === Menus.SHOP}
       <div in:panelIn out:panelOut>

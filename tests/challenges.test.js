@@ -4,7 +4,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 import {  recordExposure, challengeMaxScore } from "../src/game/challenges/catalog.js";
 import { evaluateChallenge } from "../src/game/challenges/engine.js";
-import { openChallenge, submitChallenge, closeChallenge, claimChallengeReward, interruptChallenge } from "../src/game/challenges/records.js";
+import { canStartChallenge, openChallenge, submitChallenge, closeChallenge, claimChallengeReward, interruptChallenge } from "../src/game/challenges/records.js";
 import { challengeSamples } from "../scripts/collection-dataset.js";
 import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
 import { TelemetryTracker } from "../src/game/ml/telemetry.js";
@@ -13,6 +13,24 @@ import { HISTORICAL_CHALLENGES as CHALLENGES } from "../src/game/challenges/arch
 const context = vm.createContext({ console, setTimeout, clearTimeout });
 vm.runInContext(fs.readFileSync(new URL("../public/js-interpreter.js", import.meta.url), "utf8"), context);
 const solve = "for(var i=0;i<columns();i++){if(bot.is_harvestable()){bot.harvest();}if(i<columns()-1){bot.right();}}";
+test('challenge access requires a fresh full gameplay window and normal-speed active play',()=>{
+  const start=1700000000000;
+  let phase='gameplay',speed=1;
+  const snapshots=Array.from({length:21},(_,i)=>({timestamp_ms:start+i*5000,stage:1,
+    context:{phase:'gameplay',game_speed:1,robot_count:1},
+    counters:{errors:0,edits:i,completed_runs:0,failed_runs:0,stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0}}));
+  const tracker={collectionSnapshots:snapshots.slice(0,20),getCollectionContext:()=>({phase,game_speed:speed})};
+  const now=start+100001;
+  assert.equal(canStartChallenge(tracker,now),false);
+  tracker.collectionSnapshots=snapshots;
+  assert.equal(canStartChallenge(tracker,now),true);
+  assert.equal(canStartChallenge(tracker,start+100000),false);
+  assert.equal(canStartChallenge(tracker,start+120000),false);
+  for(phase of ['guided_practice','challenge','demonstration','modal','hidden','paused'])assert.equal(canStartChallenge(tracker,now),false,phase);
+  phase='gameplay';speed=2;assert.equal(canStartChallenge(tracker,now),false);
+  speed=1;snapshots[10].context.phase='guided_practice';assert.equal(canStartChallenge(tracker,now),false);
+  snapshots[10].context.phase='gameplay';snapshots[10].timestamp_ms+=9000;assert.equal(canStartChallenge(tracker,now),false);
+});
 function testWorld() {
   return {reset(layout) {
     const crops=layout.map(Boolean);
@@ -159,11 +177,31 @@ test('return-trip challenges explicitly require returning to the starting tile',
  assert.equal(result.max_score,12);
 });
 
-test('stopping a first run cannot turn a later practice solution into a first-score target',async()=>{
+test('legacy stopped-first-run records keep their original practice-only interpretation',async()=>{
  const tracker=new TelemetryTracker(),attempt=openChallenge(tracker,CHALLENGES[0],true);
+ attempt.assessor_id='algobot-live-cases-4.0';
  interruptChallenge(tracker,attempt,'while(true){}','text');
  submitChallenge(tracker,attempt,await evaluate(solve),solve,'text');
  assert.equal(attempt.score,null);assert.equal(attempt.status,'abandoned');assert.equal(attempt.purpose,'practice');
  assert.equal(attempt.submissions[0].status,'stopped');
  assert.equal(claimChallengeReward(tracker,attempt,()=>{}),true);
+});
+
+test('Stop & Edit preserves the attempt and freezes the first evaluated score even when it fails',async()=>{
+ const tracker=new TelemetryTracker(),attempt=openChallenge(tracker,CHALLENGES[0],true);
+ const started=attempt.started_at;
+ interruptChallenge(tracker,attempt,'while(true){}','text');
+ interruptChallenge(tracker,attempt,'bot.right();','blocks');
+ assert.equal(attempt.status,'in_progress');assert.equal(attempt.score,null);
+ const failed=await evaluate('bot.left();');
+ submitChallenge(tracker,attempt,failed,'bot.left();','text');
+ assert.equal(attempt.purpose,'model_target');assert.equal(attempt.status,'scored');
+ assert.equal(attempt.score,failed.score);assert.equal(attempt.started_at,started);
+ const finished=attempt.finished_at;
+ submitChallenge(tracker,attempt,await evaluate(solve),solve,'text');
+ assert.equal(attempt.score,failed.score);assert.equal(attempt.finished_at,finished);
+ assert.equal(attempt.submissions.filter(s=>s.status==='stopped').length,2);
+ const unfinished=openChallenge(tracker,CHALLENGES[1],true);
+ interruptChallenge(tracker,unfinished,'bot.right();','text');closeChallenge(tracker,unfinished);
+ assert.equal(unfinished.status,'abandoned');assert.equal(unfinished.score,null);
 });

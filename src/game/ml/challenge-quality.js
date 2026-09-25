@@ -12,7 +12,7 @@ export function assessmentSamples(sessions, assessments, { schema = "10f" } = {}
     const reject = reason => excluded.push({ assessment_id: a.assessment_id, reason });
     const session = index.get(a.session_id);
     if (!session || !a.student_id || session.student_id !== a.student_id) { reject("unmatched_participant_or_session"); continue; }
-    const standardChallenge = a.assistance === "standard_in_game" && ["algobot-live-cases-2.0", "algobot-live-cases-3.0", "algobot-live-cases-4.0"].includes(a.assessor_id);
+    const standardChallenge = a.assistance === "standard_in_game" && ["algobot-live-cases-2.0", "algobot-live-cases-3.0", "algobot-live-cases-4.0", "algobot-live-cases-5.0"].includes(a.assessor_id);
     if (a.purpose !== "model_target" || a.status !== "scored" || (a.assistance !== "none" && !standardChallenge) ||
         !a.rubric_version || !a.task_id || !a.assessor_id) { reject("missing_scoring_provenance_or_not_model_target"); continue; }
     if (!Number.isFinite(a.score) || !Number.isFinite(a.max_score) || a.max_score <= 0 || a.score < 0 || a.score > a.max_score) {
@@ -40,6 +40,7 @@ export function assessmentSamples(sessions, assessments, { schema = "10f" } = {}
     samples.push({ source_type: "recorded", label_source: "independent_scored_task",
       student_id: a.student_id, session_id: a.session_id, assessment_id: a.assessment_id,
       task_id: a.task_id, rubric_version: a.rubric_version, assessor_id: a.assessor_id,
+      ...(a.assessor_id === "algobot-live-cases-5.0" ? {stopped_runs_before_score:a.stopped_runs_before_score ?? 0} : {}),
       input_start_ms: (schema === RESEARCH_SCHEMA ? recentWindow : window)[0].timestamp_ms, input_end_ms: window.at(-1).timestamp_ms,
       assessment_start_ms: cutoff, real_timesteps: 20, y: a.score / a.max_score,
       x });
@@ -64,7 +65,9 @@ export function challengeSamples(sessions, taskId = "ready-row-v3") {
     seen.add(key);
     if (!attempt.first_exposure) { reject("previously_exposed_to_task"); continue; }
     if (attempt.status !== "scored") { reject("unfinished_challenge_not_a_zero_score"); continue; }
-    const first = attempt.submissions?.[0];
+    const firstIndex=attempt.assessor_id === "algobot-live-cases-5.0"
+      ? attempt.submissions?.findIndex(s=>s.status !== "stopped") : 0;
+    const first = attempt.submissions?.[firstIndex];
     if (!first || first.score !== attempt.score || first.submitted_at !== attempt.finished_at || first.assistance !== attempt.assistance) {
       reject("first_submission_provenance_mismatch"); continue;
     }
@@ -76,7 +79,7 @@ export function challengeSamples(sessions, taskId = "ready-row-v3") {
         first.cases.reduce((sum, row) => sum + keys.filter(key => row.checks[key]).length, 0) !== attempt.score) {
       reject("challenge_rubric_or_case_score_mismatch"); continue;
     }
-    assessments.push(attempt);
+    assessments.push({...attempt,stopped_runs_before_score:firstIndex});
   }
   const result = assessmentSamples(sessions, assessments, { schema: RESEARCH_SCHEMA });
   const participantCount = values => new Set(values).size;
@@ -92,5 +95,5 @@ export function challengeSamples(sessions, taskId = "ready-row-v3") {
       participants_submitted: submitted, participants_without_submission: total - submitted,
       participants_with_usable_first_score: participantCount(result.samples.map(s => s.student_id)),
       unfinished_attempts: taskAttempts.filter(a => a.status !== "scored").length },
-    target: "First submission score on a fixed in-game programming task; not a validated general programming-skill measure" };
+    target: "First evaluated submission score on a fixed in-game programming task under its recorded assessor protocol; not a validated general programming-skill measure" };
 }

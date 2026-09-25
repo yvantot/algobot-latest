@@ -4,7 +4,7 @@
 
 For collection day, use [the short operational checklist](COLLECTION_DAY_CHECKLIST.md). Dev Console now provides a read-only **Check Collection** button showing the current observation-window readiness and per-task usable labels using the same validator as the preparation CLI.
 
-This is the recommended workflow for the next collection. It replaces the legacy experiment command for new data. The model target is the first submitted program's score on a fixed Challenge Farm task, divided by its maximum. The game scores actual behavior on predefined test rows and includes the score in the dataset automatically. The old gameplay completion formula is retained only as historical/proxy telemetry, not as the target for this workflow.
+This is the recommended workflow for the next collection. It replaces the legacy experiment command for new data. The model target is the first fully evaluated submission's score on a fixed Challenge Farm task, divided by its maximum. The game scores actual behavior on predefined test rows and includes the score in the dataset automatically. The old gameplay completion formula is retained only as historical/proxy telemetry, not as the target for this workflow.
 
 There is no new real training dataset yet. The workflow has been exercised with temporary automated-test fixtures, which are not research results. Deployed weights remain the original model until a candidate is separately reviewed and installed.
 
@@ -30,7 +30,7 @@ The CSV is a summary, not the input for training. Keep the JSON.
 
 Follow [the collection protocol](DATA_COLLECTION_PROTOCOL.md) for participant codes, task administration and the draft rubric. Have the adviser review the task and rubric before the main collection. Record normal-speed independent gameplay immediately before the task. Use the same build and procedure; mark deviations. Restart the development server after a code change so its build provenance reflects the new version.
 
-The new features require **21 snapshots for 20 observed intervals**, approximately 100 seconds at five-second sampling. Allow 110 seconds of uninterrupted independent play for timer alignment. Guided practice is excluded from these assessment windows. A long pause requires a fresh window. Challenge access is NOT gated on collection readiness: it records readiness for audit but allows early entry. The researcher must allow the gameplay window before the first opening. The opening timestamp is the cutoff and the main farm is paused. Challenge editing, execution and rewards never enter that pre-task input window. Do not invent scores for unfinished work.
+The new features require **21 snapshots for 20 observed intervals**, approximately 100 seconds at five-second sampling. Allow 110 seconds of uninterrupted independent play for timer alignment. Guided practice is excluded from these assessment windows. A long pause requires a fresh window. Challenge navigation and invitations stay hidden until a usable normal-gameplay window is ready. Starting an attempt checks readiness again before recording exposure. After a long interruption or another challenge, a fresh gameplay window may be required. The opening timestamp is the cutoff and the main farm is paused. Challenge editing, execution and rewards never enter that pre-task input window. Do not invent scores for unfinished work.
 
 The ten recent rate features are errors, edits, completed runs, failed runs, stopped runs, requested hints, harvests, spoiled crops, loop iterations and condition evaluations per minute. Stage and robot count are context features. Rates use differences between uncapped counters and the actual interval duration. They do not remain high merely because the student made mistakes earlier. The schema is `recent-12f-v1`.
 
@@ -49,7 +49,7 @@ npm run audit:collection -- training/data/raw
 node scripts/prepare-challenges.js training/data/raw training/samples-v1.json careful-steps-v1
 ```
 
-Read the exclusion report and participation counts in `samples-v1.json`. The importer retains one first-exposure, first-submission score per participant for the chosen task, accepts standard_in_game conditions from the live assessor, excludes reported/unconfirmed assistance, and never substitutes a better retry. Closing before submitting is unfinished, not zero. Browser exposure history prevents a reload from becoming another first exposure; the importer also checks across exported sessions. Keep the same participant code across devices and record any prior exposure that browser storage cannot detect. Preparation does not certify task validity. New output files must not already exist.
+Read the exclusion report and participation counts in `samples-v1.json`. The importer retains one first-exposure, first-evaluated-submission score per participant for the chosen task, accepts standard_in_game conditions from the live assessor, excludes reported/unconfirmed assistance, and never substitutes a better retry. Closing before submitting is unfinished, not zero. Browser exposure history prevents a reload from becoming another first exposure; the importer also checks across exported sessions. Keep the same participant code across devices and record any prior exposure that browser storage cannot detect. Preparation does not certify task validity. New output files must not already exist.
 
 The older `prepare-assessments.js` and manual template remain available only for a separately administered, reviewed task protocol. They are not required for the built-in challenges.
 
@@ -102,3 +102,7 @@ The browser now understands both legacy and recent schemas. A recent-schema mode
 No backend was added. Paired pre/post learning outcomes remain separate from model development and require their own analysis.
 
 References: [TensorFlow.js model save/load](https://www.tensorflow.org/js/guide/save_load), [scikit-learn data-leakage guidance](https://scikit-learn.org/stable/common_pitfalls.html#data-leakage), and [grouped cross-validation](https://scikit-learn.org/stable/modules/cross_validation.html#cross-validation-iterators-for-grouped-data).
+
+## Assessment protocol 5
+
+New attempts use `algobot-live-cases-5.0`. Stopped runs remain recorded within the same attempt; the first fully evaluated submission supplies the target, whether it passes or fails. Later scored retries remain practice. The pre-opening gameplay cutoff does not move, and prepared samples include `stopped_runs_before_score` as metadata, not an input feature. This measures task performance with editing and stopped-run feedback allowed, not untouched first-try ability. Older protocols retain their original handling and cannot be mixed with protocol 5 in one training experiment. Closing without a score remains unfinished, never zero.
