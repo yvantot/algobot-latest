@@ -1,13 +1,11 @@
 <script>
-  import { CONFIG, TYPE_COLORS } from "../game/global/global";
   import { robots, robots_state, ONBOARDING } from "./global.svelte.js";
-  import { DOCUMENT_DATA, INVENTORY } from "../game/global/global.js";
-  import { buyLand, buyUpgrade, buyPlants } from "../game/global/shop.js";
   import { createInit } from "../game/global/interpreter.js";
   import { trackQuest, beginActiveQuest } from "./global.svelte.js";
   import { telemetry } from "../game/ml/telemetry.js";
 
   import { onMount } from "svelte";
+  import { createBotTextEditor } from "../lib/bot-text-editor.js";
   import { isolateHistory } from "@codemirror/commands";
   export function targetName() { return `Bot ${selected_robot}`; }
   export function insertExample(code) {
@@ -15,11 +13,6 @@
     const at=view.state.selection.main.head, insert=`\n${code}\n`;
     view.dispatch({changes:{from:at,insert},selection:{anchor:at+insert.length},annotations:isolateHistory.of("full"),scrollIntoView:true});
   }
-  import { autocompletion } from "@codemirror/autocomplete";
-  import { EditorView, basicSetup } from "codemirror";
-  import { javascript } from "@codemirror/lang-javascript";
-  import { oneDark } from "@codemirror/theme-one-dark";
-  import { hoverTooltip } from "@codemirror/view";
 
   import { createResizable } from "./interface.svelte.js";
 
@@ -28,195 +21,11 @@
 
   const resize = createResizable();
 
-  const customSelectionTheme = EditorView.theme(
-    {
-      ".cm-selectionBackground, .cm-content ::selection": {
-        backgroundColor: "#fff81a !important",
-        opacity: "1",
-      },
-    },
-    { dark: true },
-  );
-
   let view;
   let is_highlight = $state(true);
   let is_command_ready = $state(false);
   let startBtnRef = $state(null);
   let spotlightRect = $state(null);
-
-  const global_ac = [];
-  const bot_ac = [];
-  const inventory_ac = [];
-  const shop_ac = [];
-  const global_keys = [];
-
-  const keyword = {};
-
-  // TODO: give Documentatiosen type
-  // Figure out how to do custom syntax highlighting in CodeMirror
-  for (const main of Object.keys(DOCUMENT_DATA)) {
-    for (const key of Object.keys(DOCUMENT_DATA[main])) {
-      const data = DOCUMENT_DATA[main][key];
-      keyword[key] = { ...data, name: key };
-      switch (main) {
-        case "inventory": {
-          inventory_ac.push({
-            label: key,
-            type: data.type,
-            detail: data.arguments,
-          });
-          break;
-        }
-        case "shop":
-          shop_ac.push({
-            label: key,
-            type: data.type,
-            detail: data.arguments,
-          });
-          break;
-        case "syntax":
-        case "globals": {
-          global_keys.push(key);
-          global_ac.push({
-            label: key,
-            type: data.type,
-            detail: data.arguments,
-          });
-          break;
-        }
-        case "functions": {
-          global_keys.push(key);
-          global_ac.push({
-            label: key,
-            type: data.type,
-            detail: data.arguments,
-          });
-          break;
-        }
-        case "bot_movement":
-        case "bot_farm_actions":
-        case "bot_checks": {
-          bot_ac.push({
-            label: key,
-            type: data.type,
-            detail: data.arguments,
-          });
-          break;
-        }
-      }
-    }
-  }
-
-  const keywordHoverTooltip = hoverTooltip((view, pos, side) => {
-    let { from, to, text } = view.state.doc.lineAt(pos);
-
-    let start = pos,
-      end = pos;
-    while (start > from && /[\w]/.test(text[start - from - 1])) start--;
-    while (end < to && /[\w]/.test(text[end - from])) end++;
-    if ((start == pos && side < 0) || (end == pos && side > 0)) return null;
-    const word = text.slice(start - from, end - from);
-
-    if (!keyword[word]) return null;
-
-    return {
-      pos: start,
-      end: end,
-      above: true,
-      create(view) {
-        let dom = document.createElement("div");
-
-        dom.style.cssText = `
-		  max-width: 25ch;
-			`;
-
-        dom.innerHTML = `
-		  <div class="overflow-hidden flex flex-col bg-[#39404f] border-2 border-slate-400 rounded-lg p-2 gap-2 text-sm text-white">
-			${!keyword[word].is_unlocked ? '<div class="bg-red-800 border border-red-500 text-white font-bold p-1 text-[13px] rounded text-center">🔒 LOCKED (Unlock via Quest)</div>' : ""}
-			<div class="flex gap-2 items-center justify-between">
-			  <p class="font-bold" style="font-family: 'Courier Prime'">${keyword[word].name}</p>
-			  <p class="font-bold p-1 px-2 text-sm bg-[#262b36] rounded scale-90" style=${"color:" + TYPE_COLORS[keyword[word].type]}>${keyword[word].type}</p>
-			</div>
-			<div class="overflow-y-auto flex flex-col gap-2">
-			  <p>${keyword[word].definition}</p>
-			  ${
-          keyword[word]?.note != null
-            ? `
-				<div class="bg-green-200 p-2 rounded-lg border-2 border-green-400">
-				  <p class="text-green-800 font-bold">Remember!</p>
-				  <p class="text-green-800">${keyword[word].note}</p>
-				</div>
-			  		`
-            : ""
-        }
-			</div>
-		  </div>
-			  	`;
-
-        return { dom };
-      },
-    };
-  });
-
-  function formatOptions(list) {
-    return list.map((item) => {
-      const data = keyword[item.label];
-      const isUnlocked = data ? (data.is_unlocked ?? true) : true;
-      if (isUnlocked) return item;
-      return {
-        ...item,
-        detail: item.detail ? `${item.detail} 🔒 (Locked)` : `🔒 (Locked)`,
-      };
-    });
-  }
-
-  function myCompletions(context) {
-    const word = context.matchBefore(/\w*/);
-
-    const isAfterDot = context.matchBefore(/\.\w*/);
-    if (isAfterDot) return null;
-
-    if (!word || (word.from === word.to && !context.explicit)) return null;
-
-    return {
-      from: word.from,
-      options: formatOptions(global_ac),
-      filter: true,
-    };
-  }
-
-  function inventoryCompletions(context) {
-    const nodeBefore = context.matchBefore(/\binventory\./);
-    if (!nodeBefore) return null;
-
-    return {
-      from: context.pos,
-      options: formatOptions(inventory_ac),
-      validFor: /^\w*$/,
-    };
-  }
-
-  function shopCompletions(context) {
-    const nodeBefore = context.matchBefore(/\bshop\./);
-    if (!nodeBefore) return null;
-
-    return {
-      from: context.pos,
-      options: formatOptions(shop_ac),
-      validFor: /^\w*$/,
-    };
-  }
-
-  function botCompletions(context) {
-    const nodeBefore = context.matchBefore(/\bbot\./);
-    if (!nodeBefore) return null;
-
-    return {
-      from: context.pos,
-      options: formatOptions(bot_ac),
-      validFor: /^\w*$/,
-    };
-  }
 
   function updateEditorContent(newText) {
     view.dispatch({
@@ -244,32 +53,13 @@
 
   onMount(() => {
     setTimeout(() => (is_command_ready = true), 2000);
-    view = new EditorView({
-      doc: robots_state[selected_robot]?.text_code || `bot.say("Hello World!")`,
-      extensions: [
-        basicSetup,
-        customSelectionTheme,
-        javascript({ typescript: false, globalVars: global_keys }),
-        oneDark,
-        keywordHoverTooltip,
-        EditorView.lineWrapping,
-        autocompletion({
-          override: [
-            myCompletions,
-            botCompletions,
-            shopCompletions,
-            inventoryCompletions,
-          ],
-        }),
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged && robots_state[selected_robot]) { telemetry.recordCodeEdit();
-            robots_state[selected_robot].text_code =
-              update.state.doc.toString();
-          }
-        }),
-      ],
+    view = createBotTextEditor({
       parent: document.getElementById("editor-container"),
-    });
+      doc: robots_state[selected_robot]?.text_code || 'bot.say("Hello World!")',
+      onChange(code) {
+        if (robots_state[selected_robot]) { telemetry.recordCodeEdit(); robots_state[selected_robot].text_code=code; }
+      },
+    }).view;
 
     return () => {
       runner.dispose(); view.destroy(); view = null;

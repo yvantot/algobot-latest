@@ -25,6 +25,8 @@ The two corn challenges use normal frame-driven growth and water absorption, wit
 
 Pass it on uses the same lifecycle for wheat (two one-second stages, then 20 seconds before spoilage). The player writes two separate programs, in Blockly or text. Both run together; Bot 0 waters, Bot 1 harvests, and each ready column must be received before its harvest. Both sources are retained in the submitted JSON program bundle.
 
+Challenge text editing shares the Bot Command CodeMirror setup: JavaScript highlighting, line numbers, bracket matching, history, search and command help. Completion lists use the task's allowed commands rather than main-farm quest locks. Each team bot has an independent editor and history; switching to Blockly and back preserves authored text. The challenge runner owns execution and scoring, and text is read-only during a run. The editor component does not read or write main-farm robot state or telemetry.
+
 ## Main-game bot communication
 
 Available in the Farming Blockly category, text coding and Documentation:
