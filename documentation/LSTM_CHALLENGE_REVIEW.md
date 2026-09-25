@@ -1,5 +1,7 @@
 # LSTM and challenge review — September 25, 2026
 
+Follow-up: a browser integration issue escaped the automated review below. An expiring challenge crop opened a hidden main-game tip that paused the engine. Isolated crops now suppress main-game freshness and corn-synergy tips, and the browser fixture includes the real tip popup. Before the pests has since been verified end to end in the browser (both rows, 6/6, pest ending and reward claim). The suite now has 221 passing tests.
+
 The collection, preparation, local training and runtime paths are connected. Automated verification covers export/import, training and reload, challenge solutions using actual entity components, interruption and isolation. This establishes software behavior; it does not establish prediction accuracy or student learning improvement.
 
 ## Corrections from this review

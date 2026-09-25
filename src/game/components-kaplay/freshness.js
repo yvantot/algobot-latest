@@ -4,7 +4,7 @@ import { triggerDidYouKnow } from "../../components/global.svelte.js";
 
 // Presentation follows the crop's one spoilage clock, avoiding separate timers
 // that can fire after harvesting, removal, or sugarcane regrowth.
-export function freshness() {
+export function freshness({ showTips = true } = {}) {
   return {
     id: "freshness",
     require: ["crop"],
@@ -78,7 +78,7 @@ export function freshness() {
       const next = this.crop_state === CropStates.DEAD ? FreshnessStates.DEAD
         : this.spoilage_remaining <= this.crop_spoilage_time / 2 ? FreshnessStates.EXPIRING : FreshnessStates.FRESH;
       if (next === this.freshness_state && this.freshness_effects.length) return;
-      if (next === FreshnessStates.EXPIRING) triggerDidYouKnow("freshness");
+      if (next === FreshnessStates.EXPIRING && showTips) triggerDidYouKnow("freshness");
       this.showFreshness(next);
     },
 

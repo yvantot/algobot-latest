@@ -7,6 +7,7 @@
   import { panelIn, panelOut } from "./interface.svelte.js";
   import {challengeRules} from "../game/challenges/catalog.js";
   import ChallengeRewards from "./ChallengeRewards.svelte";
+  import ChallengeTier from "./ChallengeTier.svelte";
   import Confetti from "./Confetti.svelte";
   import { BASE_CROP_DATA } from "../game/global/global.js";
 
@@ -105,7 +106,7 @@
 
 <div class="live-challenge" role="dialog" aria-modal="true" aria-labelledby="challenge-title" tabindex="-1" bind:this={dialog} onkeydown={keys}>
   <div class="curtain" class:closing></div>
-  <header in:fly={{y:-25,duration:300}} out:fade><div><span>BOT TEACHER'S CHALLENGE · {task.tier}</span><h1 id="challenge-title">{task.title}</h1></div><button onclick={exitChallenge} disabled={closing}>Back to farm</button></header>
+  <header in:fly={{y:-25,duration:300}} out:fade><div><span>BOT TEACHER'S CHALLENGE</span> <ChallengeTier tier={task.tier}/><h1 id="challenge-title">{task.title}</h1></div><button onclick={exitChallenge} disabled={closing}>Back to farm</button></header>
   <div class="layout">
     <section class="farm-side">
       <div class="rounds">{#each task.cases as layout,i}<button disabled={running||!ready||closing} aria-pressed={caseIndex===i} onclick={()=>preview(i)}>Row {i+1}</button>{/each}<span>{running?"Your robot is working…":`${task.kind==="team"?"Two programs":"One program"}. ${task.cases.length} test ${task.cases.length===1?"row":"rows"}.`}</span></div>

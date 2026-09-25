@@ -691,6 +691,23 @@ test("rubrics require productive work inside control structures and no-yield pla
   assert.equal((await run('bot.right();',task('planning'))).score,0);
 });
 
+test("isolated farms keep freshness and corn effects without opening main-farm tips",()=>{
+  for(const isolated of [false,true]){
+    const h=harness(),tips=[];
+    h.context.triggerDidYouKnow=id=>tips.push(id);
+    h.farm.isDemonstration=isolated;
+    h.addSoil();const ripe=h.plant(CropTypes.WHEAT,CropStates.HARVESTABLE);
+    ripe.spoilage_remaining=ripe.crop_spoilage_time/4;
+    h.advance(.01);
+    assert.equal(ripe.freshness_state,FreshnessStates.EXPIRING);
+    assert.equal(tips.includes('freshness'),!isolated);
+    ripe.destroy();
+    h.addSoil(1);h.plant(CropTypes.CORN,CropStates.YOUNG,0);h.plant(CropTypes.CORN,CropStates.YOUNG,1);
+    h.advance(1.1);
+    assert.equal(tips.includes('corn_synergy'),!isolated);
+  }
+});
+
 test("crop inspections do not consume the separate robot action allowance",async()=>{
   const {run}=scenarioHarness(),task=CHALLENGES.find(t=>t.kind==='greedy');
   const result=await run('for(var scan=0;scan<121;scan++){bot.crop_value(0,0);}'+scenarioSolutions.greedy,task);

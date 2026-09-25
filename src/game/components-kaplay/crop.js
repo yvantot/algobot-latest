@@ -216,7 +216,10 @@ export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
           const count = this.countAdjacentCrop(this.grid_x, this.grid_y, type);
           this.crop_grow_duration = Math.max(1, this.crop_duration - count * 6);
           this.effectsEnabled(count > 0);
-          if (count > 0) { triggerDidYouKnow("corn_synergy"); this.showEffects("upgrade", "medium", null); }
+          if (count > 0) {
+            if (!farm_grid_index.isDemonstration) triggerDidYouKnow("corn_synergy");
+            this.showEffects("upgrade", "medium", null);
+          }
         }
       }
       while (seconds > 0 && [CropStates.YOUNG, CropStates.GROWING].includes(this.crop_state)) {
@@ -261,7 +264,7 @@ export function addCrop(farm_grid_index, type, x, y, state = CropStates.YOUNG) {
     k.scale(k.vec2(1)),
     k.opacity(1),
     effects(true),
-    freshness(),
+    freshness({ showTips: !farm_grid_index.isDemonstration }),
     gridpos(x, y, CONFIG.FARM.tile_size / 2, CONFIG.FARM.tile_size / 2),
     ysort(),
     popupicon(),
