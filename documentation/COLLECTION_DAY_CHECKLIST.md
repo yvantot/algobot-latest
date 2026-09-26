@@ -2,9 +2,9 @@
 
 Use **Your first harvest** (`first-harvest-v1`) as the shared primary task for the next round, continuing the five usable pilot samples. Students may do other challenges too; keep their scores as separate targets. Nobody needs to finish the whole game.
 
-The current collection build is **1.3.6**. Tutorials and missions use the main farm; scored challenges use an isolated farm. The active LSTM is the provisional 12-feature model introduced in 1.3.3. It has not demonstrated reliable proficiency prediction. Its identity is recorded in exports.
+The current collection build is **1.3.7**. Tutorials and missions use the main farm; scored challenges use an isolated farm. The active LSTM is the provisional 12-feature model introduced in 1.3.3. It has not demonstrated reliable proficiency prediction. Its identity is recorded in exports.
 
-Players can click **Finish & Download Data** beside Start Menu. The prompt allows download once the current participant has a usable first scored challenge, including a valid zero score or a saved score from before a reload. It uses the training validator, explains not-ready states, and never clears data or sends it automatically. Students must send the saved JSON to the researcher. The researcher can still export unfinished or excluded sessions from Dev Console; those records remain useful for participation reporting even without a training label. The button does not automatically end the session or return to the menu.
+After completing the tutorial, players can click **Finish & Download Data** beside Start Menu. The button stays hidden during the tutorial. The prompt requires a usable first scored attempt at **Your first harvest** specifically; other challenges do not replace it. Eligible records include a valid zero score or a saved score from before a reload. It uses the training validator, explains not-ready states, and never clears data or sends it automatically. Students must send the saved JSON to the researcher. The researcher can still export unfinished or excluded sessions from Dev Console; those records remain useful for participation reporting even without a training label. The button does not automatically end the session or return to the menu.
 
 ## Before the session
 

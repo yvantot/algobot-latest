@@ -5,8 +5,8 @@ import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
 import { CHALLENGES, challengeRules, challengeMaxScore } from "../src/game/challenges/catalog.js";
 import { openChallenge, submitChallenge } from "../src/game/challenges/records.js";
 
-function scoredSession(score = 0) {
-  const now = Date.now(), task = CHALLENGES.find(t => t.id === "first-harvest-v1");
+function scoredSession(score = 0, taskId = "first-harvest-v1") {
+  const now = Date.now(), task = CHALLENGES.find(t => t.id === taskId);
   const tracker = { participantId:"fixture-player", sessionId:"fixture-session", challengeAttempts:[], _logRawEvent() {} };
   tracker.collectionSnapshots = Array.from({length:21}, (_,i) => ({timestamp_ms:now-105000+i*5000,stage:1,
     context:{phase:"gameplay",game_speed:1,robot_count:1},vector:Array(10).fill(0),
@@ -24,6 +24,13 @@ test("download eligibility accepts a valid first score including zero without ch
     assert.equal(downloadReadiness(session).ready,true);
     assert.deepEqual(session,before);
   }
+});
+
+test("a usable score on another challenge does not replace Your first harvest", () => {
+  const other = scoredSession(0, "careful-steps-v1");
+  const status = downloadReadiness(other);
+  assert.equal(status.ready,false);
+  assert.match(status.message,/Your first harvest/);
 });
 
 test("download prompt rejects cleared, developer, unscored, repeated and incomplete-window records", () => {

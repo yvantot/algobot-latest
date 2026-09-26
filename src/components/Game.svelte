@@ -593,7 +593,9 @@
               </div>
             </button>
           {/if}
-          <button class="finish-data" onclick={() => showFinishData=true}>Finish &amp; Download Data</button>
+          {#if !TUTORIAL.active && QUEST_STATE.tut_2?.is_claimed}
+            <button class="finish-data" onclick={() => showFinishData=true}>Finish &amp; Download Data</button>
+          {/if}
         </div>
       </div>
       <div class="flex gap-4 items-start" class:practice-layout={TUTORIAL.active}>
