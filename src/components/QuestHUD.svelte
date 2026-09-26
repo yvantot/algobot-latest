@@ -2,15 +2,15 @@
   import BlockPlacementGuide from "./BlockPlacementGuide.svelte";
   import { fly } from "svelte/transition";
   import { cubicOut, cubicIn } from "svelte/easing";
-  import { onMount } from "svelte";
+  import { onMount, tick as nextRender } from "svelte";
   import { QUEST_DATA } from "../game/global/quests.js";
-  import { INTRO_HINTS } from "../game/global/tutorial.js";
+  import { missionHint, recordMissionHint } from "../game/global/mission-hints.js";
   import { currentQuest, QUEST_STATE, QUEST_FEEDBACK, TUTORIAL, ONBOARDING, robots_state, claimQuest } from "./global.svelte.js";
   import { telemetry } from "../game/ml/telemetry.js";
   import { INVENTORY } from "../game/global/global.js";
   import { farm_grid_index } from "../game/game.js";
   import { k } from "../lib/kaplay.js";
-  let { onOpenQuestMenu, onOpenBlockEditor } = $props();
+  let { onOpenQuestMenu, onOpenBlockEditor, onOpenEditor = onOpenBlockEditor, editorMode = "blocks" } = $props();
   let key = $derived(currentQuest());
   let mission = $derived(QUEST_DATA[key]);
   let hintLevel = $state(0), guideRevision = $state(0);
@@ -21,16 +21,18 @@
   let lastProgress = 0;
   let awaitingClaim = $derived(Object.keys(QUEST_DATA).find(id => QUEST_STATE[id]?.is_completed && !QUEST_STATE[id]?.is_claimed));
   let needsSeed = $derived.by(() => { const refresh = tick; return INVENTORY.crops.wheat < 1; });
-  let hints = $derived(INTRO_HINTS[key] || [mission?.tip || "Open the mission path to choose your next task."]);
-  $effect(() => { const id = key; hintLevel = 0; offered = false; idle = 0; lastProgress = 0; lastErrors = telemetry.errorCount || 0; });
-  function showHint() {
-    guideRevision++;
-    if (hintLevel < hints.length) {
-      telemetry.recordHintShown(hints[hintLevel], "requested_quest_hint");
-      hintLevel++;
-    }
-    offered = false;
-    onOpenBlockEditor?.();
+  let hintExample = $state.raw(null);
+  $effect(() => { const id = key; hintLevel = 0; hintExample = null; offered = false; idle = 0; lastProgress = 0; lastErrors = telemetry.errorCount || 0; });
+  async function showHint() {
+    const quest = key;
+    const crop = [...farm_grid_index.values()].find(tile=>tile.crop?.crop_type === "wheat")?.crop;
+    const example = missionHint(quest,hintLevel,QUEST_STATE.tut_2.actions || [],crop?.crop_state === "_harvestable");
+    recordMissionHint(telemetry,quest,editorMode,hintLevel,example);
+    hintLevel++; offered = false;
+    onOpenEditor?.();
+    await nextRender();
+    if (key !== quest) return;
+    hintExample = example; guideRevision++;
   }
   function getInstruction(missionKey = key) {
     const refresh = tick;
@@ -76,11 +78,12 @@
     <p aria-live="polite">{getInstruction(missionKey)}</p>
     <progress value={QUEST_STATE[missionKey]?.progress || 0} max={mission.goal}></progress>
     <p class="count">{QUEST_STATE[missionKey]?.progress || 0} / {mission.goal} successful {mission.goal === 1 ? "action" : "actions"}</p>
-    <button class="primary" onclick={onOpenBlockEditor}>Open blocks</button>
+    <button class="primary" onclick={onOpenEditor}>Open {editorMode === "text" ? "code" : "blocks"}</button>
     <button class="show-step" class:offered onclick={showHint}>▶ Show me the next step</button>
     {#if offered && hintLevel === 0}<p class="hint">Need a hand? Try “Show me the next step”.</p>{/if}
-    {#if hintLevel}<p class="hint" aria-live="polite">{hints[hintLevel - 1]}</p>
-      {#if ["intro_run", "intro_build", "intro_say", "intro_sequence", "intro_loop", "cs_if_0"].includes(key)}{#key key + guideRevision}<BlockPlacementGuide mission={key}/>{/key}{/if}
+    {#if hintExample}
+      {#if editorMode === "blocks"}{#key key + guideRevision}<BlockPlacementGuide mission={key} example={hintExample}/>{/key}
+      {:else}<pre class="hint code-hint"><code>{hintExample.code}</code></pre>{/if}
     {/if}
     {#if key === "tut_2" && needsSeed}<button onclick={() => { if (INVENTORY.crops.wheat < 1) INVENTORY.changeCrops("wheat", 1); }}>Replace a used practice seed</button>{/if}
   {:else}<h2>All missions complete</h2><p>Keep experimenting with your farm programs.</p>{/if}
@@ -89,6 +92,7 @@
   </div>
 </aside>
 <style>
+  .code-hint{white-space:pre-wrap;overflow-wrap:anywhere;font-family:"Courier Prime",monospace;font-size:15px;text-align:left}
   .show-step{background:#fef3c7;border:2px solid #a16207;font-weight:800}.show-step.offered{animation:hint-pulse 1s ease-in-out 3}@keyframes hint-pulse{50%{transform:scale(1.04);box-shadow:0 0 0 4px #fde68a}}
   @media(prefers-reduced-motion:reduce){.show-step.offered{animation:none}}
   .mission{box-sizing:border-box;width:100%;background:#f3f4f6;color:#334155;border:4px solid #64748b;border-radius:12px;box-shadow:0 6px 14px #0003;overflow:hidden}

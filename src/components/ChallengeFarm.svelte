@@ -1,6 +1,7 @@
 <script>
   import { onMount, tick } from "svelte";
   import { fly, fade } from "svelte/transition";
+  import { challengeCommands } from "../game/challenges/modes.js";
   import { createChallengeWorkspace } from "../game/challenges/blocks.js";
   import { evaluateChallenge } from "../game/challenges/engine.js";
   import { startChallengeFarm } from "../game/challenges/live-farm.js";
@@ -15,7 +16,7 @@
   let { task, onSubmit, onClose, onReward, onInterrupted = () => {}, rewardAvailable = true } = $props();
   let activeSource = null;
   let rules=$derived(challengeRules(task));
-  let textCommands=$derived(task.commands ?? ["right","left","harvest","is_harvestable"]);
+  let textCommands=$derived(challengeCommands(task));
   let host, secondHost, dialog, farmWindow, editor, secondEditor, world, controller, closingTimer;
   let secondSource=$state(""), secondTextEdited=false;
   let growthInfo=$derived(BASE_CROP_DATA[task.kind==="team"?"wheat":"corn"]);
@@ -109,7 +110,7 @@
 
 <div class="live-challenge" role="dialog" aria-modal="true" aria-labelledby="challenge-title" tabindex="-1" bind:this={dialog} onkeydown={keys}>
   <div class="curtain" class:closing></div>
-  <header in:fly={{y:-25,duration:300}} out:fade><div><span>BOT TEACHER'S CHALLENGE</span> <ChallengeTier tier={task.tier}/><h1 id="challenge-title">{task.title}</h1></div><button onclick={exitChallenge} disabled={closing}>Back to farm</button></header>
+  <header in:fly={{y:-25,duration:300}} out:fade><div><span>BOT TEACHER'S CHALLENGE</span> <ChallengeTier tier={task.tier}/><h1 id="challenge-title">{task.title}</h1><span>{task.playMode === "freestyle" ? "Freestyle" : "Recommended"}</span></div><button onclick={exitChallenge} disabled={closing}>Back to farm</button></header>
   <div class="layout">
     <section class="farm-side">
       <div class="rounds">{#each task.cases as layout,i}<button disabled={running||!ready||closing} aria-pressed={caseIndex===i} onclick={()=>preview(i)}>Row {i+1}</button>{/each}<span>{running?"Your robot is working…":`${task.kind==="team"?"Two programs":"One program"}. ${task.cases.length} test ${task.cases.length===1?"row":"rows"}.`}</span></div>
@@ -147,7 +148,6 @@
         <div class="code-area" class:busy={running}><div class="blockly-host" class:hidden={mode!=="blocks"} bind:this={secondHost}></div><div class="text-host" class:hidden={mode!=="text"}><BotTextEditor bind:value={secondSource} commands={textCommands} readOnly={running||closing} label="Robot 1 JavaScript program" onEdit={()=>secondTextEdited=true}/></div></div>
         <p class="message-help">bot.send(botNumber, message) sends text or a number. bot.has_message() checks your inbox. bot.receive() reads its oldest message. In a waiting loop, include bot.wait() so the other bot can work.</p>
       {/if}
-      <details><summary>Commands & rewards</summary><p>{(task.commands??["right","left","harvest","is_harvestable"]).map(name=>`bot.${name}(${name==="jump"||name.startsWith("crop_")?"column, row":name==="plant"?'"corn"':name==="wait"?"seconds":""})`).join(", ")}, bot.say(value), columns(), rows().</p><ChallengeRewards {task}/><p>One reward per challenge on this farm.</p></details>
       {#if running}<button class="stop" onclick={()=>stop()}>■ Stop & edit</button>{/if}
       {#if error}<p class="error" role="alert">{error}</p>{/if}<button class="run" onclick={run} disabled={running||!ready||closing}>{running?"Go, little robot!":result?"Try again":"Let's try my plan!"}</button>
     </section>

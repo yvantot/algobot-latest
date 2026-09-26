@@ -641,7 +641,7 @@
             kind: "block",
             type: "controls_repeat_ext",
             inputs: {
-              TIMES: { shadow: { type: "math_number", fields: { NUM: TUTORIAL.active ? 2 : 10 } } },
+              TIMES: { shadow: { type: "math_number", fields: { NUM: 2 } } },
             },
           },
           { kind: "block", type: "controls_whileUntil" },

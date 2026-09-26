@@ -63,6 +63,7 @@ export function challengeSamples(sessions, taskId = "ready-row-v3") {
     const reject = reason => excluded.push({ assessment_id: attempt.assessment_id, reason });
     if (seen.has(key)) { reject("repeat_exposure_practice_only"); continue; }
     seen.add(key);
+    if (attempt.play_mode === "freestyle") { reject("freestyle_practice_only"); continue; }
     if (!attempt.first_exposure) { reject("previously_exposed_to_task"); continue; }
     if (attempt.status !== "scored") { reject("unfinished_challenge_not_a_zero_score"); continue; }
     const firstIndex=attempt.assessor_id === "algobot-live-cases-5.0"

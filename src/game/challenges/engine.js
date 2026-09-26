@@ -1,3 +1,4 @@
+import { challengeCommands, nativeChallengeCommand } from "./modes.js";
 import { createCommandAPI } from "../global/command-api.js";
 import { createInterpreterInit } from "../global/interpreter-bindings.js";
 import { challengeMaxScore } from "./catalog.js";
@@ -20,18 +21,23 @@ export async function evaluateChallenge(source, task, Interpreter, { world, sign
     const repeated = new Map();
     const api = createCommandAPI({ robot, farmSize: () => ({ columns: layout.length, rows: 1 }) });
     const commands = {};
-    for (const name of ["right", "left", "harvest", "is_harvestable"]) {
-      commands[name] = callback => {
+    for (const name of challengeCommands(task)) {
+      if (nativeChallengeCommand(name)) {
+        commands[name] = (...args) => { if (++actions > 1200) throw Error("Too many checks or messages. Stop your loop."); return api.bot[name](...args); };
+        continue;
+      }
+      commands[name] = (...args) => {
+        const callback=args.pop();
         if (++actions > 120) { fatal = "Your bot is going in circles! Check the loop."; callback(false); return; }
         const x = robot.grid_x;
-        api.bot[name](value => {
+        api.bot[name](...args, value => {
           if (signal?.aborted) return;
-          if (name !== "is_harvestable" && !value) {
+          if (!name.startsWith("is_") && !value) {
             mistakes++;
             fatal = name === "harvest" ? "This row stopped because the bot tried to harvest a young crop or an empty tile. Check before harvesting."
               : "This row stopped because the bot tried to walk past the farm. Stop moving at the last tile.";
           }
-          if (name === "harvest" && value) harvested.add(x);
+          if (name === "harvest" && value && layout[x]) harvested.add(x);
           visited.add(robot.grid_x);
           const event = { command: name, value, position: robot.grid_x };
           trace.push(event); onAction(event); callback(value);
@@ -55,7 +61,7 @@ export async function evaluateChallenge(source, task, Interpreter, { world, sign
       const interpreter = new Interpreter(source, (runner, scope) => {
         init(runner, scope);
         runner.setProperty(scope, "Date", runner.UNDEFINED);
-        runner.setProperty(runner.getProperty(scope, "Math"), "random", runner.createNativeFunction(() => { throw Error("Let's use the same plan each time; no random numbers here."); }));
+        if (task.playMode !== "freestyle") runner.setProperty(runner.getProperty(scope, "Math"), "random", runner.createNativeFunction(() => { throw Error("Let's use the same plan each time; no random numbers here."); }));
       });
       let steps = 0;
       while (true) {

@@ -255,11 +255,11 @@ export class TelemetryTracker {
   }
 
   // Hint tracking (Feature 8)
-  recordHintShown(hintText = "", source = "unspecified") {
+  recordHintShown(hintText = "", source = "unspecified", details = {}) {
     if (source === "requested_quest_hint") this.requestedHints++;
     this.hintsShown++;
     this._recordQuestHint();
-    this._logRawEvent("hint_shown", { hint: hintText, source });
+    this._logRawEvent("hint_shown", { hint: hintText, source, ...details });
   }
 
   // Editor mode (metadata only)

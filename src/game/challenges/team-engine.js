@@ -1,3 +1,4 @@
+import { challengeCommands } from "./modes.js";
 import { createCommandAPI } from "../global/command-api.js";
 import { createInterpreterInit } from "../global/interpreter-bindings.js";
 
@@ -15,7 +16,11 @@ export async function evaluateTeam(source, task, Interpreter, {world,signal,onCa
       const interpreters=world.robots.map((robot,id)=>{
         const api=createCommandAPI({robot,farmSize:()=>({columns:layout.length,rows:1})});
         const bot={say:api.bot.say};
-        for(const name of task.commands) {
+        for(const name of challengeCommands(task)) {
+          if(name.startsWith("crop_")) {
+            bot[name]=(...args)=>{if(++idleChecks>1200)throw Error("Too many crop checks. Stop your loop.");return api.bot[name](...args);};
+            continue;
+          }
           if(["send","receive","has_message"].includes(name)) {
             bot[name]=(...args)=>{
               if(++idleChecks>80)throw Error("The team is waiting without doing any work. Check which bot sends the next message; use bot.wait in waiting loops.");
@@ -50,7 +55,7 @@ export async function evaluateTeam(source, task, Interpreter, {world,signal,onCa
         const init=createInterpreterInit({bot,globals:api.globals,hooks:{},shop:{},inventory:{},console:{}});
         return new Interpreter(programs[id],(runner,scope)=>{
           init(runner,scope);runner.setProperty(scope,"Date",runner.UNDEFINED);
-          runner.setProperty(runner.getProperty(scope,"Math"),"random",runner.createNativeFunction(()=>{throw Error("Use a repeatable plan without random numbers.");}));
+          if(task.playMode!=="freestyle") runner.setProperty(runner.getProperty(scope,"Math"),"random",runner.createNativeFunction(()=>{throw Error("Use a repeatable plan without random numbers.");}));
         });
       });
         while(world.robots.some(bot=>!bot.is_available)){signal?.throwIfAborted();await yieldControl();}

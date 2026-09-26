@@ -7,6 +7,7 @@
   import QuestHUD from "../../src/components/QuestHUD.svelte";
   import HelpModal from "../../src/components/HelpModal.svelte";
   import FarmIntroduction from "../../src/components/FarmIntroduction.svelte";
+  let editorMode=$state("blocks");
   let ready=$state(false),help=$state(false),open=$state(false),lesson=$state("basics"),completed=$state([]);
   function choose(key) {
     let before=true;
@@ -21,12 +22,12 @@
 </script>
 <div style="position:fixed;top:0;left:0;z-index:9000;background:white;padding:8px">
   No participant data saved.
-  {#each ["intro_build","intro_sequence","intro_loop","cs_if_0"] as key}<button onclick={()=>choose(key)}>{key}</button>{/each}
-  <button onclick={()=>help=!help}>Help</button>
+  {#each Object.keys(QUEST_DATA) as key}<button onclick={()=>choose(key)}>{key}</button>{/each}
+  <button onclick={()=>help=!help}>Help</button><button onclick={()=>editorMode=editorMode==="blocks"?"text":"blocks"}>Hint mode: {editorMode}</button>
 </div>
 {#if ready}
   <div style="position:fixed;right:4px;top:40px"><BlockBased/></div>
-  <div style="position:fixed;left:8px;top:65px;width:360px;max-height:85vh;overflow:auto"><QuestHUD onOpenBlockEditor={()=>{}} onOpenQuestMenu={()=>{}}/></div>
+  <div style="position:fixed;left:8px;top:65px;width:360px;max-height:85vh;overflow:auto"><QuestHUD {editorMode} onOpenBlockEditor={()=>{}} onOpenQuestMenu={()=>{}}/></div>
   {#if help}<div style="position:fixed;left:380px;top:45px"><HelpModal completedDemos={completed} onClose={()=>help=false} onShowIntroduction={id=>{lesson=id;open=true;help=false;}}/></div>{/if}
   <FarmIntroduction bind:isOpen={open} {lesson} rewardAvailable={!completed.includes(lesson)} onComplete={id=>completed.push(id)}/>
 {/if}

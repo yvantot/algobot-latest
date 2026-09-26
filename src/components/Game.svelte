@@ -15,10 +15,12 @@
   import Quest from "./Quest.svelte";
   import Challenges from "./Challenges.svelte";
   import ChallengeFarm from "./ChallengeFarm.svelte";
-  import { CHALLENGES, recordExposure } from "../game/challenges/catalog.js";
+  import { CHALLENGES, recordExposure, hasExposure } from "../game/challenges/catalog.js";
   import { canStartChallenge, challengeAccess, openChallenge, submitChallenge, closeChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
   import { INVENTORY, PLAYER_DATA } from "../game/global/global.js";
   import { QUEST_STATE } from "./global.svelte.js";
+  import MenuAlert from "./MenuAlert.svelte";
+  import { challengeEntryAllowed } from "../game/challenges/modes.js";
   import QuestHUD from "./QuestHUD.svelte";
   import PlayerInfo from "./PlayerInfo.svelte";
   import LevelReward from "./LevelReward.svelte";
@@ -111,6 +113,8 @@
   ];
 
   let current_menu = $state(Menus.COMMAND);
+  let visitedMenus = $state([Menus.COMMAND]);
+  let exposedTasks = $state([]);
   let challenge = $state(null), challengeNotice = $state("");
   let challengeAvailability = $state({ unlocked: false, ready: false });
   let challengeVisible = $derived(challengeAvailability.unlocked && !challenge && !TUTORIAL.active && !!QUEST_STATE.tut_2?.is_claimed);
@@ -121,19 +125,23 @@
   function persistChallenge() {
     if (!dataLogger.saveSessionLight()) storageWarning = "Research data could not be saved. Export it before closing this page.";
   }
-  function enterChallenge(task) {
+  function enterChallenge(task, playMode = "recommended") {
     if (TUTORIAL.active || !QUEST_STATE[task.prerequisite]?.is_claimed) return;
-    if (!canStartChallenge(telemetry)) {
+    let exposed;
+    try { exposed = hasExposure(localStorage, telemetry.participantId, task.id); }
+    catch (error) { challengeNotice=error.message; return; }
+    if (!challengeEntryAllowed(canStartChallenge(telemetry), exposed, playMode)) {
       challengeAvailability.ready=false;
       challengeNotice="Keep farming a little longer before starting a challenge.";
       return;
     }
     try {
       const firstExposure = recordExposure(localStorage, telemetry.participantId, task.id);
-      challengeAttempt = openChallenge(telemetry, task, firstExposure);
+      challengeAttempt = openChallenge(telemetry, task, firstExposure, Date.now(), playMode);
+      if (!exposedTasks.includes(task.id)) exposedTasks.push(task.id);
       challengeRewardAvailable = !farmChallengeRewards.has(task.id);
       ONBOARDING.isModalOpen = true;
-      challenge = task; challengeInvite = null; challengeNotice = "";
+      challenge = {...task, playMode}; challengeInvite = null; challengeNotice = "";
       persistChallenge();
     } catch (error) { challengeNotice = error.message; }
   }
@@ -233,6 +241,7 @@
     mlAgent.resetSession();
     telemetry.setParticipantId(participantId);
     telemetry.participantIdSource = participantSource;
+    try { exposedTasks = CHALLENGES.filter(task=>hasExposure(localStorage,participantId,task.id)).map(task=>task.id); } catch { exposedTasks=[]; }
     const collectionContext = () => ({
       phase: challenge ? "challenge" : showIntroduction || !!docPreview ? "demonstration"
         : document.hidden ? "hidden" : ONBOARDING.isModalOpen ? "modal"
@@ -308,6 +317,7 @@
   }
 
   function toggleMenu(menu) {
+    if (!visitedMenus.includes(menu)) visitedMenus.push(menu);
     if(menu===Menus.DOCUMENT){docOpen=!docOpen;docLoaded=true;showDocEditor=false;current_menu=Menus.COMMAND;return;}
     if(menu!==Menus.COMMAND)docOpen=false;
     if (menu === Menus.SHOP && current_menu !== Menus.SHOP) {
@@ -440,7 +450,7 @@
             <button
               class="cursor-pointer group relative"
               id={btn.id === Menus.COMMAND ? "command-menu-button" : btn.id === Menus.DOCUMENT ? "documentation-menu-button" : undefined}
-              onclick={() => toggleMenu(btn.id)}
+              onclick={() => { if (!visitedMenus.includes(btn.id)) visitedMenus.push(btn.id); toggleMenu(btn.id); }}
             >
               <img
                 class="hover:scale-110 transition-transform w-12 h-12 {current_menu ===
@@ -450,6 +460,7 @@
                 src={btn.icon}
                 alt={btn.alt}
               />
+              {#if !visitedMenus.includes(btn.id)}<MenuAlert label={`New: ${btn.title}`}/>{/if}
               <div
                 class="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 opacity-0 group-hover:opacity-100 transition-all duration-150 transform translate-y-1 group-hover:translate-y-0"
               >
@@ -499,7 +510,7 @@
             >
               ?
             </div>
-            {#if completedDemos.length < 2}<img src="/sprites/icon_alert.png" alt="Optional demos with rewards" class="absolute -top-1 -right-1 w-5 h-5 pointer-events-none" />{/if}
+            {#if completedDemos.length < 2}<MenuAlert label="Optional demos with rewards"/>{/if}
 
             <div
               class="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 opacity-0 group-hover:opacity-100 transition-all duration-150 transform translate-y-1 group-hover:translate-y-0"
@@ -577,7 +588,7 @@
       </div>
       <div class="flex gap-4 items-start" class:practice-layout={TUTORIAL.active}>
         <div class="inventory-slot"><Inventory /></div>
-        <div class="quest-slot"><QuestHUD
+        <div class="quest-slot"><QuestHUD editorMode={current_editor === Editors.TEXT ? "text" : "blocks"} onOpenEditor={() => current_menu = Menus.COMMAND}
           onOpenQuestMenu={() => toggleMenu(Menus.QUEST)}
           onOpenBlockEditor={() => {
             current_menu = Menus.COMMAND;
@@ -588,8 +599,8 @@
           <aside class="challenge-invite" in:fly={{y:20,duration:350}} out:fly={{y:15,duration:220}}>
             <div class="challenge-teacher"><img src="/sprites/bot_teacher.png" alt="Bot Teacher"/><div><strong>A challenge for you!</strong><p>Think you can out-farm your teacher? Let's find out!</p></div></div>
             <p>{challengeInvite.title} · {challengeInvite.coins} coins + {challengeInvite.exp} EXP</p>
-            {#if !challengeReady}<p role="status">Keep farming for a little while. Your challenge will be ready soon.</p>{/if}
-            <button disabled={!challengeReady} onclick={()=>enterChallenge(challengeInvite)}>{challengeReady ? "Challenge accepted!" : "Getting ready…"}</button><button onclick={()=>challengeInvite=null}>Later</button>
+            {#if !challengeReady && !exposedTasks.includes(challengeInvite.id)}<p role="status">Keep farming for a little while. Your challenge will be ready soon.</p>{/if}
+            <button disabled={!challengeEntryAllowed(challengeReady, exposedTasks.includes(challengeInvite.id))} onclick={()=>enterChallenge(challengeInvite)}>{challengeReady || exposedTasks.includes(challengeInvite.id) ? "Challenge accepted!" : "Getting ready…"}</button><button onclick={()=>challengeInvite=null}>Later</button>
           </aside>
         {/if}
         </div>
@@ -605,7 +616,7 @@
         <button
           class="absolute top-2 left-4 z-[110] bg-gray-300 border-2 border-gray-400"
           disabled={TUTORIAL.active}
-          title={TUTORIAL.active ? "Text coding unlocks after your first loop" : "Switch editor"}
+          title={TUTORIAL.active ? "Text coding unlocks after your first harvest" : "Switch editor"}
           aria-label={current_editor === Editors.BLOCK ? "Switch to text editor" : "Switch to block editor"}
           onclick={toggleEditor}
         >
@@ -653,7 +664,7 @@
         <Quest/>
       </div>
     {:else if current_menu === Menus.CHALLENGES && challengeVisible}
-      <div in:panelIn out:panelOut><Challenges completed={rewardedChallenges} onChallenge={enterChallenge} {challengeReady} {challengeNotice} onClose={()=>toggleMenu(Menus.NONE)}/></div>
+      <div in:panelIn out:panelOut><Challenges practiceTasks={exposedTasks} completed={rewardedChallenges} onChallenge={enterChallenge} {challengeReady} {challengeNotice} onClose={()=>toggleMenu(Menus.NONE)}/></div>
     {:else if current_menu === Menus.SHOP}
       <div in:panelIn out:panelOut>
         <Shop />

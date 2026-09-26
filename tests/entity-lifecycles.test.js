@@ -733,3 +733,16 @@ test("crop inspections do not consume the separate robot action allowance",async
   const result=await run('for(var scan=0;scan<121;scan++){bot.crop_value(0,0);}'+scenarioSolutions.greedy,task);
   assert.equal(result.passed,true,JSON.stringify(result));
 });
+
+test("freestyle supports extra bot commands and preserves every challenge's rules",async()=>{
+  const {h,run}=scenarioHarness();
+  const basic={...CHALLENGES.find(task=>task.id==='careful-steps-v1'),playMode:'freestyle'};
+  const jump='for(var x=0;x<columns();x++){bot.jump(x,0);if(bot.is_harvestable())bot.harvest();}';
+  assert.equal((await run(jump,basic)).passed,true);
+  assert.equal((await run(jump,{...basic,playMode:'recommended'})).passed,false);
+  for(const task of CHALLENGES.filter(task=>task.kind)){
+    const result=await run(scenarioSolutions[task.kind],{...task,playMode:'freestyle'});
+    assert.equal(result.passed,true,task.id+JSON.stringify(result));
+  }
+  assert.deepEqual(h.rewards,{coins:0,exp:0,seeds:0,spoiled:0});
+});

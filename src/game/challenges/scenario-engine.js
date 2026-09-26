@@ -1,3 +1,4 @@
+import { challengeCommands } from "./modes.js";
 import { createCommandAPI } from "../global/command-api.js";
 import { createInterpreterInit } from "../global/interpreter-bindings.js";
 import { bestRouteValue } from "./scenarios.js";
@@ -17,7 +18,11 @@ export async function evaluateScenario(source, task, Interpreter, {world,signal,
     const loopWatered=new Set(), conditionalTreatments=new Map();
     const budget=task.kind === "planning" ? task.budget : task.kind === "irrigation" ? 2*layout.length-1 : Infinity;
     const bot={say:value=>api.bot.say(String(value).slice(0,120))};
-    for (const name of task.commands) {
+    for (const name of challengeCommands(task)) {
+      if (["send","receive","has_message"].includes(name)) {
+        bot[name]=(...args)=>{if(++sensorCalls>1200)throw Error("Too many messages. Stop your loop.");return api.bot[name](...args);};
+        continue;
+      }
       if (name.startsWith("crop_")) {
         bot[name]=(x,y)=>{
           if(++sensorCalls>1200)throw Error("Too many checks. Stop your loop when the plan is ready.");
@@ -70,7 +75,7 @@ export async function evaluateScenario(source, task, Interpreter, {world,signal,
       const init=createInterpreterInit({bot,globals:{columns:api.globals.columns,rows:api.globals.rows},hooks:{},shop:{},inventory:{},console:{}});
       interpreter=new Interpreter(source,(runner,scope)=>{
         init(runner,scope); runner.setProperty(scope,"Date",runner.UNDEFINED);
-        runner.setProperty(runner.getProperty(scope,"Math"),"random",runner.createNativeFunction(()=>{throw Error("Use the same plan for every test farm, without random numbers.");}));
+        if(task.playMode!=="freestyle") runner.setProperty(runner.getProperty(scope,"Math"),"random",runner.createNativeFunction(()=>{throw Error("Use the same plan for every test farm, without random numbers.");}));
       });
       let steps=0;
       while(true){

@@ -1,3 +1,4 @@
+import { challengeEntryAllowed } from "../src/game/challenges/modes.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -231,4 +232,23 @@ test('Stop & Edit preserves the attempt and freezes the first evaluated score ev
  const unfinished=openChallenge(tracker,CHALLENGES[1],true);
  interruptChallenge(tracker,unfinished,'bot.right();','text');closeChallenge(tracker,unfinished);
  assert.equal(unfinished.status,'abandoned');assert.equal(unfinished.score,null);
+});
+
+test("returning to a viewed challenge bypasses the first-attempt collection gate",()=>{
+  assert.equal(challengeEntryAllowed(false,false),false);
+  assert.equal(challengeEntryAllowed(true,false),true);
+  assert.equal(challengeEntryAllowed(false,true),true);
+  assert.equal(challengeEntryAllowed(false,false,'freestyle'),true);
+});
+test("freestyle outcomes retain mode metadata and stay outside Recommended training",async()=>{
+  const tracker=new TelemetryTracker();tracker.setParticipantId('fixture-mode');
+  const attempt=openChallenge(tracker,CHALLENGES[0],true,Date.now(),'freestyle');
+  const result=await evaluate(solve);
+  submitChallenge(tracker,attempt,result,solve,'text');
+  assert.equal(attempt.play_mode,'freestyle');
+  assert.equal(attempt.submissions[0].play_mode,'freestyle');
+  assert.equal(attempt.purpose,'practice');
+  const prepared=challengeSamples([{session_id:tracker.sessionId,student_id:tracker.participantId,source_type:'recorded',challenge_attempts:[attempt]}],attempt.task_id);
+  assert.equal(prepared.samples.length,0);
+  assert.equal(prepared.excluded[0].reason,'freestyle_practice_only');
 });

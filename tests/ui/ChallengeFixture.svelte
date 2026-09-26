@@ -14,5 +14,5 @@
 <h1>Isolated challenge UI test · no participant data saved</h1>
 <p>Submissions: {submitted} · Reward granted: {reward ? "yes" : "no"}</p>
 {#each CHALLENGES as choice}<button onclick={()=>{task=choice;open=true;reward=false;}}>Open {choice.title}</button>{/each}
-{#if !open}<Challenges challengeReady={true} onChallenge={choice=>{task=choice;open=true;reward=false;}} onClose={()=>{}}/>{/if}
+{#if !open}<Challenges challengeReady={true} onChallenge={(choice,playMode)=>{task={...choice,playMode};open=true;reward=false;}} onClose={()=>{}}/>{/if}
 {#if open&&ready}{#key task.id}<ChallengeFarm {task} onClose={()=>open=false} onSubmit={()=>submitted++} onReward={()=>{reward=true;return true;}} rewardAvailable={!reward}/>{/key}{/if}

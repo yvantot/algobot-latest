@@ -2,30 +2,19 @@
   import { onMount } from "svelte";
   import * as Blockly from "blockly";
   import "blockly/blocks";
-  let { mission } = $props();
+  let { mission, example } = $props();
   let host, connected = $state(false);
-  let nested = $derived(mission === "intro_loop" || mission === "cs_if_0");
+  let nested = $derived(["intro_loop","cs_if_0","cs_cleanup_0"].includes(mission));
   onMount(() => {
     const workspace = Blockly.inject(host, { readOnly: true, renderer: "zelos", scrollbars: false, sounds: false, zoom: { startScale: 1, maxScale: 1, minScale: .4 } });
     const append = state => Blockly.serialization.blocks.append(state, workspace);
-    const number = n => ({ shadow: { type: "math_number", fields: { NUM: n } } });
-    let parent, child, socket;
-    if (mission === "intro_loop") {
-      parent = append({ type: "controls_repeat_ext", x: 16, y: 16, inputs: { TIMES: number(2) } });
-      child = append({ type: "bot_left", x: 90, y: 130, next: { block: { type: "bot_right" } } });
-      socket = parent.getInput("DO").connection;
-    } else if (mission === "cs_if_0") {
-      parent = append({ type: "controls_if", x: 16, y: 16, inputs: { IF0: { block: { type: "bot_is_harvestable" } } } });
-      child = append({ type: "bot_harvest", x: 90, y: 130 });
-      socket = parent.getInput("DO0").connection;
-    } else if (mission === "intro_sequence") {
-      parent = append({ type: "bot_left", x: 16, y: 16 });
-      child = append({ type: "bot_right", x: 90, y: 125 });
-      socket = parent.nextConnection;
-    } else {
-      const type = { intro_run: "bot_right", intro_build: "bot_down", intro_say: "bot_say", tut_2: "bot_till" }[mission] ?? "bot_say";
-      append({ type, x: 16, y: 16, ...(type === "bot_say" ? { inputs: { TEXT: { shadow: { type: "text", fields: { TEXT: "Hello!" } } } } } : {}) });
-    }
+    const parent = append({...example.block,x:16,y:16});
+    const input = ["DO", "DO0", "TEXT"].map(name=>parent.getInput(name)?.connection).find(connection=>connection?.targetBlock());
+    const socket = input ?? parent.nextConnection;
+    const target = socket?.targetBlock();
+    const child = target && !target.isShadow() ? target : null;
+    const childConnection = child?.previousConnection ?? child?.outputConnection;
+    if (child && childConnection) { socket.disconnect(); child.moveBy(85,105); }
     const observer = new ResizeObserver(() => { Blockly.svgResize(workspace); workspace.zoomToFit(); });
     observer.observe(host);
     let frame;
@@ -34,7 +23,7 @@
       const origin = child.getRelativeToSurfaceXY();
       const parentPosition = parent.getRelativeToSurfaceXY();
       const destination = socket.getOffsetInBlock();
-      const childOffset = child.previousConnection.getOffsetInBlock();
+      const childOffset = childConnection.getOffsetInBlock();
       const dx = parentPosition.x + destination.x - childOffset.x - origin.x;
       const dy = parentPosition.y + destination.y - childOffset.y - origin.y;
       const start = performance.now();
@@ -45,7 +34,7 @@
         const eased = 1 - Math.pow(1 - progress, 3);
         child.moveBy(dx * (eased - last), dy * (eased - last)); last = eased;
         if (progress < 1) frame = requestAnimationFrame(move);
-        else { socket.connect(child.previousConnection); connected = true; workspace.zoomToFit(); }
+        else { socket.connect(childConnection); connected = true; workspace.zoomToFit(); }
       }
       frame = requestAnimationFrame(move);
     }, 900);
