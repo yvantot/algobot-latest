@@ -5,6 +5,7 @@
   import { javascriptGenerator } from "blockly/javascript";
   import { CONFIG, DOCUMENT_DATA } from "../game/global/global";
   import { robots, robots_state, UNLOCK_VERSION, ONBOARDING, TUTORIAL, currentQuest } from "./global.svelte.js";
+  import { isPracticeMission } from "../game/global/practice-missions.js";
   import { INTRO_QUESTS } from "../game/global/tutorial.js";
   import { trackQuest, beginActiveQuest } from "./global.svelte.js";
   import { createResizable } from "./interface.svelte.js";
@@ -723,12 +724,7 @@
     const finalCategories = [];
 
     for (const cat of rawCategories) {
-      const mission = currentQuest();
-      const allowed = mission === "intro_run" ? ["bot_right"] : mission === "intro_say" ? ["bot_say", "text"] : mission === "intro_build" || mission === "intro_sequence"
-        ? ["bot_left", "bot_right", "bot_up", "bot_down"]
-        : mission === "tut_2" ? ["bot_left", "bot_right", "bot_up", "bot_down", "bot_till", "bot_plant", "bot_water", "bot_harvest"]
-        : mission === "intro_loop" ? ["bot_left", "bot_right", "bot_up", "bot_down", "controls_repeat_ext", "math_number"] : null;
-      const filteredContents = cat.contents.filter(item => isBlockUnlocked(item.type) && (!allowed || allowed.includes(item.type) || (mission !== "intro_run" && ["bot_wait", "math_number"].includes(item.type))));
+      const filteredContents = cat.contents.filter(item => isBlockUnlocked(item.type));
       if (filteredContents.length > 0) {
         finalCategories.push({ ...cat, contents: filteredContents });
       }
@@ -932,7 +928,7 @@
     const ready = workspaceReady;
     const running = robots_state.some(state => state.is_running);
     if (!ready || running || previousPracticeQuest === mission) return;
-    if (INTRO_QUESTS.includes(previousPracticeQuest)) {
+    if (INTRO_QUESTS.includes(previousPracticeQuest) && !isPracticeMission(previousPracticeQuest)) {
       restoreWorkspace(START_XML);
       if (robots_state[selected_robot]) {
         robots_state[selected_robot].blockly_xml = START_XML;
@@ -968,7 +964,7 @@
     if (
       startBtnRef &&
       is_command_ready &&
-      currentQuest() === "intro_run" &&
+      currentQuest() === "intro_run" && !isPracticeMission(currentQuest()) &&
       !ONBOARDING.startClicked &&
       !ONBOARDING.isModalOpen
     ) {
@@ -1030,7 +1026,7 @@
     </div>
   </div>
 
-  {#if TUTORIAL.active && currentQuest() !== "intro_run"}
+  {#if TUTORIAL.active && !isPracticeMission(currentQuest()) && currentQuest() !== "intro_run"}
     <div class="px-3 py-2 bg-amber-100 text-slate-800 text-sm flex items-center justify-between gap-2">
       <span>{currentQuest() === "intro_loop" ? "Put movement inside repeat." : "Drag a block here, then press Start."}</span>
       <button class="underline font-bold cursor-pointer" onclick={focusTutorialBlocks}>Open {tutorialCategory} blocks</button>

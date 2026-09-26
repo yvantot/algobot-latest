@@ -6,7 +6,7 @@
   import { cubicOut } from "svelte/easing";
   import { dialogFocus } from "./dialog-focus.js";
   import { startLiveDemonstration } from "../game/global/live-demonstration.js";
-  import { demonstrationStory, DEMO_LESSONS } from "../game/global/introduction-story.js";
+  import { demonstrationStory, demonstrationStep, DEMO_LESSONS } from "../game/global/introduction-story.js";
   import { farm_grid_index } from "../game/game.js";
   let { isOpen = $bindable(false), lesson = "basics", rewardAvailable = true, onComplete } = $props();
   let story = $derived(demonstrationStory(lesson));
@@ -25,7 +25,7 @@
   let sceneChanging = $state(false);
   let controller;
   let closeTimer;
-  let step = $derived(story[chapter]);
+  let step = $derived(demonstrationStep(story, chapter));
   let reducedMotion = $state(false);
   $effect(() => {
     if (!isOpen) return;
@@ -55,9 +55,13 @@
   function close(completed = false) {
     if (closing) return;
     closing = true;
-    if (completed && ready && !error) onComplete?.(lesson);
+    const finishedLesson = completed && ready && !error ? lesson : null;
     // Restore the real farm only once the closing curtain conceals the swap.
-    closeTimer = setTimeout(() => { controller?.dispose(); isOpen = false; }, reducedMotion ? 0 : 450);
+    closeTimer = setTimeout(() => {
+      controller?.dispose(); controller = null;
+      isOpen = false;
+      if (finishedLesson) onComplete?.(finishedLesson);
+    }, reducedMotion ? 0 : 450);
   }
   onDestroy(() => clearTimeout(closeTimer));
 </script>

@@ -7,6 +7,9 @@
   import QuestHUD from "../../src/components/QuestHUD.svelte";
   import HelpModal from "../../src/components/HelpModal.svelte";
   import FarmIntroduction from "../../src/components/FarmIntroduction.svelte";
+  import PracticeFarm from "../../src/components/PracticeFarm.svelte";
+  import {PRACTICE_MISSIONS} from "../../src/game/global/practice-missions.js";
+  let practice=$state(null);
   let editorMode=$state("blocks");
   let ready=$state(false),help=$state(false),open=$state(false),lesson=$state("basics"),completed=$state([]);
   function choose(key) {
@@ -31,3 +34,6 @@
   {#if help}<div style="position:fixed;left:380px;top:45px"><HelpModal completedDemos={completed} onClose={()=>help=false} onShowIntroduction={id=>{lesson=id;open=true;help=false;}}/></div>{/if}
   <FarmIntroduction bind:isOpen={open} {lesson} rewardAvailable={!completed.includes(lesson)} onComplete={id=>completed.push(id)}/>
 {/if}
+
+<div style="position:fixed;bottom:0;left:0;z-index:9001;background:white">{#each PRACTICE_MISSIONS as key}<button onclick={()=>practice=key}>Practice {key}</button>{/each}</div>
+{#if practice}{#key practice}<PracticeFarm missionKey={practice} onClose={()=>practice=null} onComplete={()=>practice=null}/>{/key}{/if}

@@ -22,8 +22,8 @@ export function missionHint(key, level = 0, actions = [], harvestReady = false) 
     case "intro_sequence": return chain([command("left"),command("right")]);
     case "tut_2": return command(!actions.includes("till")?"till":!actions.includes("plant")?"plant":!actions.includes("water")||!harvestReady?"water":"harvest");
     case "intro_loop": return {block:{type:"controls_repeat_ext",inputs:{TIMES:{shadow:{type:"math_number",fields:{NUM:2}}},DO:{block:chain([command("left"),command("right")]).block}}},code:"for (var i = 0; i < 2; i++) {\n  bot.left();\n  bot.right();\n}"};
-    case "cs_check_0": return sayValue(command("is_harvestable"));
-    case "cs_if_0": return condition("is_harvestable","harvest");
+    case "cs_check_0": return level % 2 ? command("right") : sayValue(command("is_planted"));
+    case "cs_if_0": return {block:{type:"controls_if",inputs:{IF0:{block:{type:"logic_negate",inputs:{BOOL:{block:command("is_planted").block}}}},DO0:{block:command("plant").block}}},code:'if (!bot.is_planted()) {\n  bot.plant("wheat");\n}'};
     case "cs_grid_0": return sayValue(commandExample("globals","rows"));
     case "cs_jump_0": return command("jump");
     case "cs_cleanup_0": return condition("is_dead","destroy");

@@ -202,12 +202,15 @@ export const INTRODUCTION_STORY = [
 ];
 
 export const DEMO_LESSONS = {
-  basics: { title: "Meet your farm", actions: ["welcome", "move", "plant", "water", "harvest", "finish"] },
-  events: { title: "Protect your crops", actions: ["spoil", "rain", "fire_loss", "fire", "pest_loss", "pest"], coins: 50, exp: 25 },
+  basics: { title: "Meet your farm", actions: ["welcome", "move", "plant", "water", "harvest", "spoil", "finish"] },
+  events: { title: "Protect your crops", actions: ["rain", "fire_loss", "fire", "pest_loss", "pest"], coins: 50, exp: 25 },
   upgrades: { title: "Grow your farm", actions: ["bots", "upgrade", "expand", "workflow"], coins: 50, exp: 25 },
 };
 export function demonstrationStory(lesson = "basics") {
   return DEMO_LESSONS[lesson].actions.map(action => INTRODUCTION_STORY.find(step => step.action === action));
+}
+export function demonstrationStep(story, chapter) {
+  return story[chapter] ?? story[0];
 }
 export function claimDemoReward(completed, lesson, grant) {
   const reward = DEMO_LESSONS[lesson];

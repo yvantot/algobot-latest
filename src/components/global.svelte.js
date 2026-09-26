@@ -1,6 +1,7 @@
 import { activeQuest, movementQuest, INTRO_QUESTS, tutorialPolicy } from "../game/global/tutorial.js";
 import { AvatarTypes, ModalTypes } from "../game/global/enum.js";
 import { QUEST_DATA } from "../game/global/quests.js";
+import { isPracticeMission } from "../game/global/practice-missions.js";
 import { PLAYER_DATA, INVENTORY, DOCUMENT_DATA, SHOP_DATA, CROP_DATA } from "../game/global/global.js";
 import { telemetry, CS1_STAGES } from "../game/ml/telemetry.js";
 import { mlAgent } from "../game/ml/agent.js";
@@ -75,12 +76,13 @@ export function beginActiveQuest() {
 	}
 }
 
-export function trackQuest(key, amount = 1, action = null) {
+export function trackQuest(key, amount = 1, action = null, fromPractice = false) {
 	if (key === "tut_1") {
     key = movementQuest(currentQuest(), { authored: TUTORIAL.authoredBlocks.includes(action?.blockId), sequence: TUTORIAL.sequenceBlocks.includes(action?.blockId), inLoop: action?.inLoop === true, x: action?.x, y: action?.y });
     if (!key) return;
   }
-  if(key === "intro_sequence") {
+  if (isPracticeMission(key) && !fromPractice) return;
+  if(key === "intro_sequence" && !fromPractice) {
     const seen = QUEST_STATE[key].blocks || [];
     if(seen.includes(action?.blockId)) return;
     QUEST_STATE[key].blocks = [...seen, action?.blockId];
@@ -121,6 +123,13 @@ export function trackQuest(key, amount = 1, action = null) {
 
 	// Trigger async DDA update (non-blocking)
 	if (!TUTORIAL.active) mlAgent.updateAndPredict(telemetry.currentStage).catch(() => { });
+}
+
+export function completePracticeMission(key, tokens) {
+  if (!isPracticeMission(key) || QUEST_STATE[key]?.is_completed) return;
+  if (key === "tut_2") for (const action of tokens) trackQuest(key,1,action,true);
+  else trackQuest(key, QUEST_DATA[key].goal, null, true);
+  claimQuest(key);
 }
 
 export const UNLOCK_VERSION = $state({ count: 0 });

@@ -746,3 +746,28 @@ test("freestyle supports extra bot commands and preserves every challenge's rule
   }
   assert.deepEqual(h.rewards,{coins:0,exp:0,seeds:0,spoiled:0});
 });
+
+
+test("all isolated mission lessons run with real entities and preserve the main farm",async()=>{
+  const {practiceSetup,runPractice,PRACTICE_MISSIONS}=await import('../src/game/global/practice-missions.js');
+  const h=harness();Object.assign(h.context.CROP_DATA,structuredClone(deployedCropData));
+  Object.assign(h.k,{get:()=>[...h.roots],debug:{timeScale:1},getCamPos:()=>h.k.vec2(),getCamScale:()=>h.k.vec2(1),setCamPos(){},setCamScale(){}});
+  Object.assign(h.context,{document:{getElementById:()=>null},isolateScene,addLandBackground,BASE_CROP_DATA,
+    addFarmbot(id,map,x,y){return h.make([{display_obj:{},setDisplayColor(){},sayText(){},showIcon(){}},h.context.gridpos(x,y),h.context.gridmove(),h.context.botact(id,map)]);}});
+  vm.runInContext(fs.readFileSync('src/game/challenges/live-farm.js','utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export function','function'),h.context);
+  const ctx=vm.createContext({console,setTimeout,clearTimeout});vm.runInContext(fs.readFileSync('public/js-interpreter.js','utf8'),ctx);
+  const world=h.context.startChallengeFarm(()=>null);
+  const solutions={intro_run:'bot.right();',intro_build:'bot.down();',intro_say:'bot.say("Hi");',intro_sequence:'bot.left();bot.right();',intro_loop:'for(var i=0;i<2;i++){bot.left();bot.right();}',tut_2:'bot.till();bot.plant("wheat");bot.water();bot.wait(16);bot.water();bot.wait(16);bot.harvest();',cs_check_0:'bot.say(bot.is_planted());bot.right();bot.say(bot.is_planted());',cs_if_0:'if(!bot.is_planted()){bot.plant("wheat");}',cs_grid_0:'bot.say(rows());',cs_jump_0:'bot.jump(2,0);',cs_cleanup_0:'if(bot.is_dead())bot.destroy();',cs_wait_0:'bot.wait(1);',cs_random_0:'bot.say(randint(1,10));'};
+  try{for(const key of PRACTICE_MISSIONS){
+    const setup=practiceSetup(key);world.reset(setup.layout,setup.task);h.advance(1);
+    if(setup.startX){world.robot.gridPlace(setup.startX,0);h.advance(1);}
+    const tokens=[];
+    await runPractice(solutions[key],key,world,ctx.Interpreter,{yieldControl:async()=>h.advance(.05),onProgress:token=>tokens.push(token)});
+    assert.equal(tokens.length,key==='tut_2'?4:['intro_sequence','intro_loop','cs_check_0'].includes(key)?2:1,key+JSON.stringify(tokens));
+  }
+  const setup=practiceSetup('intro_loop');world.reset(setup.layout,setup.task);h.advance(1);world.robot.gridPlace(1,0);h.advance(1);
+  const tokens=[];await runPractice('bot.left();bot.right();bot.left();bot.right();','intro_loop',world,ctx.Interpreter,{yieldControl:async()=>h.advance(.05),onProgress:t=>tokens.push(t)});assert.deepEqual(tokens,[]);
+  await assert.rejects(runPractice('while(true){}','intro_loop',world,ctx.Interpreter,{yieldControl:async()=>h.advance(.05)}),/ending/);
+  assert.deepEqual(h.rewards,{coins:0,exp:0,seeds:0,spoiled:0});
+  }finally{world.dispose();}
+});

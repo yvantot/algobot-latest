@@ -117,7 +117,7 @@ test("expansion keeps traversing while purchases wait and visits newly added til
 });
 
 test("optional demos are separate from the short opening and reward only once",()=>{
-  assert.deepEqual(demonstrationStory().map(s=>s.action),['welcome','move','plant','water','harvest','finish']);
+  assert.deepEqual(demonstrationStory().map(s=>s.action),['welcome','move','plant','water','harvest','spoil','finish']);
   assert.ok(demonstrationStory('events').some(s=>s.action==='fire'));
   assert.ok(demonstrationStory('upgrades').some(s=>s.action==='expand'));
   const completed=[],grants=[];
@@ -126,4 +126,14 @@ test("optional demos are separate from the short opening and reward only once",(
   assert.equal(claimDemoReward(completed,'events',r=>grants.push(r)),false);
   assert.equal(claimDemoReward(completed,'upgrades',r=>grants.push(r)),true);
   assert.equal(grants.length,2);
+});
+
+
+test("switching from the last Events chapter to shorter Upgrades has a valid render step",async()=>{
+  const {demonstrationStep}=await import('../src/game/global/introduction-story.js');
+  for(const previous of ['basics','events','upgrades'])for(const next of ['basics','events','upgrades']){
+    const step=demonstrationStep(demonstrationStory(next),demonstrationStory(previous).length-1);
+    assert.ok(step && Array.isArray(step.code));
+  }
+  assert.equal(demonstrationStory('events').some(step=>step.action==='spoil'),false);
 });

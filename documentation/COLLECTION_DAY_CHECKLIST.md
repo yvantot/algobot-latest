@@ -2,6 +2,8 @@
 
 Use one fixed build and one agreed challenge for this collection. The current preparation examples use **Two careful steps** (`careful-steps-v1`). Students do not need to finish the game or every challenge. Different challenges are different targets; their scores must not be pooled simply because they are normalized.
 
+In version 1.3, command missions open with **Start practice** in a separate prepared farm. Complete the initial missions through First Steps in Farming, then collect the normal gameplay window on the main farm. Later loop/condition lessons are optional practice. Time spent in these lessons does not fill the gameplay window. Mission practice is distinct from a scored Challenge. Challenges now use Recommended only; the Freestyle notes below apply to older exports.
+
 Restart the development server after the final commit so exported build metadata reflects the code being used. Do one practice collection yourself, verify its downloaded JSON, then clear stored data and reload before the first real participant. Do not mix that practice file into the student folder.
 
 ## Per student on a shared computer
