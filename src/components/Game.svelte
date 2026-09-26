@@ -48,6 +48,8 @@
   import { eventScheduler } from "../game/ml/event-scheduler.js";
   import { mlAgent } from "../game/ml/agent.js";
   import { dataLogger } from "../game/ml/data-logger.js";
+  import FinishDataPrompt from "./FinishDataPrompt.svelte";
+  import { downloadReadiness } from "../game/ml/download-readiness.js";
   import { dda } from "../game/ml/dda.js";
   import { stopCodeRuns } from "../game/global/code-runner.js";
   import { configureFarmEvents } from "../game/event.js";
@@ -204,6 +206,13 @@
   }
   let showDDADashboard = $state(false);
   let showConfirmReturn = $state(false);
+  let showFinishData = $state(false);
+  function checkDownload() {
+    const session = dataLogger.buildSessionExport();
+    const dataset = dataLogger.buildDatasetExport();
+    if (!dataset.data_quality.stored_sessions_fully_readable) return {ready:false,message:"Saved data could not be read. Keep this page open and tell your researcher so they can recover it."};
+    return downloadReadiness(session, { cleared:dataLogger.clearedSessionIds.has(session.session_id), sessions:dataset.sessions });
+  }
   let activeHint = $state("");
   let storageWarning = $state("");
 
@@ -303,7 +312,7 @@
   });
 
   $effect(() => {
-    ONBOARDING.isModalOpen = !!challenge || showOnboarding || showIntroduction || !!docPreview || QUEST_FEEDBACK.hazardsPending || !!QUEST_FEEDBACK.queue[0]?.milestone;
+    ONBOARDING.isModalOpen = showFinishData || !!challenge || showOnboarding || showIntroduction || !!docPreview || QUEST_FEEDBACK.hazardsPending || !!QUEST_FEEDBACK.queue[0]?.milestone;
   });
 
   function toggleEditor() {
@@ -328,7 +337,7 @@
 </script>
 
 <svelte:window onkeydown={e=>{if(e.key==="Escape"&&!docPreview&&docOpen){e.preventDefault();closeDocumentation();}}}/>
-<div inert={!!challenge} class:challenge-hidden={!!challenge} class:cutscene={showIntroduction||!!docPreview} class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
+<div inert={!!challenge||showFinishData} class:challenge-hidden={!!challenge} class:cutscene={showIntroduction||!!docPreview} class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
   {#if storageWarning}
     <div role="alert" class="fixed top-4 left-1/2 -translate-x-1/2 max-w-sm rounded-lg border-2 border-red-400 bg-white p-3 text-sm text-red-900 shadow-lg">{storageWarning}</div>
   {/if}
@@ -584,6 +593,7 @@
               </div>
             </button>
           {/if}
+          <button class="finish-data" onclick={() => showFinishData=true}>Finish &amp; Download Data</button>
         </div>
       </div>
       <div class="flex gap-4 items-start" class:practice-layout={TUTORIAL.active}>
@@ -682,6 +692,9 @@
 </div>
 
 <!-- Return to Start Menu Confirmation Modal -->
+{#if showFinishData}
+  <FinishDataPrompt check={checkDownload} download={() => dataLogger.exportAllSessionsJSON()} onClose={() => showFinishData=false}/>
+{/if}
 {#if showConfirmReturn}
   <div
     class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 select-none"
@@ -735,6 +748,7 @@
 {/if}
 
 <style>
+  .finish-data{font:inherit;font-weight:700;font-size:14px;line-height:1.2;max-width:150px;min-height:48px;padding:8px 12px;background:#bbf7d0;color:#14532d;border:2px solid #64748b;border-bottom-width:4px;border-radius:8px;cursor:pointer;transition:transform 150ms}.finish-data:hover{transform:translateY(-2px)}.finish-data:focus-visible{outline:3px solid #15803d;outline-offset:3px}
   .challenge-invite button:disabled{background:#e5e7eb;cursor:default}
   .challenge-hidden{visibility:hidden}.challenge-invite{position:relative;margin-top:12px;padding:12px;background:#f0fdf4;border:3px solid #64748b;border-radius:10px;color:#334155;box-shadow:0 6px 16px #0003;font-size:15px}.challenge-invite button{background:#bbf7d0;padding:8px 10px;border:2px solid #94a3b8;margin:10px 6px 0 0;cursor:pointer}.challenge-invite strong{font-size:17px}.challenge-teacher{display:flex;align-items:center;gap:10px;margin-bottom:10px}.challenge-teacher img{width:44px;image-rendering:pixelated;animation:challenge-nod .7s ease-in-out 2}@keyframes challenge-nod{50%{transform:translateY(-6px) rotate(-5deg)}}@media(prefers-reduced-motion:reduce){.challenge-teacher img{animation:none}}
   button {
