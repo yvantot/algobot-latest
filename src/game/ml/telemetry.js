@@ -30,6 +30,7 @@ export class TelemetryTracker {
     this.sessionStartTime = Date.now();
     this.participantId = "anonymous";
     this.participantIdSource = "unspecified";
+    this.studyProtocol = null;
 
     // Overall Metrics
     this.totalInterpreterSteps = 0;

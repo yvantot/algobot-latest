@@ -1,41 +1,64 @@
-# Next collection checklist
+# Round 2 collection checklist (version 1.3.9)
 
-Use **Your first harvest** (`first-harvest-v1`) as the shared primary task, matching the task used in the earlier five-sample pilot. Analyze this round separately because its feature schema has changed. Students may do other challenges too; keep their scores as separate targets. Nobody needs to finish the whole game.
+This is the **only** document to follow on collection day. Where another document disagrees, this one wins. Background and training steps are in [MODEL_WORKFLOW.md](MODEL_WORKFLOW.md).
 
-The current collection build is **1.3.8**. Tutorials and missions use the main farm; scored challenges use an isolated farm. Collection uses the new speed-aware `active-14f-v2` schema. The active LSTM is still the provisional 12-feature model introduced in 1.3.3; it uses rules when its original 100%-speed inputs are unavailable. It has not demonstrated reliable proficiency prediction. Its identity is recorded in exports.
+## Study decisions (agreed with adviser, 26 September 2026)
 
-After completing the tutorial, players can click **Finish & Download Data** beside Start Menu. The button stays hidden during the tutorial. The prompt requires a usable first scored attempt at **Your first harvest** specifically; other challenges do not replace it. Eligible records include a valid zero score or a saved score from before a reload. It uses the training validator, explains not-ready states, and never clears data or sends it automatically. Students must send the saved JSON to the researcher. The researcher can still export unfinished or excluded sessions from Dev Console; those records remain useful for participation reporting even without a training label. The button does not automatically end the session or return to the menu.
+| Decision | What it means on the day |
+| --- | --- |
+| Two tasks in a fixed order | Every student does **Your first harvest** (`first-harvest-v1`), then about two minutes of farming, then **Two careful steps** (`careful-steps-v1`). Each task is a separate training target; never pool their scores. |
+| Speed fixed at 100% | Study sessions lock the game at 100%. Pause still works. |
+| Difficulty fixed at Normal | The adaptive difficulty system does not change crop timing, pests, fire or hints during study sessions. The model's proposed action is still logged for later analysis. Scheduled hazard events are off. |
+| Sample size | Aim for **at least 30 usable first scores per task**. This is a planning target, not a power calculation. The frozen holdout split sets aside about 20% of participants as the untouched test group. |
+| New round, new data | Round 2 cannot be combined with the September 26 pilot: the feature schema and collection conditions differ. The training pipeline refuses to mix them. |
+| Known input limitation | The ~100-second gameplay window carries little skill signal (loops, conditions and stopped runs are usually zero). Accepted for this round and reported as a limitation. Raw events are kept so a second feature version can be defined later (see MODEL_WORKFLOW.md). |
+
+## How the game enforces this
+
+Study conditions switch on automatically when the game is opened with a researcher-assigned code (`?study_participant=CODE`). Without a code the game behaves normally and the session is **not** usable for this round. In study mode:
+
+- Speed buttons other than pause/play are disabled.
+- Difficulty stays at Normal; no scheduled hazards.
+- Challenges must be opened in order: Your first harvest, then Two careful steps. Other challenges unlock only after both have been opened.
+- Two careful steps needs 20 fresh gameplay intervals **after** Your first harvest closes (about two minutes of farming). Earlier gameplay does not count.
+- Exports record `study_protocol: fixed-conditions-v1`. Preparation rejects out-of-order attempts and refuses to mix study and non-study data in one experiment.
 
 ## Before the session
 
-1. Restart the development server after the final commit, or serve a fresh production build. Do not edit game files while students play. Version, Git commit, dirty status and a SHA-256 fingerprint of source/assets are captured at server/build startup. The fingerprint identifies content; it cannot reconstruct missing files. Keep the exact build.
-2. Use one fixed build and the same assistance rules for everyone. Students may use the regular speed controls (30%, 70%, 100%, 200%, 400%). Record that collection rules and early missions changed since the earlier pilot. Keep round folders separate; the old twelve-feature and new fourteen-feature datasets are separate experiments.
-3. Confirm Download Dataset JSON works on each collection computer. Keep a backup location available.
-4. Run a disposable staff practice session, then export it separately. Clear Stored Data and reload before the first student. Never mix staff fixtures or developer-test sessions into the student dataset.
+1. **Commit everything**, then restart the server (`npm run dev`) or serve a fresh `npm run build`. Do not edit files while students play.
+2. Open Dev Console → **Check Collection**. It must show **Build 1.3.9, committed**. If it says *uncommitted changes*, commit or stash, restart the server and reload. Every pilot session was recorded as uncommitted, so its exact code cannot be recovered.
+3. Create a new folder for this round, e.g. `training/data/round2-2026-09/`. Do not put round 2 files in `training/data/raw` (that folder holds the pilot).
+4. Confirm **Download Dataset JSON** works on each computer and a backup location is ready.
+5. Run one disposable staff practice session with a code like `STAFF-TEST`, export it to a separate folder, then Clear Stored Data and reload. Never mix staff sessions into the student folder.
 
-## Per student on a shared computer
+## Per student
 
-1. Confirm the previous student's JSON was downloaded and backed up. Only then use **Clear Stored Data** and reload.
-2. Confirm a fresh participant code in Dev Console. Keep that code with their pre/post test record. A returning student must retain their original research identity and prior-exposure history; clearing storage does not make them a new participant.
-3. Let the student finish the tutorial through First Steps in Farming normally. Do not use tutorial-skip, resource grants, developer speed controls or forced events: developer gameplay actions exclude the session from training. Normal player speed controls are allowed. Opening Dev Console, Check Collection and exporting are read-only research actions.
-4. Allow roughly **two minutes of active gameplay after the tutorial**, at any player speed. Tutorial and demonstration time do not fill this window. Short prompts, pauses and tab switches preserve valid observations from the previous 15 minutes; intervals crossing interruptions are discarded. Use **Check Collection** and look for “Gameplay window ready for a first challenge attempt.” Once unlocked, the Challenges button stays visible. Very long breaks can require more gameplay.
-5. Ask the student to attempt **Your first harvest**. Stop & Edit is allowed within the same attempt. The first fully evaluated submission is the score, including failure or zero; later scored retries are practice. Leaving before any evaluated submission gives no label. Do not replace a low score with a better retry or call unfinished work zero.
-6. After returning to the farm, use **Check Collection**. Your first harvest should show a **usable training label**. If it does not, export anyway and keep the stated reason.
-7. Download the single **Dataset JSON**, confirm the file exists, and back it up before clearing. Export unfinished sessions too. Browser storage has limited capacity and is not a server backup.
+1. Confirm the previous student's JSON is downloaded **and** backed up. Only then use **Clear Stored Data**.
+2. Open `http://127.0.0.1:5173/?study_participant=R2-P001` (next code: `R2-P002`, and so on). The `R2-` prefix keeps round 2 codes distinct from any earlier codes. Keep the name-to-code list separately, and reuse the same code for that person's pre/post tests.
+3. Choose Start Game for a fresh farm. In Dev Console → Check Collection, confirm the participant code and **Study conditions: fixed-conditions-v1**. If it says *No study conditions*, reload with the code before the student plays.
+4. The student finishes the tutorial normally. No tutorial skip, resource grants, developer speed controls or forced events: developer actions exclude the session.
+5. About **two minutes of farming**. Check Collection shows "Gameplay window ready" when ready.
+6. Student opens **Challenges → Your first harvest**. Stop & Edit is allowed. The first fully evaluated run is the score, including a failure or zero. Later retries are practice.
+7. Back on the farm: about **two more minutes of farming**. The game waits for fresh gameplay before the second task opens.
+8. Student opens **Challenges → Two careful steps**, same rules.
+9. Check Collection: both tasks should show **usable training label**. If not, export anyway and note the reason shown.
+10. **You** download the Dataset JSON from Dev Console, confirm the file exists in the round folder, and back it up. The student's **Finish & Download Data** button is a convenience only; do not rely on students sending files. Export unfinished sessions too.
 
-Ten minutes may not be enough for every student to reach a scored challenge. Record participation and unfinished sessions honestly; do not count them as failures or generate replacement scores.
+Students do not need to finish the game or any other challenge. If a student leaves before scoring, record the reason; never enter a zero or substitute a retry.
 
 ## Audit each batch
 
-Keep original JSON files unchanged. Use a separate folder for this collection round. The importer also supports all-round folders, but review build/model cohorts before combining them.
-
 ```powershell
-npm run audit:collection -- training/data/raw
-node scripts/prepare-challenges.js training/data/raw training/prepared/next-round-first-harvest.json first-harvest-v1
+npm run audit:collection -- training/data/round2-2026-09
+node scripts/prepare-challenges.js training/data/round2-2026-09 training/prepared/round2-first-harvest.json first-harvest-v1
+node scripts/prepare-challenges.js training/data/round2-2026-09 training/prepared/round2-careful-steps.json careful-steps-v1
 ```
 
-The output path must be new. Inspect usable participant counts, exclusions, score distribution, build fingerprints and model cohorts after the practice run and the first few students. A usable label passes technical validation; it does not validate the task as a general skill assessment.
+Output paths must be new. In the audit, check:
 
-Use [MODEL_WORKFLOW.md](MODEL_WORKFLOW.md) for participant-separated training and evaluation. More data does not guarantee the LSTM beats the baseline. Keep future evaluation participants untouched during model selection, and keep paired pre/post learning outcomes separate.
+- `collection_protocols` shows only `fixed-conditions-v1`. Sessions under `none` were not started with a code.
+- `build_provenance` shows `dirty_sessions: 0` and version `1.3.9`.
+- Per-session issues `no_assigned_participant_code`, `no_fixed_study_protocol` or `uncommitted_build_changes` mean the session was not collected under the agreed conditions.
+- The score distribution. **After the first 5–8 students, if nearly all Your first harvest scores are 3/3, pause and review the task choice with your adviser** before collecting more.
 
-See [the 1.3.8 readiness review](COLLECTION_READINESS_1.3.8.md) for checks and remaining limits.
+Then follow [MODEL_WORKFLOW.md](MODEL_WORKFLOW.md) for the frozen split, training and one-time evaluation. Keep paired pre/post learning outcomes separate.

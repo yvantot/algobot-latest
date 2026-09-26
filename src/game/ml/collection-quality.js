@@ -12,6 +12,10 @@ export function inspectCollection(session) {
   if (!Array.isArray(session.raw_events) || !session.raw_events.length) issues.push("no_raw_events");
   if (snapshots.length < 21) issues.push("fewer_than_21_snapshots");
   if (session.source_type === "developer_test") issues.push("developer_test_excluded_from_training");
+  // Collection-day checks for the fixed-condition study protocol.
+  if (session.collection && session.collection.participant_id_source !== "researcher_assigned_code") issues.push("no_assigned_participant_code");
+  if (session.collection && !session.collection.study_protocol) issues.push("no_fixed_study_protocol");
+  if (session.build?.dirty === true) issues.push("uncommitted_build_changes");
   let previous = -Infinity, gaps = 0, invalid = 0;
   for (const snapshot of snapshots) {
     if (!Number.isFinite(snapshot.timestamp_ms) || snapshot.timestamp_ms <= previous ||

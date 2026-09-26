@@ -1,6 +1,9 @@
 import { FEATURE_NAMES } from "./model-input.js";
 import { RESEARCH_SCHEMA, COLLECTION_SCHEMA, researchFeatureNames, recentSequence, activeGameplayWindow } from "./research-features.js";
 import { ALL_CHALLENGES as CHALLENGES, challengeRules, challengeMaxScore } from "../challenges/catalog.js";
+import { studyWindowStart } from "./study-protocol.js";
+
+export const collectionProtocolId = session => session?.collection?.study_protocol?.id ?? "none";
 
 export function assessmentSamples(sessions, assessments, { schema = "10f" } = {}) {
   if (schema !== "10f" && !researchFeatureNames(schema)) throw Error("Unsupported feature schema");
@@ -23,7 +26,9 @@ export function assessmentSamples(sessions, assessments, { schema = "10f" } = {}
     if (!Number.isFinite(cutoff) || !Number.isFinite(end) || end < cutoff) { reject("invalid_assessment_times"); continue; }
     if (session.source_type !== "recorded" || !session.collection?.independent_of_inference ||
         JSON.stringify(session.feature_names) !== JSON.stringify(FEATURE_NAMES)) { reject("requires_current_recorded_collection"); continue; }
-    const snapshots = (session.feature_timeseries ?? []).filter(s => s.timestamp_ms < cutoff);
+    // Under the study protocol, a later task's window must begin after the previous challenge ended.
+    const windowStart = studyWindowStart(session.collection?.study_protocol, session.challenge_attempts ?? [], cutoff);
+    const snapshots = (session.feature_timeseries ?? []).filter(s => s.timestamp_ms < cutoff && s.timestamp_ms >= windowStart);
     const window = snapshots.slice(-20);
     let x, inputStart, inputEnd;
     if (schema === COLLECTION_SCHEMA) {
@@ -49,6 +54,7 @@ export function assessmentSamples(sessions, assessments, { schema = "10f" } = {}
     samples.push({ source_type: "recorded", label_source: "independent_scored_task",
       student_id: a.student_id, session_id: a.session_id, assessment_id: a.assessment_id,
       task_id: a.task_id, rubric_version: a.rubric_version, assessor_id: a.assessor_id,
+      collection_protocol: collectionProtocolId(session),
       ...(session.build ? { collection_build: structuredClone(session.build) } : {}),
       ...(session.agent_state ? { collection_model: {
         id: session.agent_state.modelId ?? "legacy-or-unidentified",
@@ -80,6 +86,11 @@ export function challengeSamples(sessions, taskId = "ready-row-v3", { schema = s
     seen.add(key);
     if (attempt.play_mode === "freestyle") { reject("freestyle_practice_only"); continue; }
     if (!attempt.first_exposure) { reject("previously_exposed_to_task"); continue; }
+    const protocol = sessions.find(s => s.session_id === attempt.session_id)?.collection?.study_protocol;
+    const order = protocol?.task_order ?? [];
+    const previousTask = order[order.indexOf(taskId) - 1];
+    if (previousTask && !attempts.some(other => other.student_id === attempt.student_id && other.task_id === previousTask &&
+        Date.parse(other.started_at) < Date.parse(attempt.started_at))) { reject("study_task_order_not_followed"); continue; }
     if (attempt.status !== "scored") { reject("unfinished_challenge_not_a_zero_score"); continue; }
     const firstIndex=attempt.assessor_id === "algobot-live-cases-5.0"
       ? attempt.submissions?.findIndex(s=>s.status !== "stopped") : 0;

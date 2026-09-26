@@ -1,5 +1,6 @@
 import { challengeSamples } from "./challenge-quality.js";
 import { RESEARCH_SCHEMA, COLLECTION_SCHEMA } from "./research-features.js";
+import { studyTaskTitle } from "./study-protocol.js";
 
 export function downloadReadiness(session, { cleared = false, sessions = [session] } = {}) {
   if (cleared) return { ready:false, message:"Data was cleared. Reload the game before starting a new session." };
@@ -7,7 +8,12 @@ export function downloadReadiness(session, { cleared = false, sessions = [sessio
   const participantSessions = sessions.filter(s => s.student_id === session.student_id);
   const count = [RESEARCH_SCHEMA, COLLECTION_SCHEMA].reduce((sum, schema) =>
     sum + challengeSamples(participantSessions, "first-harvest-v1", {schema}).samples.length, 0);
-  if (count) return { ready:true, message:"Your gameplay and challenge score are ready to download. Send the downloaded file to your researcher." };
+  if (count) {
+    const protocol = session.collection?.study_protocol;
+    const next = protocol?.task_order.find(id => !participantSessions.some(s => (s.challenge_attempts ?? []).some(a => a.task_id === id)));
+    if (next) return { ready:true, next_task:next, message:`Your first harvest is saved. Next, keep farming for about two minutes at 100% speed, then try "${studyTaskTitle(next)}" in Challenges. You can download now, but your researcher will download again after that challenge.` };
+    return { ready:true, message:"Your gameplay and challenge score are ready to download. Send the downloaded file to your researcher." };
+  }
   const attempts = participantSessions.flatMap(s => s.challenge_attempts ?? []).filter(a => a.task_id === "first-harvest-v1");
   if (!attempts.length) return { ready:false, reason:"first_challenge_not_started", message:'Complete "Your first harvest" in Challenges before downloading. Run your program and wait for its score. A low score is okay! If Challenges is not available yet, keep playing until it unlocks.' };
   if (attempts.some(a => a.status === "in_progress")) return { ready:false, message:'"Your first harvest" has not been scored yet. Run your program and wait for its result, then try again.' };

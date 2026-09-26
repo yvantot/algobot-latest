@@ -42,6 +42,8 @@ export class MLDiffAgent {
     this.replayBuffer = [];
     this.replayBufferMax = 500;
     this._sessionGeneration = 0;
+    // Study sessions hold difficulty constant; proposed actions are still logged.
+    this.fixedAction = null;
     this.resetSession();
   }
 
@@ -60,6 +62,12 @@ export class MLDiffAgent {
     this.observationReason = null;
     this.lastAction = DDA_ACTIONS.NORMAL;
     dda.applyAction(DDA_ACTIONS.NORMAL);
+  }
+
+  setFixedDifficulty(action = null) {
+    if (action !== null && !Object.values(DDA_ACTIONS).includes(action)) throw Error("Unknown fixed difficulty action");
+    this.fixedAction = action;
+    if (action !== null) { this.lastAction = action; dda.applyAction(action); }
   }
 
   async init() {
@@ -198,10 +206,13 @@ export class MLDiffAgent {
     return this.difficultyPolicy.decide(this.recentPerformance, stage, proficiency, now);
   }
 
-  _applyDecision(state, action, stage) {
+  _applyDecision(state, proposed, stage) {
+    const fixed = this.fixedAction !== null;
+    const action = fixed ? this.fixedAction : proposed;
     this.lastAction = action;
     dda.applyAction(action, stage);
     telemetry.recordDDAAction(action, stage, {
+      ...(fixed ? { fixedDifficulty: true, proposedAction: proposed } : {}),
       mode: this.mode,
       policySource: "rules",
       proficiencySource: this.predictionAvailable ? "lstm" : "unknown",
@@ -305,6 +316,7 @@ export class MLDiffAgent {
       pretrainedLSTM: this.pretrainedLSTM,
       scalerLoaded: Boolean(this.scaler),
       policySource: "rules",
+      fixedDifficulty: this.fixedAction !== null,
       proficiencySource: this.predictionAvailable ? "lstm" : "unknown",
       observationReason: this.observationReason,
       predictionTarget: researchFeatureNames(this.scaler?.feature_schema) ? "independent_scored_task" : "legacy_gameplay_proxy",

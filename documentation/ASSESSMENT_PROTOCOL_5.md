@@ -2,6 +2,8 @@
 
 New attempts record `assessor_id: algobot-live-cases-5.0`. The task IDs and rubric points remain unchanged; the administration protocol changed. Training already rejects mixed assessor protocols, so earlier data cannot silently acquire this interpretation.
 
+> Superseded detail: the normal-speed window requirement below was replaced in 1.3.8 by twenty observed intervals at any regular speed, and round 2 study sessions (1.3.9) fix speed at 100% and require fresh gameplay between the two study tasks. See [COLLECTION_DAY_CHECKLIST.md](COLLECTION_DAY_CHECKLIST.md). The scoring rules in this document are unchanged and still apply.
+
 Before entry, Challenge navigation and invitations require tutorial completion and a fresh 21-snapshot normal-gameplay window. An entry check repeats immediately before exposure is recorded. Snapshot times must precede the opening timestamp. Long pauses, speed changes, guided practice and missing observations prevent entry until the window is usable again. An already open challenge is not closed when gameplay sampling stops.
 
 Within one open attempt, Stop & Edit records the source, editor mode and timestamp without assigning a score or abandoning the attempt. The first run evaluated across all task cases fixes the target, including errors, failed rules or a zero. Subsequent scored retries cannot replace it, although a later pass can still earn the game reward. Closing without an evaluated run leaves a null score. Reopening is a repeat exposure, not a new first attempt.

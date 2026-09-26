@@ -1,5 +1,18 @@
 # Game versions
 
+## 1.3.9 round 2 study conditions
+
+Adviser-approved fixed conditions for the round 2 collection. They apply only when the game is opened with a researcher-assigned code (`?study_participant=CODE`); ordinary play is unchanged.
+
+- Speed is fixed at 100% (pause still works).
+- Difficulty is fixed at Normal. The rule policy and provisional LSTM still run and their proposed action is logged (`proposedAction`, `fixedDifficulty`), but it is not applied. Difficulty-scheduled hazard events are off.
+- Challenge order is fixed: Your first harvest, then Two careful steps; other challenges unlock after both are opened. The second task needs 20 gameplay intervals recorded after the first challenge ended.
+- Exports record `collection.study_protocol` (`fixed-conditions-v1`). Prepared samples carry `collection_protocol`; preparation rejects out-of-order study attempts and training refuses to mix collection protocols.
+- The audit and Dev Console Check Collection report the study protocol, assigned-code status and uncommitted build changes.
+- The Finish prompt points students to the second task after the first is scored.
+
+Scoring rules, feature schema (`active-14f-v2`) and the installed model are unchanged. Round 2 data is a new cohort and cannot be pooled with the September 26 pilot.
+
 ## 1.3.8 collection readiness
 
 Challenges accept normal player speed controls. Twenty observed gameplay intervals within the last fifteen minutes unlock first attempts; short prompts and tab switches no longer erase earlier progress. Segment boundaries exclude pauses, speed changes, demos and challenges from counter differences. Export messages explain the remaining collection wait.

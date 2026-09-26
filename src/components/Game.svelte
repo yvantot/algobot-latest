@@ -50,7 +50,8 @@
   import { dataLogger } from "../game/ml/data-logger.js";
   import FinishDataPrompt from "./FinishDataPrompt.svelte";
   import { downloadReadiness } from "../game/ml/download-readiness.js";
-  import { dda } from "../game/ml/dda.js";
+  import { dda, DDA_ACTIONS } from "../game/ml/dda.js";
+  import { studyProtocolFor, studySpeedAllowed, studyTaskGate } from "../game/ml/study-protocol.js";
   import { stopCodeRuns } from "../game/global/code-runner.js";
   import { configureFarmEvents } from "../game/event.js";
   import { farm_grid_index } from "../game/game.js";
@@ -118,6 +119,9 @@
   let visitedMenus = $state([Menus.COMMAND]);
   let exposedTasks = $state([]);
   let challenge = $state(null), challengeNotice = $state("");
+  // Fixed collection conditions apply only to researcher-assigned participant codes.
+  let studyProtocol = $state.raw(null);
+  const studyGate = task => studyTaskGate(studyProtocol, task.id, exposedTasks);
   let challengeAvailability = $state({ unlocked: false, ready: false });
   let challengeVisible = $derived(challengeAvailability.unlocked && !challenge && !TUTORIAL.active && !!QUEST_STATE.tut_2?.is_claimed);
   let challengeReady = $derived(challengeVisible && challengeAvailability.ready);
@@ -129,6 +133,8 @@
   }
   function enterChallenge(task, playMode = "recommended") {
     if (TUTORIAL.active || !QUEST_STATE[task.prerequisite]?.is_claimed) return;
+    const gate = studyGate(task);
+    if (!gate.allowed) { challengeNotice = gate.reason; return; }
     let exposed;
     try { exposed = hasExposure(localStorage, telemetry.participantId, task.id); }
     catch (error) { challengeNotice=error.message; return; }
@@ -175,7 +181,7 @@
     const timer = setInterval(() => {
       challengeAvailability=challengeAccess(telemetry, challengeAvailability.unlocked, !TUTORIAL.active && !!QUEST_STATE.tut_2?.is_claimed);
       if (challengeAvailability.ready) challengeNotice="";
-      const available = [...CHALLENGES].sort((a,b)=>a.coins-b.coins).find(task => QUEST_STATE[task.prerequisite]?.is_claimed && !invitedChallenges.has(task.id));
+      const available = [...CHALLENGES].sort((a,b)=>a.coins-b.coins).find(task => QUEST_STATE[task.prerequisite]?.is_claimed && !invitedChallenges.has(task.id) && studyGate(task).allowed);
       if (available && challengeReady && !challengeInvite && !ONBOARDING.isModalOpen) { invitedChallenges.add(available.id); challengeInvite = available; }
     }, 1000);
     return () => clearInterval(timer);
@@ -258,6 +264,11 @@
     mlAgent.resetSession();
     telemetry.setParticipantId(participantId);
     telemetry.participantIdSource = participantSource;
+    const protocol = studyProtocolFor(participantSource);
+    studyProtocol = protocol;
+    telemetry.studyProtocol = protocol;
+    mlAgent.setFixedDifficulty(studyProtocol ? DDA_ACTIONS.NORMAL : null);
+    if (studyProtocol && !studySpeedAllowed(studyProtocol, game_speed)) game_speed = studyProtocol.game_speed;
     try { exposedTasks = CHALLENGES.filter(task=>hasExposure(localStorage,participantId,task.id)).map(task=>task.id); } catch { exposedTasks=[]; }
     const collectionContext = () => ({
       phase: challenge ? "challenge" : showIntroduction || !!docPreview ? "demonstration"
@@ -288,7 +299,8 @@
     // Returning the cleanup synchronously is required by Svelte onMount.
     mlAgent.init().then(() => {
       if (disposed) return;
-      eventScheduler.start({ shouldRun: () => shouldRun() && !TUTORIAL.active });
+      // Study sessions have no difficulty-scheduled hazards; ordinary farm weather is unchanged.
+      eventScheduler.start({ shouldRun: () => shouldRun() && !TUTORIAL.active && !studyProtocol });
       predictionTimer = setInterval(() => {
         if (shouldRun() && !TUTORIAL.active) {
           mlAgent.updateAndPredict(telemetry.currentStage).then(() => {
@@ -315,6 +327,9 @@
       saveSession();
       ONBOARDING.isModalOpen = false;
     };
+  });
+  $effect(() => {
+    if (!studySpeedAllowed(studyProtocol, game_speed)) game_speed = studyProtocol.game_speed;
   });
   $effect(() => {
     k.debug.timeScale = game_speed;
@@ -420,14 +435,14 @@
       <div
         class="flex rounded-lg backdrop-brightness-70 justify-center w-fit p-1"
       >
-        <button onclick={() => (game_speed = 0.3)}>
+        <button onclick={() => (game_speed = 0.3)} disabled={!studySpeedAllowed(studyProtocol, 0.3)} title={studySpeedAllowed(studyProtocol, 0.3) ? undefined : "Speed is fixed at 100% during study sessions"} class="disabled:opacity-40 disabled:cursor-not-allowed">
           <img
             class="hover:scale-110 transition-transform w-12 h-12"
             src="/sprites/icon_backwarder.png"
             alt="backward"
           />
         </button>
-        <button onclick={() => (game_speed = 0.7)}>
+        <button onclick={() => (game_speed = 0.7)} disabled={!studySpeedAllowed(studyProtocol, 0.7)} title={studySpeedAllowed(studyProtocol, 0.7) ? undefined : "Speed is fixed at 100% during study sessions"} class="disabled:opacity-40 disabled:cursor-not-allowed">
           <img
             class="hover:scale-110 transition-transform w-12 h-12"
             src="/sprites/icon_backward.png"
@@ -445,14 +460,14 @@
             alt="backward"
           />
         </button>
-        <button onclick={() => (game_speed = 2)}>
+        <button onclick={() => (game_speed = 2)} disabled={!studySpeedAllowed(studyProtocol, 2)} title={studySpeedAllowed(studyProtocol, 2) ? undefined : "Speed is fixed at 100% during study sessions"} class="disabled:opacity-40 disabled:cursor-not-allowed">
           <img
             class="hover:scale-110 transition-transform w-12 h-12"
             src="/sprites/icon_fastforward.png"
             alt="backward"
           />
         </button>
-        <button onclick={() => (game_speed = 4)}>
+        <button onclick={() => (game_speed = 4)} disabled={!studySpeedAllowed(studyProtocol, 4)} title={studySpeedAllowed(studyProtocol, 4) ? undefined : "Speed is fixed at 100% during study sessions"} class="disabled:opacity-40 disabled:cursor-not-allowed">
           <img
             class="hover:scale-110 transition-transform w-12 h-12"
             src="/sprites/icon_fastforwarder.png"
@@ -689,7 +704,7 @@
         <Quest/>
       </div>
     {:else if current_menu === Menus.CHALLENGES && challengeVisible}
-      <div in:panelIn out:panelOut><Challenges practiceTasks={exposedTasks} completed={rewardedChallenges} onChallenge={enterChallenge} {challengeReady} {challengeNotice} onClose={()=>toggleMenu(Menus.NONE)}/></div>
+      <div in:panelIn out:panelOut><Challenges {studyGate} practiceTasks={exposedTasks} completed={rewardedChallenges} onChallenge={enterChallenge} {challengeReady} {challengeNotice} onClose={()=>toggleMenu(Menus.NONE)}/></div>
     {:else if current_menu === Menus.SHOP}
       <div in:panelIn out:panelOut>
         <Shop />

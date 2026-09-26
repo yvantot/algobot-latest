@@ -1,4 +1,4 @@
-import { challengeSamples } from "../src/game/ml/challenge-quality.js";
+import { challengeSamples, collectionProtocolId } from "../src/game/ml/challenge-quality.js";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -102,6 +102,12 @@ export function auditCollection(sessions) {
       commits: [...new Set(sessions.map(session=>session.build?.commit).filter(Boolean))],
       note: "Dirty or incomplete build metadata limits reproducibility; do not rewrite recorded provenance to match the current build.",
     },
+    collection_protocols: [...new Set(sessions.map(collectionProtocolId))].map(id => ({
+      protocol_id: id, sessions: sessions.filter(s => collectionProtocolId(s) === id).length,
+      participants: new Set(sessions.filter(s => collectionProtocolId(s) === id).map(s => s.student_id)).size,
+      note: id === "none" ? "No fixed study conditions: player speed and adaptive difficulty were free. Not poolable with fixed-condition sessions."
+        : "Fixed study conditions recorded in the export.",
+    })),
     model_cohorts: [...new Set(sessions.map(s => s.agent_state?.modelId ?? "legacy-or-unidentified"))].map(id => ({
       model_id: id, sessions: sessions.filter(s => (s.agent_state?.modelId ?? "legacy-or-unidentified") === id).length,
       note: "A model change alters collection conditions. Review cohorts before pooling; this field is not a training feature.",

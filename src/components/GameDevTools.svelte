@@ -64,7 +64,9 @@
     });
     collectionCheck={participant:session.student_id,source:session.source_type,cleared,
       ready:!cleared && session.source_type==='recorded' && canStartChallenge(telemetry),
-      tasks,storageError:dataLogger.lastPersistenceError};
+      tasks,storageError:dataLogger.lastPersistenceError,
+      protocol:session.collection?.study_protocol?.id ?? null,
+      build:{version:session.build?.version ?? "unknown",dirty:session.build?.dirty}};
     return `${session.student_id}: ${tasks.reduce((n,t)=>n+t.usable,0)} usable challenge labels in this session.`;
   }
 
@@ -1565,9 +1567,12 @@
         {#if collectionCheck}
           <div class="p-2 my-2 border border-gray-600 rounded text-sm text-gray-100" aria-live="polite">
             <p class="font-bold">Participant: {collectionCheck.participant}</p>
+            {#if collectionCheck.protocol}<p class="text-green-300">Study conditions: {collectionCheck.protocol} (100% speed, fixed Normal difficulty, fixed task order).</p>
+            {:else}<p class="text-red-300">No study conditions. Reload with ?study_participant=CODE before this student plays.</p>{/if}
+            <p class={collectionCheck.build.dirty===false ? "text-gray-300" : "text-red-300"}>Build {collectionCheck.build.version}{collectionCheck.build.dirty===false ? ", committed" : collectionCheck.build.dirty ? ", UNCOMMITTED CHANGES: commit, restart the server, then reload" : ", commit status unknown"}</p>
             {#if collectionCheck.cleared}<p class="text-red-300">Data was cleared. Reload before the next student plays.</p>
             {:else if collectionCheck.source==='developer_test'}<p class="text-red-300">Developer actions were used. This session is excluded from training.</p>
-            {:else}<p>{collectionCheck.ready ? "Gameplay window ready for a first challenge attempt." : "Gameplay window not ready. Keep playing after the tutorial for about two minutes. Any player speed is okay; short breaks preserve earlier observations."}</p>{/if}
+            {:else}<p>{collectionCheck.ready ? "Gameplay window ready for a first challenge attempt." : (collectionCheck.protocol ? "Gameplay window not ready. Keep playing at 100% speed for about two minutes (after the tutorial, or after the previous challenge); short breaks preserve earlier observations." : "Gameplay window not ready. Keep playing after the tutorial for about two minutes. Any player speed is okay; short breaks preserve earlier observations.")}</p>{/if}
             {#if collectionCheck.storageError}<p class="text-red-300">Storage problem: {collectionCheck.storageError}. Download the JSON before leaving.</p>{/if}
             {#each collectionCheck.tasks as task}
               <p class="mt-2 font-bold">{task.title}: {task.usable ? "usable training label" : "no usable training label"}</p>

@@ -1,4 +1,4 @@
-> September 26 update: the next round continues Your first harvest as the primary target. Other challenges remain separate targets. Record the changed model/build conditions before considering pooled analysis.
+> Round 2 (version 1.3.9, adviser-approved 26 September 2026): every student does Your first harvest, then Two careful steps, under fixed study conditions (100% speed, Normal difficulty, fixed task order). Each task is a separate target. Round 2 cannot be pooled with the September 26 pilot. The collection-day procedure is [COLLECTION_DAY_CHECKLIST.md](COLLECTION_DAY_CHECKLIST.md); where this document disagrees, the checklist wins.
 
 # Local model workflow
 
@@ -28,7 +28,7 @@ The CSV is a summary, not the input for training. Keep the JSON.
 
 ## Collect observations and independent scores
 
-Follow [the collection protocol](DATA_COLLECTION_PROTOCOL.md) for participant codes, task administration and the draft rubric. Have the adviser review the task and rubric before the main collection. Use the same build and procedure; mark deviations. Restart the development server after a code change so its build provenance reflects the new version. Version 1.3.8 accepts all regular player speed settings.
+Follow [the collection protocol](DATA_COLLECTION_PROTOCOL.md) for participant codes, task administration and the draft rubric. Have the adviser review the task and rubric before the main collection. Use the same build and procedure; mark deviations. Restart the development server after a code change so its build provenance reflects the new version. Version 1.3.8 accepts all regular player speed settings; round 2 study sessions (1.3.9) fix speed at 100%.
 
 New collection uses **20 observed gameplay intervals** from the preceding 15 minutes, normally about two minutes of play after the tutorial. Menus, pauses, hidden tabs, demonstrations and challenge activity do not supply intervals. Phase and speed changes create segment boundaries; counter differences never bridge those boundaries. Earlier valid intervals survive short interruptions. A long interruption can age observations out of the 15-minute window. Challenge navigation stays visible once unlocked; entry checks readiness before recording exposure. The opening timestamp freezes the input cutoff. Challenge editing, execution and rewards never enter that pre-task input window. Do not invent scores for unfinished work.
 
@@ -40,13 +40,14 @@ The legacy ten-feature vector is still exported for traceability. Both research 
 
 ## Prepare the dataset
 
-Place new downloads in a separate round folder under `training/data/`. No manual score sheet is needed for Challenge Farm. The example below uses `first-harvest-v1`, continuing the current pilot. Retired task data can still be prepared separately. Do not pool different tasks just because their scores are normalized. A score of zero is valid; null means unscored. Pre/post tests are separate from the model-target importer.
+Place new downloads in a separate round folder under `training/data/` (round 2: `training/data/round2-2026-09/`), never in `training/data/raw`, which holds the pilot. No manual score sheet is needed for Challenge Farm. Prepare each task separately. Retired task data can still be prepared separately. Do not pool different tasks just because their scores are normalized. A score of zero is valid; null means unscored. Pre/post tests are separate from the model-target importer.
 
 From the repository root:
 
 ```powershell
-npm run audit:collection -- training/data/raw
-node scripts/prepare-challenges.js training/data/raw training/samples-v1.json first-harvest-v1
+npm run audit:collection -- training/data/round2-2026-09
+node scripts/prepare-challenges.js training/data/round2-2026-09 training/round2-first-harvest.json first-harvest-v1
+node scripts/prepare-challenges.js training/data/round2-2026-09 training/round2-careful-steps.json careful-steps-v1
 ```
 
 Read the exclusion report and participation counts in `samples-v1.json`. The importer retains one first-exposure, first-evaluated-submission score per participant for the chosen task, accepts standard_in_game conditions from the live assessor, excludes reported/unconfirmed assistance, and never substitutes a better retry. Closing before submitting is unfinished, not zero. Browser exposure history prevents a reload from becoming another first exposure; the importer also checks across exported sessions. Keep the same participant code across devices and record any prior exposure that browser storage cannot detect. Preparation does not certify task validity. New output files must not already exist.
@@ -55,11 +56,23 @@ Keep new collection rounds separate from the old 12-feature pilot. Preparation d
 
 The older `prepare-assessments.js` and manual template remain available only for a separately administered, reviewed task protocol. They are not required for the built-in challenges.
 
+### Study conditions (round 2)
+
+Sessions opened with a researcher-assigned code record `collection.study_protocol` (`fixed-conditions-v1`): 100% speed, difficulty fixed at Normal with the model's proposed action logged, no scheduled hazards, and the task order Your first harvest then Two careful steps. Each prepared sample carries `collection_protocol`. The importer excludes a Two careful steps attempt made before Your first harvest (`study_task_order_not_followed`) and builds its input window only from gameplay after the previous challenge ended. `validateDataset` refuses to mix protocols, so round 2 cannot be silently pooled with earlier free-speed, adaptive-difficulty sessions.
+
+Planning target: at least 30 usable first scores per task. This is a rule of thumb agreed with the adviser, not a power calculation.
+
+### Known input limitation and a possible second feature version
+
+The 20 intervals cover roughly 100 seconds of play right after the tutorial or previous challenge. In the pilot, stopped-run, loop and condition rates were always zero and robot count was always one. Round 2 accepts this and reports it as a limitation. Exports keep the full snapshot history and raw events, so a second feature version (for example a longer window or tutorial-performance summaries) can be computed from the same files later. If you do that, define and version the new schema **before** looking at model results, keep `active-14f-v2` results as the primary pre-planned analysis, and report both.
+
 ## Freeze a participant split
 
 ```powershell
-npm run model -- plan training/samples-v1.json training/plan-v1.json
+npm run model -- plan training/round2-first-harvest.json training/plan-round2-first-harvest.json
 ```
+
+Repeat with the Two careful steps file for its own plan. The examples below use `samples-v1.json` and `plan-v1.json` as placeholders for either task.
 
 The seeded split keeps every observation from a participant in one partition. Approximately 60% of participant IDs train, 20% validate and 20% test, with at least two IDs in each. Six IDs are the software minimum, not an adequate sample-size recommendation. Decide recruitment and an evaluation cohort with your adviser before collecting the full study. More windows from the same people do not replace more participants.
 

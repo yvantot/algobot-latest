@@ -1,4 +1,4 @@
-> September 25 update: the earlier primary task was retired from the menu. The examples below use Two careful steps. Pilot and fix the chosen task and build before collection; do not combine its scores with retired-task scores.
+> **Round 2 (version 1.3.9):** follow [COLLECTION_DAY_CHECKLIST.md](COLLECTION_DAY_CHECKLIST.md) on collection day; it supersedes the step-by-step instructions below wherever they differ. Every student does Your first harvest, then Two careful steps, at 100% speed with difficulty fixed at Normal. This document remains the background rationale.
 
 # Gameplay collection for the next LSTM experiment
 
@@ -33,15 +33,15 @@ The live model still uses its original inference history and scaler. Independent
 3. Use the same build, instructions, starting farm and collection duration. Record the Git commit, date and protocol version in a separate collection log. No developer cheats, debug speed changes or manual hazard spawning during research sessions.
 4. Assign a pseudonymous code such as `P001`. Keep any name-to-code list separately. On a shared computer open `http://127.0.0.1:5173/?study_participant=P001` before entering the farm. Use the same code on any other device for that person. After exporting the previous participant, fully reload the page with the new code and choose Start Game to create a fresh farm. Returning to the menu alone resumes the existing in-memory farm. Changing the code without a reload does not change an active session.
 5. Confirm the displayed participant code in the DDA Research Panel. Record its session ID from the JSON export. The code persists locally; explicitly change it before the next person uses that browser. Invalid codes produce a warning and a temporary ID, which must be reconciled before using the data.
-6. Let the student finish guided practice, then play independently using any regular player speed. Do not coach them through the scored task. Record any deviations instead of silently omitting them.
-7. In version 1.3.8, collect 20 observed gameplay intervals within the 15 minutes before task opening (normally about two minutes of active play). Phase and speed boundaries are excluded; short interruptions preserve previous valid intervals. This is a minimum window requirement, not a recommended total learning duration. Set the overall session length with the adviser.
-8. Open **Challenges (beside Quests) > Two careful steps** (`careful-steps-v1`) after the gameplay window. Use this same task and task order for everyone. The game records the opening timestamp, pauses the main farm, and scores the first submitted program automatically. Record any outside help in the collection log. Keep conditions and time allowance consistent. Early entry is allowed by the game and can consume the first exposure without usable input history; do not open the task just to preview it.
-9. Use **Download Dataset JSON** after each player and retain the original download. Check storage warnings. Browser storage is a checkpoint, not a server or guaranteed backup; losing power can lose changes since the last successful 30-second save. Never clear storage before verifying the downloaded file.
+6. Let the student finish guided practice, then play independently. Round 2 study sessions fix speed at 100% (1.3.8 allowed any regular speed). Do not coach them through the scored task. Record any deviations instead of silently omitting them.
+7. Since version 1.3.8, collect 20 observed gameplay intervals within the 15 minutes before task opening (normally about two minutes of active play). Phase and speed boundaries are excluded; short interruptions preserve previous valid intervals. This is a minimum window requirement, not a recommended total learning duration. Set the overall session length with the adviser.
+8. Open **Challenges (beside Quests) > Your first harvest** (`first-harvest-v1`) after the gameplay window, then, after about two more minutes of farming, **Two careful steps** (`careful-steps-v1`). The game enforces this order in study sessions and requires fresh gameplay before the second task. The game records the opening timestamp, pauses the main farm, and scores the first submitted program automatically. Record any outside help in the collection log. Keep conditions and time allowance consistent. Early entry is allowed by the game and can consume the first exposure without usable input history; do not open the task just to preview it.
+9. The researcher uses **Download Dataset JSON** in Dev Console after each player (do not rely on students sending files) and retains the original download in the round folder. Check storage warnings. Browser storage is a checkpoint, not a server or guaranteed backup; losing power can lose changes since the last successful 30-second save. Never clear storage before verifying the downloaded file.
 10. Audit each download before the player leaves. A sampling gap may be a legitimate pause; inspect context. A later retry cannot repair a lost first-exposure assessment. Retain the session and its exclusion reason rather than treating the retry as an unseen task.
 
 ## Built-in Challenge Farm (current collection path)
 
-The board appears in the dedicated Challenges menu beside Quests. A separate Bot Teacher invitation appears below the mission panel after the introductory tutorial missions are claimed. All ten tasks are available then; there is no extra waiting period or later-mission gate. The invitation initially offers a beginner task, not the primary research task. For the collection procedure, explicitly select Two careful steps in the menu.
+The board appears in the dedicated Challenges menu beside Quests. A separate Bot Teacher invitation appears below the mission panel after the introductory tutorial missions are claimed. All ten tasks are available then; there is no extra waiting period or later-mission gate. The invitation initially offers a beginner task. In study sessions, only Your first harvest can be opened first, then Two careful steps; other challenges unlock after both.
 
 - `careful-steps-v1`, rubric `careful-steps-1.0`: visit a two-tile row and harvest only ready wheat, across three fixed layouts.
 - Historical exports only: `changing-row-v3`, rubric `changing-row-3.0`: the same behavior on rows with 3, 5 and 6 tiles. The same program runs on all rows.
@@ -56,7 +56,7 @@ Challenge entry and import use the same twenty-interval validator in version 1.3
 
 Students do **not** have to finish the game or every challenge. A submitted program can supply a score even when some test rows fail. A never-opened or abandoned task has no score; its gameplay is retained but cannot become a supervised example for this target. The dataset preparation report counts participation and exclusions so these students do not silently disappear from reporting.
 
-Mission-gated access may preferentially include faster players in ten-minute sessions. Pilot how many reach and submit the first challenge, including struggling players. Report that selection limitation. Do not claim the model represents all students if many never reach the assessment. If coverage is poor, revise the unlock/protocol with the researcher rather than fabricating labels or assigning non-completers zero. The second challenge is optional enrichment; train/evaluate its score separately.
+Session length may preferentially include faster players in ten-minute sessions. Pilot how many reach and submit the first challenge, including struggling players. Report that selection limitation. Do not claim the model represents all students if many never reach the assessment. If coverage is poor, revise the unlock/protocol with the researcher rather than fabricating labels or assigning non-completers zero. In round 2 the second challenge is part of the fixed procedure; train and evaluate its score separately.
 
 The task score is independently computed from program behavior rather than the gameplay feature formula. It is **not yet a validated measure of general programming skill**. Adviser review and pilot evidence are still needed; this feature does not establish the thesis's pre/post learning-improvement objective.
 
@@ -109,8 +109,8 @@ Method references: [TensorFlow time-series windows](https://www.tensorflow.org/t
 Challenges now have a dedicated menu beside Quests. Ten tasks now include real-time corn growth and multi-bot coordination, alongside a single
 all-ripe row to checks, variable row sizes and returning to the starting tile.
 The return-trip tasks add a fourth point per row. Keep each task separate in
-training; their scores are not interchangeable. `careful-steps-v1` remains the
-example target; the CLI requires an explicit task ID. `first-harvest-v1` is an introductory one-row practice task.
+training; their scores are not interchangeable. `first-harvest-v1` (introductory one-row
+task) is first and `careful-steps-v1` second in round 2; the CLI requires an explicit task ID.
 
 The v3 versions of the earlier tasks separate the changed instructions, higher
 rewards and runner limits from v2 data. Each row stops on an invalid move or
@@ -119,6 +119,7 @@ row, and stops after four repetitions of the same action/position without new
 harvest or exploration progress. This is a safety heuristic, not proof that a
 program is infinite; a finite but highly repetitive program may also hit it.
 Pilot these limits with student programs before freezing the collection protocol.
-A manually stopped first submission remains unscored and later retries are
+Under assessment protocol 5 (all current attempts), a stopped run stays within
+the attempt and the first fully evaluated run is the score; later retries are
 practice. The submitted source and stop event are retained. Never silently
 substitute a successful retry as the original model target.

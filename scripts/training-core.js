@@ -24,6 +24,8 @@ export function validateDataset(data) {
   if (new Set(data.samples.map(s => s.rubric_version)).size !== 1) throw Error("Use one reviewed rubric version per experiment");
   if (new Set(data.samples.map(s => s.task_id)).size !== 1) throw Error("Use one task per experiment; equal rubric names do not make tasks interchangeable");
   if (new Set(data.samples.map(s => s.assessor_id)).size !== 1) throw Error("Use one assessor protocol per experiment");
+  // Fixed-condition study sessions and earlier free-speed/adaptive sessions are different collection conditions.
+  if (new Set(data.samples.map(s => s.collection_protocol ?? "none")).size !== 1) throw Error("Use one collection protocol per experiment; do not pool fixed-condition study sessions with earlier sessions");
   return data;
 }
 
@@ -36,7 +38,7 @@ export function makePlan(data, { seed = 42, epochs = 60, cutoffs = [.3, .6] } = 
   const heldout = Math.max(2, Math.floor(ids.length * .2));
   return { version: 1, dataset_sha256: digest(data), feature_schema: data.feature_schema,
     target: "independent_scored_task", task_id: data.samples[0].task_id, rubric_version: data.samples[0].rubric_version,
-    assessor_id: data.samples[0].assessor_id,
+    assessor_id: data.samples[0].assessor_id, collection_protocol: data.samples[0].collection_protocol ?? "none",
     seed, epochs, candidate_seeds: [seed, seed + 1], cutoffs, cutoff_status: "provisional",
     split: { test: ids.slice(0, heldout), validation: ids.slice(heldout, heldout * 2), train: ids.slice(heldout * 2) },
     selection: "LSTM seed chosen by participant-macro validation RMSE; test opened separately",

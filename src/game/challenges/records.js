@@ -1,11 +1,18 @@
 import { activeGameplayWindow } from "../ml/research-features.js";
+import { studyWindowStart, studyTaskTitle } from "../ml/study-protocol.js";
 import { challengeMaxScore } from "./catalog.js";
 
 // Like the main farm, this survives a trip to the start menu but not a page reload.
 export const farmChallengeRewards = new Set();
 
+// Under the study protocol, only gameplay after the previous challenge can fill the window.
+function eligibleSnapshots(tracker, now) {
+  const start = studyWindowStart(tracker.studyProtocol, tracker.challengeAttempts ?? [], now);
+  return (tracker.collectionSnapshots ?? []).filter(s => s.timestamp_ms >= start);
+}
+
 export function challengeWindowReady(tracker, now = Date.now()) {
-  return activeGameplayWindow(tracker.collectionSnapshots ?? [], now).ready;
+  return activeGameplayWindow(eligibleSnapshots(tracker, now), now).ready;
 }
 
 export function canStartChallenge(tracker, now = Date.now()) {
@@ -14,9 +21,14 @@ export function canStartChallenge(tracker, now = Date.now()) {
 }
 
 export function challengeWaitMessage(tracker, now = Date.now()) {
-  const { count, ready } = activeGameplayWindow(tracker.collectionSnapshots ?? [], now);
-  return ready ? 'Open Challenges and try "Your first harvest". Run your program and wait for its score. A low score is okay!'
-    : `Challenges are getting ready. Close this prompt and keep farming for about ${(20 - count) * 5} more seconds. Any game speed is okay. Short breaks keep your progress.`;
+  const { count, ready } = activeGameplayWindow(eligibleSnapshots(tracker, now), now);
+  const protocol = tracker.studyProtocol;
+  const opened = (tracker.challengeAttempts ?? []).map(attempt => attempt.task_id);
+  const next = protocol ? protocol.task_order.find(id => !opened.includes(id)) : "first-harvest-v1";
+  const speed = protocol ? "Keep the game at 100% speed." : "Any game speed is okay.";
+  if (ready) return next ? `Open Challenges and try "${studyTaskTitle(next)}". Run your program and wait for its score. A low score is okay!`
+    : "Challenges are ready.";
+  return `Challenges are getting ready. Close this prompt and keep farming for about ${(20 - count) * 5} more seconds. ${speed} Short breaks keep your progress.`;
 }
 
 export function challengeAccess(tracker, wasUnlocked, tutorialComplete, now = Date.now()) {
