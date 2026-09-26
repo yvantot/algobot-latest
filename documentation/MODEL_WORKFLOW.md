@@ -65,6 +65,8 @@ The plan binds the exact prepared dataset by hash. It records the target, rubric
 
 ## Train locally
 
+The active game model was explicitly replaced with a provisional full-data refit in version 1.3.3. See [deployment details and rollback](MODEL_DEPLOYMENT_2026-09-26.md). This experimental installation does not change the formal evaluation requirements below.
+
 For a small exploratory cohort, `npm run model -- pilot <samples.json> <NEW-pilot-dir>` runs participant-separated cross-validation with a fixed seed, train-only scaling, separate validation early stopping, and mean/MLP comparisons. It requires at least four participants for the same task and protocol. Its results are pilot-only, cannot be bundled for deployment, and do not replace the formal holdout workflow below. See [the September 26 pilot](PILOT_RESULTS_2026-09-26.md) for the first recorded run and its limitations. Do not tune against its held-out predictions.
 
 ```powershell

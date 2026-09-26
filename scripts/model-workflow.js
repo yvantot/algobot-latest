@@ -217,6 +217,54 @@ export function bundleWorkflow(run, output) {
   console.log(`Candidate bundle saved to ${output}. public/models is unchanged.`);
 }
 
+export async function refitPilotWorkflow(datasetPath, run, output) {
+  const data = read(datasetPath), plan = read(path.join(run, "pilot-plan.json"));
+  const report = read(path.join(run, "pilot-results.json"));
+  const expected = makePilotPlan(data, { seed: plan.seed, epochs: plan.epochs });
+  if (digest(expected) !== digest(plan) || report.dataset_sha256 !== digest(data) ||
+      report.plan_sha256 !== digest(plan) || report.folds.length !== plan.folds.length) throw Error("Pilot inputs changed");
+  const selectedEpochs = report.folds.map(f => f.models.lstm.best_epoch).sort((a, b) => a - b);
+  if (!selectedEpochs.every(e => Number.isInteger(e) && e > 0 && e <= plan.epochs)) throw Error("Invalid pilot checkpoints");
+  // Use validation-selected durations, never the held-out errors, to fix refit length.
+  const middle = Math.floor(selectedEpochs.length / 2);
+  const epochs = Math.round(selectedEpochs.length % 2 ? selectedEpochs[middle] : (selectedEpochs[middle - 1] + selectedEpochs[middle]) / 2);
+  freshDirectory(output);
+  await tf.setBackend("cpu"); await tf.ready();
+  const modelId = `first-task-lstm-${digest(data).slice(0, 12)}-seed-${plan.seed}-epochs-${epochs}`;
+  const scaler = { ...fitStandardScaler(data.samples), model_id: modelId, model_status: "provisional",
+    task_id: data.samples[0].task_id, prediction_target: "independent_scored_task" };
+  const ordered = [...data.samples].sort((a, b) => digest(`${plan.seed}:${a.assessment_id}`).localeCompare(digest(`${plan.seed}:${b.assessment_id}`)));
+  const model = createModel("lstm", plan.seed), x = inputs(ordered, scaler, "lstm"), y = tf.tensor2d(ordered.map(s => [s.y]));
+  try {
+    const result = await model.fit(x, y, { epochs, batchSize: Math.min(16, ordered.length), shuffle: false, verbose: 0 });
+    if (!result.history.loss.every(Number.isFinite)) throw Error("Non-finite refit loss");
+    const dir = path.join(output, "lstm");
+    await save(model, dir, scaler);
+    const loaded = await loadDeployedModel(path.join(dir, "model.json"));
+    let reloadError;
+    try {
+      const a = await predict(model, x), b = await predict(loaded, x);
+      reloadError = Math.max(...a.map((v, i) => Math.abs(v - b[i])));
+      if (reloadError > 1e-6) throw Error("Refit changed after reload");
+    } finally { loaded.dispose(); }
+    const aggregate = Object.fromEntries(Object.entries(report.results).map(([kind, { per_participant, ...metrics }]) => [kind, metrics]));
+    const card = { model_id: modelId, status: "provisional", deployment_ready: false,
+      deployment_intent: "Explicitly requested experimental replacement; not validated for reliable proficiency assessment.",
+      target: "independent_scored_task", task_id: data.samples[0].task_id, rubric_version: data.samples[0].rubric_version,
+      feature_schema: RESEARCH_SCHEMA, input_shape: [20, 12], output: "Predicted first-harvest task score / maximum, not general programming proficiency",
+      dataset_sha256: digest(data), pilot_report_sha256: digest(report),
+      training_samples: data.samples.length, training_participants: new Set(data.samples.map(s => s.student_id)).size,
+      seed: plan.seed, epochs, epoch_selection: "Median validation-selected LSTM epoch across pilot folds; no selection by test performance",
+      training_loss: result.history.loss, reload_max_absolute_error: reloadError, files: hashes(dir),
+      tensorflowjs: tf.version.tfjs, node: process.version, backend: tf.getBackend(),
+      final_refit_independently_evaluated: false, pilot_cross_validation: aggregate,
+      limitations: report.limitations };
+    write(path.join(dir, "model-card.json"), card);
+    console.log(`Provisional full-data LSTM refit saved to ${dir}; epochs=${epochs}. Public deployment requires a separate explicit copy.`);
+    return card;
+  } finally { tf.dispose([x, y]); model.optimizer.dispose(); model.dispose(); }
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [command, a, b, c] = process.argv.slice(2);
   try {
@@ -225,6 +273,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     else if (command === "evaluate" && a && b) await evaluateWorkflow(a, b);
     else if (command === "bundle" && a && b) bundleWorkflow(a, b);
     else if (command === "pilot" && a && b) await pilotWorkflow(a, b);
-    else throw Error("Usage: npm run model -- plan <samples.json> <NEW-plan.json> | train <samples.json> <plan.json> <NEW-run-dir> | evaluate <samples.json> <run-dir> | bundle <run-dir> <NEW-bundle-dir> | pilot <samples.json> <NEW-pilot-dir>");
+    else if (command === "refit-pilot" && a && b && c) await refitPilotWorkflow(a, b, c);
+    else throw Error("Usage: npm run model -- plan <samples.json> <NEW-plan.json> | train <samples.json> <plan.json> <NEW-run-dir> | evaluate <samples.json> <run-dir> | bundle <run-dir> <NEW-bundle-dir> | pilot <samples.json> <NEW-pilot-dir> | refit-pilot <samples.json> <pilot-dir> <NEW-refit-dir>");
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

@@ -14,12 +14,14 @@
     },
     {
       "sha256": "22b7d7162a2d012316ecb8874b80c4bda29a07fba4452b461751356397dddcab",
-      "path": "public/models/lstm/group1-shard1of1.bin"
+      "path": "public/models/lstm/group1-shard1of1.bin",
+      "storage": "git_history"
     },
     {
       "sha256": "c97d87b9029edac724683d2c9055d904e9f5965437df7005242a554e47c89f96",
       "path": "public/models/lstm/model.json",
-      "sha256_lf": "2a038ca6af58145a70005053f2d374e2439535d51341dfd555ef5ff8549f9cc7"
+      "sha256_lf": "2a038ca6af58145a70005053f2d374e2439535d51341dfd555ef5ff8549f9cc7",
+      "storage": "git_history"
     },
     {
       "sha256": "0733b883c1aa1969781faad6edfdbff241715bf02d6c86504175a54ec00b5ecc",

@@ -265,6 +265,31 @@ test("recent-schema model waits for real history then receives shared training f
   assert.equal(agent.getAgentState().predictionTarget, "independent_scored_task");
 });
 
+test("installed provisional model runs on gameplay history and records its identity", async () => {
+  const { loadDeployedModel } = await import("../scripts/model-artifacts.js");
+  const deployedScaler = JSON.parse(fs.readFileSync("public/models/lstm/scaler_params.json", "utf8"));
+  let requested;
+  const agent = new MLDiffAgent({ loadScaler: async () => deployedScaler, loadModel: async url => {
+    requested = url;
+    return loadDeployedModel("public/models/lstm/model.json");
+  } });
+  try {
+    telemetry.collectionEnabled = true;
+    assert.equal((await agent.updateAndPredict()).proficiency, null);
+    const now = Date.now();
+    telemetry.collectionSnapshots = Array.from({ length: 21 }, (_, i) => ({ timestamp_ms: now - (20-i)*5000,
+      stage: 1, context: {phase:"gameplay",game_speed:1,robot_count:1},
+      counters: {errors:0,edits:i,completed_runs:0,failed_runs:0,stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0} }));
+    const result = await agent.updateAndPredict();
+    assert.equal(result.mode, "hybrid");
+    assert.ok(Number.isFinite(result.proficiency) && result.proficiency >= 0 && result.proficiency <= 1);
+    assert.equal(requested, `/models/lstm/model.json?v=${encodeURIComponent(deployedScaler.model_id)}`);
+    assert.equal(agent.getAgentState().modelStatus, "provisional");
+    assert.equal(telemetry.ddaActionsLog.at(-1).modelId, deployedScaler.model_id);
+    assert.equal(telemetry.ddaActionsLog.at(-1).predictionTask, "first-harvest-v1");
+  } finally { agent.lstmModel?.dispose(); }
+});
+
 test("malformed persisted research data is not silently overwritten", () => {
   const logger = new DataLogger();
   localStorage.setItem("algobot_sessions", "{broken");

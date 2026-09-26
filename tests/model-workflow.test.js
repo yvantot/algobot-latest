@@ -7,7 +7,7 @@ import { RESEARCH_SCHEMA, RESEARCH_FEATURES, recentSequence, scaleResearchSequen
 import { sealDataset } from "../src/game/ml/export-integrity.js";
 import { readCollection, assessmentSamples } from "../scripts/collection-dataset.js";
 import { digest, makePlan, makePilotPlan, partitions, fitStandardScaler, regressionMetrics } from "../scripts/training-core.js";
-import { trainWorkflow, evaluateWorkflow, bundleWorkflow, pilotWorkflow } from "../scripts/model-workflow.js";
+import { trainWorkflow, evaluateWorkflow, bundleWorkflow, pilotWorkflow, refitPilotWorkflow } from "../scripts/model-workflow.js";
 import { loadDeployedModel } from "../scripts/model-artifacts.js";
 import * as tf from "@tensorflow/tfjs";
 
@@ -155,5 +155,15 @@ test("pilot keeps entire participants separate and preserves the formal holdout 
     }
     await assert.rejects(() => pilotWorkflow(input, output), /already exists/);
     assert.throws(() => bundleWorkflow(output, path.join(dir, "bundle")), /ENOENT/);
+    const refit = await refitPilotWorkflow(input, output, path.join(dir, "refit"));
+    assert.equal(refit.training_participants, 4);
+    assert.equal(refit.epochs, 1);
+    assert.equal(refit.deployment_ready, false);
+    assert.equal(refit.final_refit_independently_evaluated, false);
+    assert.equal(refit.reload_max_absolute_error, 0);
+    assert.ok(!JSON.stringify(refit).includes("fixture-p"));
+    data.samples[0].y = .123;
+    fs.writeFileSync(input, JSON.stringify(data));
+    await assert.rejects(() => refitPilotWorkflow(input, output, path.join(dir, "bad-refit")), /changed/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

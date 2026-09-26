@@ -24,8 +24,8 @@ function validExperience(exp) {
 }
 
 export class MLDiffAgent {
-  constructor({ loadModel = path => tf.loadLayersModel(path), loadScaler = async () => {
-    const response = await fetch("/models/lstm/scaler_params.json");
+  constructor({ loadModel = path => tf.loadLayersModel(path, { requestInit: { cache: "no-store" } }), loadScaler = async () => {
+    const response = await fetch("/models/lstm/scaler_params.json", { cache: "no-store" });
     if (!response.ok) throw new Error(`LSTM scaler unavailable (${response.status})`);
     return response.json();
   } } = {}) {
@@ -76,7 +76,8 @@ export class MLDiffAgent {
       this.scaler = scaler?.feature_schema === RESEARCH_SCHEMA ? validateResearchScaler(scaler) : validateScaler(scaler);
     } catch (error) { failures.push(`Scaler: ${error.message}`); }
     try {
-      this.lstmModel = await this._loadModel("/models/lstm/model.json");
+      const revision = this.scaler?.model_id ? `?v=${encodeURIComponent(this.scaler.model_id)}` : "";
+      this.lstmModel = await this._loadModel(`/models/lstm/model.json${revision}`);
       validateModel(this.lstmModel, [SEQUENCE_LENGTH, this.scaler?.feature_schema === RESEARCH_SCHEMA ? 12 : FEATURE_COUNT], 1);
       this.pretrainedLSTM = true;
     } catch (error) {
@@ -199,6 +200,9 @@ export class MLDiffAgent {
       proficiencySource: this.predictionAvailable ? "lstm" : "unknown",
       proficiency: this.predictionAvailable ? state[0] : null,
       predictionTarget: this.scaler?.feature_schema === RESEARCH_SCHEMA ? "independent_scored_task" : "legacy_gameplay_proxy",
+      modelId: this.scaler?.model_id ?? "legacy-lstm",
+      modelStatus: this.scaler?.model_status ?? "legacy",
+      predictionTask: this.scaler?.task_id ?? null,
       policyVersion: "recent-window-v1",
       recentPerformance: this.recentPerformance,
     });
@@ -297,6 +301,9 @@ export class MLDiffAgent {
       proficiencySource: this.predictionAvailable ? "lstm" : "unknown",
       observationReason: this.observationReason,
       predictionTarget: this.scaler?.feature_schema === RESEARCH_SCHEMA ? "independent_scored_task" : "legacy_gameplay_proxy",
+      modelId: this.scaler?.model_id ?? "legacy-lstm",
+      modelStatus: this.scaler?.model_status ?? "legacy",
+      predictionTask: this.scaler?.task_id ?? null,
       fallbackReason: this.fallbackReason,
       episodeCount: this.episodeCount,
       replayBufferSize: this.replayBuffer.length,
