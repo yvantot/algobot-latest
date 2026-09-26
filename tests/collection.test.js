@@ -81,6 +81,24 @@ test("assessment window excludes assessment-time data, preserves zero score, and
   assert.deepEqual(audit.proxy_category_support, [0, 0, 0]);
 });
 
+test("preparation preserves collection build and model as metadata without changing features or targets", () => {
+  const { session, assessment } = fixture();
+  const original = assessmentSamples([session], [assessment]).samples[0];
+  session.build = { version:"test-build", source_sha256:"fixture-hash", dirty:true };
+  session.agent_state = { modelId:"fixture-model", modelStatus:"provisional", predictionTarget:"independent_scored_task" };
+  const prepared = assessmentSamples([session], [assessment]).samples[0];
+  assert.deepEqual(prepared.x, original.x);
+  assert.equal(prepared.y, original.y);
+  assert.deepEqual(prepared.collection_build, session.build);
+  assert.equal(prepared.collection_model.id, "fixture-model");
+  prepared.collection_build.version = "changed";
+  assert.equal(session.build.version, "test-build");
+  const old = { ...session, session_id:"older", agent_state:undefined, build:undefined };
+  const report = auditCollection([session, old]);
+  assert.equal(report.build_provenance.sessions_without_source_fingerprint, 1);
+  assert.deepEqual(report.model_cohorts.map(c => c.model_id), ["fixture-model", "legacy-or-unidentified"]);
+});
+
 test("assessment import rejects assisted, mismatched, invalid, gapped, practice, and short observations", () => {
   for (const mutate of [
     ({assessment:a}) => a.student_id = "P02",

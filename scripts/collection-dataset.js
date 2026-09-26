@@ -96,9 +96,16 @@ export function auditCollection(sessions) {
     build_provenance: {
       dirty_sessions: sessions.filter(session=>session.build?.dirty===true).length,
       sessions_without_version: sessions.filter(session=>!session.build?.version).length,
+      sessions_without_source_fingerprint: sessions.filter(session=>!session.build?.source_sha256).length,
+      source_fingerprints: [...new Set(sessions.map(session=>session.build?.source_sha256).filter(Boolean))],
+      versions: [...new Set(sessions.map(session=>session.build?.version).filter(Boolean))],
       commits: [...new Set(sessions.map(session=>session.build?.commit).filter(Boolean))],
       note: "Dirty or incomplete build metadata limits reproducibility; do not rewrite recorded provenance to match the current build.",
     },
+    model_cohorts: [...new Set(sessions.map(s => s.agent_state?.modelId ?? "legacy-or-unidentified"))].map(id => ({
+      model_id: id, sessions: sessions.filter(s => (s.agent_state?.modelId ?? "legacy-or-unidentified") === id).length,
+      note: "A model change alters collection conditions. Review cohorts before pooling; this field is not a training feature.",
+    })),
     proxy_category_support: [0, 1, 2].map(i => reports.reduce((n, r) => n + r.proxy_category_support[i], 0)),
     challenge_targets: CHALLENGES.map(task => {
       const result = challengeSamples(sessions, task.id);

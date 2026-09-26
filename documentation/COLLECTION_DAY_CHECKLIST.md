@@ -1,39 +1,39 @@
-# Before students play
+# Next collection checklist
 
-Use one fixed build and one agreed challenge for this collection. The current preparation examples use **Two careful steps** (`careful-steps-v1`). Students do not need to finish the game or every challenge. Different challenges are different targets; their scores must not be pooled simply because they are normalized.
+Use **Your first harvest** (`first-harvest-v1`) as the shared primary task for the next round, continuing the five usable pilot samples. Students may do other challenges too; keep their scores as separate targets. Nobody needs to finish the whole game.
 
-In version 1.3.1, missions and tutorials run on the main farm again. Complete the initial tutorial through First Steps in Farming, then collect the normal gameplay window. Guided tutorial time does not fill that window. Scored Challenges remain separate and use Recommended only; Freestyle notes below apply to older exports.
+The current collection build is **1.3.5**. Tutorials and missions use the main farm; scored challenges use an isolated farm. The active LSTM is the provisional 12-feature model introduced in 1.3.3. It has not demonstrated reliable proficiency prediction. Its identity is recorded in exports.
 
-Restart the development server after the final commit so exported build metadata reflects the code being used. Do one practice collection yourself, verify its downloaded JSON, then clear stored data and reload before the first real participant. Do not mix that practice file into the student folder.
+## Before the session
+
+1. Restart the development server after the final commit, or serve a fresh production build. Do not edit game files while students play. Version, Git commit, dirty status and a SHA-256 fingerprint of source/assets are captured at server/build startup. The fingerprint identifies content; it cannot reconstruct missing files. Keep the exact build.
+2. Use one fixed build, normal game speed and the same assistance rules for everyone. Record that the model and early missions changed since the earlier pilot. Keep round folders separate for review before pooling.
+3. Confirm Download Dataset JSON works on each collection computer. Keep a backup location available.
+4. Run a disposable staff practice session, then export it separately. Clear Stored Data and reload before the first student. Never mix staff fixtures or developer-test sessions into the student dataset.
 
 ## Per student on a shared computer
 
-1. Confirm the previous student's Dataset JSON has downloaded and is backed up. Only then use **Clear Stored Data** and reload.
-2. Confirm the new participant code in Dev Console. Use the same code for that student's separate pre/post tests. Never reuse one code for different students.
-3. Let the student complete the tutorial normally (version 1.1 ends practice after the first harvest; loops and conditions are later missions). Do not use tutorial-skip, resource grants, forced events or other developer gameplay controls: they mark the session as a developer test, excluded from training. Opening Dev Console, Check Collection and downloading JSON are read-only research actions.
-4. After the tutorial, challenges appear only after a usable gameplay window is ready: roughly **110 seconds of uninterrupted normal-speed gameplay**. Once unlocked during a game session, the Challenges button stays visible. A long pause, hidden tab or speed change can require another observation window before entry; the invitation and menu explain the wait instead of disappearing. In Dev Console's DDA / Research Data area, press **Check Collection**. Look for “Gameplay window ready for a first challenge attempt.” This is a snapshot; recheck if conditions change.
-5. Select **Recommended** and have the student attempt the agreed challenge using the same assistance rules as everyone else. Freestyle is exported as practice and excluded from training targets because it offers different tools; opening it also counts as exposure to that task. Students may Stop & Edit within the same attempt. Every stop is retained. The first fully evaluated submission is the target, including failure or zero; later evaluated retries cannot replace it. Closing before a scored submission leaves no usable target for this task. Previously opened tasks can reopen immediately for practice without waiting for a new gameplay window. Do not mark unfinished work as zero or reset exposure history to manufacture a new first attempt.
-6. After the challenge closes, press **Check Collection** again. The chosen task should show **usable training label**. If it does not, keep the export and read its reason; do not overwrite or “repair” the student's outcome.
-7. Press **Download Dataset JSON**. Confirm the file exists before clearing or reloading. Keep original files unchanged in a backed-up folder. Export even if the student did not submit: their gameplay and participation still matter, although they may not contribute a supervised training example.
+1. Confirm the previous student's JSON was downloaded and backed up. Only then use **Clear Stored Data** and reload.
+2. Confirm a fresh participant code in Dev Console. Keep that code with their pre/post test record. A returning student must retain their original research identity and prior-exposure history; clearing storage does not make them a new participant.
+3. Let the student finish the tutorial through First Steps in Farming normally. Do not use tutorial-skip, resource grants, speed changes or forced events: developer gameplay actions exclude the session from training. Opening Dev Console, Check Collection and exporting are read-only research actions.
+4. Allow roughly **110 seconds of uninterrupted normal-speed gameplay after the tutorial**. Tutorial and demonstration time do not fill this window. Use **Check Collection** and look for “Gameplay window ready for a first challenge attempt.” A long pause or tab switch can require a fresh window. Once unlocked, the Challenges button stays visible.
+5. Ask the student to attempt **Your first harvest**. Stop & Edit is allowed within the same attempt. The first fully evaluated submission is the score, including failure or zero; later scored retries are practice. Leaving before any evaluated submission gives no label. Do not replace a low score with a better retry or call unfinished work zero.
+6. After returning to the farm, use **Check Collection**. Your first harvest should show a **usable training label**. If it does not, export anyway and keep the stated reason.
+7. Download the single **Dataset JSON**, confirm the file exists, and back it up before clearing. Export unfinished sessions too. Browser storage has limited capacity and is not a server backup.
 
-The Check Collection panel checks the current session. It uses the same label validator as preparation. The folder audit below also detects problems across sessions and overlapping exports. A usable label means it passes technical validation, not that the task or proficiency cutoffs have been scientifically validated.
+Ten minutes may not be enough for every student to reach a scored challenge. Record participation and unfinished sessions honestly; do not count them as failures or generate replacement scores.
 
-## Audit the downloads
+## Audit each batch
 
-From the repository root, with student JSON files in `training/data/raw/`:
+Keep original JSON files unchanged. Use a separate folder for this collection round. The importer also supports all-round folders, but review build/model cohorts before combining them.
 
 ```powershell
 npm run audit:collection -- training/data/raw
-node scripts/prepare-challenges.js training/data/raw training/samples-collection-1.json careful-steps-v1
+node scripts/prepare-challenges.js training/data/raw training/prepared/next-round-first-harvest.json first-harvest-v1
 ```
 
-Use a new output filename each time. Check the usable sample count, excluded reasons, participant counts and score distribution. Do this after the practice run and the first few students, rather than discovering missing targets at the end of collection.
+The output path must be new. Inspect usable participant counts, exclusions, score distribution, build fingerprints and model cohorts after the practice run and the first few students. A usable label passes technical validation; it does not validate the task as a general skill assessment.
 
-Once the files are collected, follow [MODEL_WORKFLOW.md](MODEL_WORKFLOW.md). The plan freezes participant-separated splits; preprocessing uses training participants only. Local training compares the LSTM with mean and MLP baselines. Evaluation reports regression and provisional category metrics. Candidate weights are reviewed separately before deployment.
+Use [MODEL_WORKFLOW.md](MODEL_WORKFLOW.md) for participant-separated training and evaluation. More data does not guarantee the LSTM beats the baseline. Keep future evaluation participants untouched during model selection, and keep paired pre/post learning outcomes separate.
 
-## Final verification for this build
-
-- 228 automated tests passed, including all ten challenges, failure paths, farm/tip isolation, collection clearing and storage failures, feature parity, and local training/evaluation/model reload.
-- A new integration test drove the real recorder, autosave and canonical download for six explicitly fabricated test participants. The actual preparation CLI retained all six first evaluated scores after Stop & Edit, including zeros, and produced a valid participant-separated plan. Temporary files were removed; this is not a research dataset or accuracy result.
-- The 40 retained/historical research artifacts match their baseline. The deployed weights remain the older ten-feature model. New collection prepares the recent 12-feature model; no new model was trained on students during this review.
-- Twenty students, especially with ten-minute sessions, may yield fewer than twenty usable labels. A narrow score range or a very small test group still limits what model performance can establish. Pre/post learning improvement remains a separate analysis.
+See [the readiness review](COLLECTION_READINESS_2026-09-26.md) for checks and remaining limits.

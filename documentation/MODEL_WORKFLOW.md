@@ -1,4 +1,4 @@
-> September 25 update: the earlier primary task was retired from the menu. The examples below use Two careful steps. Pilot and fix the chosen task and build before collection; do not combine its scores with retired-task scores.
+> September 26 update: the next round continues Your first harvest as the primary target. Other challenges remain separate targets. Record the changed model/build conditions before considering pooled analysis.
 
 # Local model workflow
 
@@ -6,7 +6,7 @@ For collection day, use [the short operational checklist](COLLECTION_DAY_CHECKLI
 
 This is the recommended workflow for the next collection. It replaces the legacy experiment command for new data. The model target is the first fully evaluated submission's score on a fixed Challenge Farm task, divided by its maximum. The game scores actual behavior on predefined test rows and includes the score in the dataset automatically. The old gameplay completion formula is retained only as historical/proxy telemetry, not as the target for this workflow.
 
-The September 26 collection contains usable pilot samples: five for Your first harvest and one for Two careful steps. Neither task currently meets the holdout workflow's six-participant software minimum, which is not a claim of adequate study size. See [the collection audit](COLLECTION_AUDIT_2026-09-26.md). Deployed weights remain the original model until a candidate is separately reviewed and installed.
+The September 26 collection contains usable pilot samples: five for Your first harvest and one for Two careful steps. Neither task currently meets the holdout workflow's six-participant software minimum, which is not a claim of adequate study size. See [the collection audit](COLLECTION_AUDIT_2026-09-26.md). Version 1.3.3 explicitly installed a provisional full-data LSTM refit; its statistical limitations remain.
 
 ## One collection export
 
@@ -36,17 +36,17 @@ The ten recent rate features are errors, edits, completed runs, failed runs, sto
 
 These features are an engineering hypothesis to test, not a validated measurement of skill or emotion. A completed program is not necessarily a correct solution; a stopped loop is not necessarily an error. Automatic DDA hints remain in raw records but do not count as student-requested hints. Features, task validity and opportunity to practice still affect model quality.
 
-The legacy ten-feature vector is still exported for traceability and retained for the deployed legacy model. New models use the shared recent-feature implementation in both preparation and runtime. Missing data, counter resets, malformed features and unsuitable intervals are rejected instead of padded into fictitious observations.
+The legacy ten-feature vector is still exported for traceability. The active provisional LSTM uses the shared recent-feature implementation in both preparation and runtime. Missing data, counter resets, malformed features and unsuitable intervals are rejected instead of padded into fictitious observations. Prepared samples retain source build/model metadata without using it as a feature or label. Folder audits identify build and model cohorts; changing the collection policy can change gameplay distributions, even when feature shapes remain compatible.
 
 ## Prepare the dataset
 
-Place new downloads in `training/data/raw/`. No manual score sheet is needed for Challenge Farm. Choose and pilot an available task before collection; the example below uses `careful-steps-v1`. Retired `changing-row-v3` data can still be prepared separately. Do not pool the two tasks just because both have nine points. A score of zero is valid; null means unscored. Pre/post tests are separate from the model-target importer.
+Place new downloads in a separate round folder under `training/data/`. No manual score sheet is needed for Challenge Farm. The example below uses `first-harvest-v1`, continuing the current pilot. Retired task data can still be prepared separately. Do not pool different tasks just because their scores are normalized. A score of zero is valid; null means unscored. Pre/post tests are separate from the model-target importer.
 
 From the repository root:
 
 ```powershell
 npm run audit:collection -- training/data/raw
-node scripts/prepare-challenges.js training/data/raw training/samples-v1.json careful-steps-v1
+node scripts/prepare-challenges.js training/data/raw training/samples-v1.json first-harvest-v1
 ```
 
 Read the exclusion report and participation counts in `samples-v1.json`. The importer retains one first-exposure, first-evaluated-submission score per participant for the chosen task, accepts standard_in_game conditions from the live assessor, excludes reported/unconfirmed assistance, and never substitutes a better retry. Closing before submitting is unfinished, not zero. Browser exposure history prevents a reload from becoming another first exposure; the importer also checks across exported sessions. Keep the same participant code across devices and record any prior exposure that browser storage cannot detect. Preparation does not certify task validity. New output files must not already exist.

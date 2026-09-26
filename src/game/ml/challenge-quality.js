@@ -40,6 +40,12 @@ export function assessmentSamples(sessions, assessments, { schema = "10f" } = {}
     samples.push({ source_type: "recorded", label_source: "independent_scored_task",
       student_id: a.student_id, session_id: a.session_id, assessment_id: a.assessment_id,
       task_id: a.task_id, rubric_version: a.rubric_version, assessor_id: a.assessor_id,
+      ...(session.build ? { collection_build: structuredClone(session.build) } : {}),
+      ...(session.agent_state ? { collection_model: {
+        id: session.agent_state.modelId ?? "legacy-or-unidentified",
+        status: session.agent_state.modelStatus ?? "unrecorded",
+        target: session.agent_state.predictionTarget ?? "unrecorded",
+      } } : {}),
       ...(a.assessor_id === "algobot-live-cases-5.0" ? {stopped_runs_before_score:a.stopped_runs_before_score ?? 0} : {}),
       input_start_ms: (schema === RESEARCH_SCHEMA ? recentWindow : window)[0].timestamp_ms, input_end_ms: window.at(-1).timestamp_ms,
       assessment_start_ms: cutoff, real_timesteps: 20, y: a.score / a.max_score,
