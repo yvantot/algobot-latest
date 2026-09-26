@@ -3,7 +3,7 @@ export const LEARNING_SKILLS = [
  {title:"Messages",quests:["intro_say"],text:"Let your robot explain what it is doing.",command:"bot.say"},
  {title:"Steps in order",quests:["intro_sequence","tut_2"],text:"Put actions in order to grow and harvest crops.",command:"bot.plant",example:"plant"},
  {title:"Loops",quests:["intro_loop"],text:"Repeat a small set of instructions.",command:"for"},
- {title:"Checks and choices",quests:["cs_check_0","cs_if_0","cs_cleanup_0"],text:"Read a check's answer, then choose an action.",command:"bot.is_harvestable"},
+ {title:"Checks and choices",quests:["cs_check_0","cs_if_0","cs_cleanup_0"],text:"Check for a crop, then choose whether to plant.",command:"bot.is_planted"},
  {title:"Grid coordinates",quests:["cs_grid_0","cs_jump_0"],text:"Use row and column counts to visit farm tiles.",command:"rows",example:"expand"},
  {title:"Timing",quests:["cs_wait_0"],text:"Wait when a crop needs time to grow.",command:"bot.wait",example:"water"},
  {title:"Random numbers",quests:["cs_random_0"],text:"Use a random value in a program.",command:"randint"},

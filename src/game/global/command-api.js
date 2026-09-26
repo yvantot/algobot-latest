@@ -21,7 +21,8 @@ export function createCommandAPI({
   const quest = (key, amount = 1, action = null) => observe(onQuestEvent, key, amount, action);
   const speak = message => robot.sayText?.(message);
   let lastFarmSize = null;
-  let lastHarvestCheck = null;
+  let lastPlantCheck = null;
+  const emptyTileChecks = new WeakMap();
 
   function reportError(error) {
     const message = `Command error: ${error?.message || String(error)}`;
@@ -53,7 +54,11 @@ export function createCommandAPI({
         settled = true;
         // Sensors always return booleans; no missing/null sensor can be truthy.
         const result = check ? !!value : value ?? false;
-        if (name === "is_harvestable") lastHarvestCheck = !failed && typeof value === "boolean" ? value : null;
+        if (name === "is_planted") {
+          lastPlantCheck = !failed && typeof value === "boolean" ? value : null;
+          const frame = robot.conditionTestFrame;
+          if (frame) emptyTileChecks.set(frame, lastPlantCheck === false ? { x:robot.grid_x, y:robot.grid_y } : null);
+        }
         if (result) observe(after, result, context, values);
         // A disposed editor's continuation must not create an unhandled Promise
         // rejection after an otherwise completed robot action.
@@ -98,17 +103,23 @@ export function createCommandAPI({
       const result = speak(text);
       if(String(text ?? "").trim()) quest("intro_say");
       if(lastFarmSize !== null && text === lastFarmSize) quest("cs_grid_0");
-      if(lastHarvestCheck !== null && text === lastHarvestCheck) quest("cs_check_0");
+      if(lastPlantCheck !== null && text === lastPlantCheck) quest("cs_check_0");
       lastFarmSize = null;
-      lastHarvestCheck = null;
+      lastPlantCheck = null;
       return result;
     }),
     wait: command("wait", "botWait", { action: null, after: () => quest("cs_wait_0") }),
     jump: command("jump", "botJump", { category: "bot_movement", after: () => quest("cs_jump_0") }),
     till: command("till", "botTill", { after: () => quest("tut_2", 1, "till") }),
     water: command("water", "botWater", { after: () => quest("tut_2", 1, "water") }),
-    plant: command("plant", "botPlant", { after: (_result, _context, values) => {
+    plant: command("plant", "botPlant", {
+      before: () => (robot.conditionalFrames ?? []).some(frame => {
+        const tile = emptyTileChecks.get(frame);
+        return tile && tile.x === robot.grid_x && tile.y === robot.grid_y;
+      }),
+      after: (_result, checkedEmptyTile, values) => {
       if (values[0] === "wheat") quest("tut_2", 1, "plant");
+      if (checkedEmptyTile && values[0] === "wheat") quest("cs_if_0");
     } }),
     harvest: command("harvest", "botHarvest", {
       before: () => observe(robot.getHarvestChoice?.bind(robot)),

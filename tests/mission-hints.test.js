@@ -27,6 +27,15 @@ test("every mission hint builds real Blockly blocks and generates text code",()=
       assert.ok(code.trim(),key);
       assert.ok(example.code.trim(),key);
       assert.doesNotThrow(()=>new vm.Script(code),key);
+      if (key === "cs_check_0") {
+        assert.match(code, /bot.say\(\(*bot.is_planted\(\)\)+/);
+        assert.doesNotMatch(code, /is_harvestable/);
+      }
+      if (key === "cs_if_0") {
+        assert.match(code, /if\s*\(\(*!\(*bot.is_planted\(\)\)+/);
+        assert.match(code, /bot.plant\(['"]wheat['"]\)/);
+        assert.doesNotMatch(code, /bot.harvest/);
+      }
     }finally{workspace.dispose();}
   }
 });

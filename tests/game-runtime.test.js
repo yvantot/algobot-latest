@@ -73,7 +73,30 @@ test("condition telemetry records real true/false results once per evaluation", 
   const h = harness("var x = 0; if (false) x = 1; else x = 2; if (true) x = 3; if (false) x = 4;");
   h.runner.start(0); h.complete();
   assert.deepEqual(h.records.branches, [false, true, false]);
-  assert.equal(h.records.quests.filter(key => key === "cs_if_0").length, 3);
+  assert.equal(h.records.quests.filter(key => key === "cs_if_0").length, 0);
+});
+
+test("planting mission requires a successful plant on the tile checked empty in an if condition", () => {
+  const cases = [
+    ['if (!bot.is_planted()) { bot.till(); bot.plant("wheat"); }', false, true, 1],
+    ['if (bot.is_planted()) {} else { bot.till(); bot.plant("wheat"); }', false, true, 1],
+    ['if (!bot.is_planted()) { bot.plant("wheat"); }', true, true, 0],
+    ['if (!bot.is_planted()) { bot.plant("wheat"); }', false, false, 0],
+    ['bot.is_planted(); bot.plant("wheat");', false, true, 0],
+    ['if (true) { bot.is_planted(); bot.plant("wheat"); }', false, true, 0],
+    ['if (!bot.is_planted()) { bot.right(); bot.plant("wheat"); }', false, true, 0],
+    ['if (!bot.is_planted()) {} bot.plant("wheat");', false, true, 0],
+  ];
+  for (const [code, planted, success, expected] of cases) {
+    const awards = [];
+    const robot = { grid_x:0, grid_y:0, sayText() {}, checkPlanted: cb => cb(planted),
+      botTill: cb => cb(true), botPlant: (_type, cb) => cb(success),
+      botJump(x, y, cb) { this.grid_x=x; this.grid_y=y; cb(true); } };
+    const api = createCommandAPI({ robot, onQuestEvent:key => awards.push(key) });
+    const h = harness(code, createInterpreterInit(api)); h.states[0].robot = robot;
+    h.runner.start(0); h.complete();
+    assert.equal(awards.filter(key => key === "cs_if_0").length, expected, code);
+  }
 });
 
 test("loop telemetry counts executed iterations, including zero-iteration and nested branches", () => {

@@ -20,7 +20,7 @@ export function createCodeRunner({ states, InterpreterClass, telemetry, prepare,
     state.interval = null;
     state.interpreter = null;
     state.is_running = false;
-    if (state.robot) state.robot.executingLoop = false;
+    if (state.robot) { state.robot.executingLoop = false; state.robot.conditionalFrames = []; state.robot.conditionTestFrame = null; }
     if (state.runPending) {
       const passed = success === true && (state.robot?.executionErrorCount || 0) === state.runErrorBaseline;
       telemetry.recordCodeRun(passed, { outcome: success === null ? "stopped" : passed ? "completed" : "error",
@@ -71,13 +71,17 @@ export function createCodeRunner({ states, InterpreterClass, telemetry, prepare,
         const before = interpreter.getStateStack().at(-1);
         if (state.robot) state.robot.executingLoop = interpreter.getStateStack().some(frame =>
           ["ForStatement", "ForInStatement", "WhileStatement", "DoWhileStatement"].includes(frame.node?.type));
+        if (state.robot) {
+          const stack = interpreter.getStateStack();
+          state.robot.conditionalFrames = stack.filter(frame => frame.node?.type === "IfStatement");
+          state.robot.conditionTestFrame = stack.filter((frame, i) => frame.node?.type === "IfStatement" && stack[i + 1]?.node === frame.node.test).at(-1) ?? null;
+        }
         const result = interpreter.step();
         const after = interpreter.getStateStack().at(-1);
         const node = before?.node;
         if (node?.type === "IfStatement" && after !== before && after?.node !== node.test && !state.branchVisits.has(before)) {
           state.branchVisits.add(before);
           telemetry.recordIfCondition(!!before.value);
-          state.onQuestEvent?.("cs_if_0", 1);
         }
         if (["ForStatement", "ForInStatement", "WhileStatement", "DoWhileStatement"].includes(node?.type) && after !== before && after?.node === node.body) {
           telemetry.recordLoopExecution(node.type.startsWith("For") ? "for" : "while");

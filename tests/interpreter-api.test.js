@@ -258,11 +258,11 @@ test("farm size lesson requires displaying the size, not just reading it", () =>
   assert.equal(h.log.quests.filter(([key])=>key==="cs_grid_0").length,1);
 });
 
-test("harvest check lesson displays both boolean results after the sensor finishes", () => {
+test("crop presence lesson displays both boolean results after the sensor finishes", () => {
   for (const value of [false, true]) {
     let complete;
-    const h = harness('bot.say(bot.is_harvestable());', {
-      isHarvestable(callback) { complete = callback; },
+    const h = harness('bot.say(bot.is_planted());', {
+      checkPlanted(callback) { complete = callback; },
     });
     assert.equal(h.run(), false);
     assert.deepEqual(h.log.output, []);
@@ -274,13 +274,13 @@ test("harvest check lesson displays both boolean results after the sensor finish
   }
 });
 
-test("harvest check lesson needs a displayed sensor result, including no credit on errors", () => {
-  for (const source of ['bot.say(false);', 'bot.is_harvestable();', 'bot.is_harvestable(); bot.say("false");']) {
-    const h = harness(source, { isHarvestable: callback => callback(false) });
+test("crop presence lesson needs a displayed sensor result, including no credit on errors", () => {
+  for (const source of ['bot.say(false);', 'bot.is_planted();', 'bot.is_planted(); bot.say("false");']) {
+    const h = harness(source, { checkPlanted: callback => callback(false) });
     assert.equal(h.run(), true);
     assert.equal(h.log.quests.some(([key]) => key === "cs_check_0"), false);
   }
-  const h = harness('bot.say(bot.is_harvestable());', { isHarvestable() { throw new Error("unavailable"); } });
+  const h = harness('bot.say(bot.is_planted());', { checkPlanted() { throw new Error("unavailable"); } });
   assert.equal(h.run(), true);
   assert.equal(h.log.quests.some(([key]) => key === "cs_check_0"), false);
 });
