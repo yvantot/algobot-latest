@@ -83,7 +83,8 @@ test("recording, autosave, canonical download and preparation CLI preserve six f
       telemetry.resetSession();mlAgent.resetSession();
       telemetry.setParticipantId(`fixture-participant-${student}`);
       let tick,phase='gameplay';
-      stop=startCollection({tracker:telemetry,getContext:()=>({phase,game_speed:1,robot_count:1}),schedule:fn=>{tick=fn;return 1;},cancel(){}});
+      const speed=[.3,.7,1,2,4][student%5];
+      stop=startCollection({tracker:telemetry,getContext:()=>({phase,game_speed:speed,robot_count:1}),schedule:fn=>{tick=fn;return 1;},cancel(){}});
       for(let interval=0;interval<20;interval++){clock+=5000;telemetry.recordCodeEdit();tick();}
       clock+=1000;
       const attempt=openChallenge(telemetry,task,true);
@@ -99,6 +100,7 @@ test("recording, autosave, canonical download and preparation CLI preserve six f
       const browserCheck=challengeSamples([logger.buildSessionExport()],task.id);
       assert.equal(browserCheck.samples.length,1,JSON.stringify(browserCheck.excluded));
       assert.equal(browserCheck.samples[0].x[0][1],12);
+      assert.equal(browserCheck.samples[0].x[0][12],speed);
       assert.equal(browserCheck.samples[0].stopped_runs_before_score,1);
       telemetry.endCollection();stop();stop=null;
       assert.equal(logger.saveSessionLight(),true);
@@ -288,6 +290,26 @@ test("installed provisional model runs on gameplay history and records its ident
     assert.equal(telemetry.ddaActionsLog.at(-1).modelId, deployedScaler.model_id);
     assert.equal(telemetry.ddaActionsLog.at(-1).predictionTask, "first-harvest-v1");
   } finally { agent.lstmModel?.dispose(); }
+});
+
+test("speed-aware runtime receives the same 14 features as offline preparation",async()=>{
+  const {COLLECTION_SCHEMA,COLLECTION_FEATURES,activeGameplayWindow}=await import("../src/game/ml/research-features.js");
+  const scalerValue={type:"standard",feature_schema:COLLECTION_SCHEMA,feature_names:COLLECTION_FEATURES,mean:Array(14).fill(0),scale:Array(14).fill(1)};
+  let observed;
+  const agent=new MLDiffAgent({loadScaler:async()=>scalerValue,loadModel:async()=>({
+    ...fakeModel([20,14],1,[.4]),predict(input){observed=input.arraySync()[0];return tf.tensor2d([[.4]]);}})});
+  const originalNow=Date.now,now=originalNow();
+  try {
+    Date.now=()=>now;
+    telemetry.collectionEnabled=true;
+    telemetry.getCollectionContext=()=>({phase:"gameplay",game_speed:2});
+    telemetry.collectionSnapshots=Array.from({length:21},(_,i)=>({timestamp_ms:now-101000+i*5000,gameplay_segment:1,
+      stage:1,context:{phase:"gameplay",game_speed:2,robot_count:1},counters:{errors:0,edits:i,completed_runs:0,failed_runs:0,
+        stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0}}));
+    assert.ok((await agent.updateAndPredict()).proficiency>0);
+    assert.deepEqual(observed,activeGameplayWindow(telemetry.collectionSnapshots,now).x.map(row=>row.map(Math.fround)));
+    assert.equal(agent.getAgentState().predictionTarget,"independent_scored_task");
+  } finally {Date.now=originalNow;}
 });
 
 test("malformed persisted research data is not silently overwritten", () => {

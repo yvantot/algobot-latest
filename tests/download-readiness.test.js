@@ -4,6 +4,7 @@ import { downloadReadiness } from "../src/game/ml/download-readiness.js";
 import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
 import { CHALLENGES, challengeRules, challengeMaxScore } from "../src/game/challenges/catalog.js";
 import { openChallenge, submitChallenge } from "../src/game/challenges/records.js";
+import { COLLECTION_SCHEMA } from "../src/game/ml/research-features.js";
 
 function scoredSession(score = 0, taskId = "first-harvest-v1") {
   const now = Date.now(), task = CHALLENGES.find(t => t.id === taskId);
@@ -47,4 +48,13 @@ test("saved scores survive reload but another participant's score cannot unlock 
   const saved = scoredSession(), current = {...saved,session_id:"new-session",challenge_attempts:[],feature_timeseries:[]};
   assert.equal(downloadReadiness(current,{sessions:[saved,current]}).ready,true);
   assert.equal(downloadReadiness({...current,student_id:"different-player"},{sessions:[saved,current]}).ready,false);
+});
+
+test("speed-aware first-harvest scores unlock downloads and older saved scores survive a schema update",()=>{
+  const session=scoredSession(0);
+  session.research_features={schema:COLLECTION_SCHEMA};
+  for(const s of session.feature_timeseries){s.gameplay_segment=1;s.context.game_speed=2;}
+  assert.equal(downloadReadiness(session).ready,true);
+  const saved=scoredSession(0),current={...session,session_id:"new-schema-session",challenge_attempts:[]};
+  assert.equal(downloadReadiness(current,{sessions:[saved,current]}).ready,true);
 });

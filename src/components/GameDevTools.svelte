@@ -1567,7 +1567,7 @@
             <p class="font-bold">Participant: {collectionCheck.participant}</p>
             {#if collectionCheck.cleared}<p class="text-red-300">Data was cleared. Reload before the next student plays.</p>
             {:else if collectionCheck.source==='developer_test'}<p class="text-red-300">Developer actions were used. This session is excluded from training.</p>
-            {:else}<p>{collectionCheck.ready ? "Gameplay window ready for a first challenge attempt." : "Gameplay window not ready. Allow about 110 seconds of uninterrupted normal-speed play after the tutorial, then check again."}</p>{/if}
+            {:else}<p>{collectionCheck.ready ? "Gameplay window ready for a first challenge attempt." : "Gameplay window not ready. Keep playing after the tutorial for about two minutes. Any player speed is okay; short breaks preserve earlier observations."}</p>{/if}
             {#if collectionCheck.storageError}<p class="text-red-300">Storage problem: {collectionCheck.storageError}. Download the JSON before leaving.</p>{/if}
             {#each collectionCheck.tasks as task}
               <p class="mt-2 font-bold">{task.title}: {task.usable ? "usable training label" : "no usable training label"}</p>

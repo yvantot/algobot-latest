@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import * as tf from "@tensorflow/tfjs";
 import { loadDeployedModel } from "./model-artifacts.js";
 import { digest, makePlan, makePilotPlan, partitions, fitStandardScaler, normalized, means, regressionMetrics } from "./training-core.js";
-import { RESEARCH_SCHEMA } from "../src/game/ml/research-features.js";
+import { researchFeatureNames } from "../src/game/ml/research-features.js";
 
 const read = p => JSON.parse(fs.readFileSync(p, "utf8").replace(/^\uFEFF/, ""));
 const write = (p, value) => fs.writeFileSync(p, JSON.stringify(value, null, 2), { flag: "wx" });
@@ -13,13 +13,13 @@ const artifactFiles = ["model.json", "weights.bin", "scaler_params.json"];
 const hashFile = p => digest(fs.readFileSync(p));
 const hashes = dir => Object.fromEntries(artifactFiles.map(f => [f, hashFile(path.join(dir, f))]));
 
-function createModel(kind, seed) {
+function createModel(kind, seed, featureCount) {
   const model = tf.sequential();
   const initializer = () => tf.initializers.glorotUniform({ seed });
-  if (kind === "lstm") model.add(tf.layers.lstm({ units: 8, inputShape: [20, 12],
+  if (kind === "lstm") model.add(tf.layers.lstm({ units: 8, inputShape: [20, featureCount],
     kernelInitializer: initializer(), recurrentInitializer: tf.initializers.orthogonal({ seed: seed + 1 }),
     kernelRegularizer: tf.regularizers.l2({ l2: .001 }) }));
-  else model.add(tf.layers.dense({ units: 8, inputShape: [12], activation: "relu", kernelInitializer: initializer(),
+  else model.add(tf.layers.dense({ units: 8, inputShape: [featureCount], activation: "relu", kernelInitializer: initializer(),
     kernelRegularizer: tf.regularizers.l2({ l2: .001 }) }));
   model.add(tf.layers.dense({ units: 1, activation: "sigmoid", kernelInitializer: tf.initializers.glorotUniform({ seed: seed + 2 }) }));
   model.compile({ optimizer: tf.train.adam(.003), loss: "meanSquaredError" });
@@ -73,13 +73,13 @@ export async function pilotWorkflow(datasetPath, output, settings = {}) {
   await tf.setBackend("cpu"); await tf.ready();
   const report = { pilot_only: true, deployment_ready: false, dataset_sha256: digest(data), plan_sha256: digest(plan),
     source_sha256: data.source_sha256, task_id: data.samples[0].task_id, rubric_version: data.samples[0].rubric_version,
-    feature_schema: RESEARCH_SCHEMA, node: process.version, tensorflowjs: tf.version.tfjs, backend: tf.getBackend(),
+    feature_schema: data.feature_schema, node: process.version, tensorflowjs: tf.version.tfjs, backend: tf.getBackend(),
     cutoffs: plan.cutoffs, folds: [], results: {}, predictions: { mean: [], lstm: [], mlp: [] } };
   const heldout = [];
   for (const [index, split] of plan.folds.entries()) {
     const { train, validation, test } = Object.fromEntries(Object.entries(split).map(([key, ids]) =>
       [key, data.samples.filter(s => ids.includes(s.student_id))]));
-    const scaler = fitStandardScaler(train), mean = train.reduce((sum, s) => sum + s.y, 0) / train.length;
+    const scaler = fitStandardScaler(train, data.feature_schema), mean = train.reduce((sum, s) => sum + s.y, 0) / train.length;
     const fold = { index, split, baseline_mean: mean, models: {} };
     heldout.push(...test);
     const record = (kind, predictions) => report.predictions[kind].push(...test.map((s, i) =>
@@ -87,7 +87,7 @@ export async function pilotWorkflow(datasetPath, output, settings = {}) {
     record("mean", test.map(() => mean));
     for (const kind of ["lstm", "mlp"]) {
       console.log(`Pilot fold ${index + 1}/${plan.folds.length}: ${kind}`);
-      const model = createModel(kind, plan.seed);
+      const model = createModel(kind, plan.seed, scaler.mean.length);
       try {
         const result = await fit(model, train, validation, scaler, kind, plan, plan.seed);
         const directory = path.join(output, `fold-${index + 1}-${kind}`);
@@ -125,17 +125,17 @@ export async function trainWorkflow(datasetPath, planPath, output) {
   freshDirectory(output);
   await tf.setBackend("cpu"); await tf.ready();
   write(path.join(output, "plan.json"), plan);
-  const scaler = fitStandardScaler(train);
+  const scaler = fitStandardScaler(train, data.feature_schema);
   const baseline = train.reduce((sum, s) => sum + s.y, 0) / train.length;
   const report = { dataset_sha256: digest(data), plan_sha256: digest(plan), target: "independent_scored_task",
     task_id:data.samples[0].task_id, rubric_version:data.samples[0].rubric_version, assessor_id:data.samples[0].assessor_id,
-    feature_schema: RESEARCH_SCHEMA, node: process.version, tensorflowjs: tf.version.tfjs, backend: tf.getBackend(),
+    feature_schema: data.feature_schema, node: process.version, tensorflowjs: tf.version.tfjs, backend: tf.getBackend(),
     baseline_mean: baseline, test_evaluated: false, training_samples: train.length, validation_samples: validation.length,
     mean_validation: regressionMetrics(validation, validation.map(() => baseline), plan.cutoffs), candidates: [], selected: {},
     note: "Only train/validation used. Early stopping and seed selection use participant-macro validation RMSE. No full-data refit." };
   for (const kind of ["lstm", "mlp"]) {
     for (const seed of plan.candidate_seeds) {
-      const name = `${kind}-seed-${seed}`, model = createModel(kind, seed);
+      const name = `${kind}-seed-${seed}`, model = createModel(kind, seed, scaler.mean.length);
       console.log(`Training ${name}`);
       try {
         const result = await fit(model, train, validation, scaler, kind, plan, seed);
@@ -210,7 +210,7 @@ export function bundleWorkflow(run, output) {
   for (const file of artifactFiles) fs.copyFileSync(path.join(source, file), path.join(output, file));
   write(path.join(output, "model-card.json"), { target: "independent_scored_task", output: "score / maximum",
     task_id:development.task_id, rubric_version:development.rubric_version, assessor_id:development.assessor_id,
-    feature_schema: RESEARCH_SCHEMA, input_shape: [20, 12], collection_interval_ms: 5000,
+    feature_schema: development.feature_schema, input_shape: [20, researchFeatureNames(development.feature_schema).length], collection_interval_ms: 5000,
     dataset_sha256: development.dataset_sha256, plan_sha256: development.plan_sha256,
     files: selected.files, file_hash_encoding: "SHA-256 of file bytes",
     evaluation, deployment_ready: false, requires_review: "Review task validity, category support, baselines and runtime parity before deployment." });
@@ -231,10 +231,10 @@ export async function refitPilotWorkflow(datasetPath, run, output) {
   freshDirectory(output);
   await tf.setBackend("cpu"); await tf.ready();
   const modelId = `first-task-lstm-${digest(data).slice(0, 12)}-seed-${plan.seed}-epochs-${epochs}`;
-  const scaler = { ...fitStandardScaler(data.samples), model_id: modelId, model_status: "provisional",
+  const scaler = { ...fitStandardScaler(data.samples, data.feature_schema), model_id: modelId, model_status: "provisional",
     task_id: data.samples[0].task_id, prediction_target: "independent_scored_task" };
   const ordered = [...data.samples].sort((a, b) => digest(`${plan.seed}:${a.assessment_id}`).localeCompare(digest(`${plan.seed}:${b.assessment_id}`)));
-  const model = createModel("lstm", plan.seed), x = inputs(ordered, scaler, "lstm"), y = tf.tensor2d(ordered.map(s => [s.y]));
+  const model = createModel("lstm", plan.seed, scaler.mean.length), x = inputs(ordered, scaler, "lstm"), y = tf.tensor2d(ordered.map(s => [s.y]));
   try {
     const result = await model.fit(x, y, { epochs, batchSize: Math.min(16, ordered.length), shuffle: false, verbose: 0 });
     if (!result.history.loss.every(Number.isFinite)) throw Error("Non-finite refit loss");
@@ -251,7 +251,7 @@ export async function refitPilotWorkflow(datasetPath, run, output) {
     const card = { model_id: modelId, status: "provisional", deployment_ready: false,
       deployment_intent: "Explicitly requested experimental replacement; not validated for reliable proficiency assessment.",
       target: "independent_scored_task", task_id: data.samples[0].task_id, rubric_version: data.samples[0].rubric_version,
-      feature_schema: RESEARCH_SCHEMA, input_shape: [20, 12], output: "Predicted first-harvest task score / maximum, not general programming proficiency",
+      feature_schema: data.feature_schema, input_shape: [20, scaler.mean.length], output: "Predicted first-harvest task score / maximum, not general programming proficiency",
       dataset_sha256: digest(data), pilot_report_sha256: digest(report),
       training_samples: data.samples.length, training_participants: new Set(data.samples.map(s => s.student_id)).size,
       seed: plan.seed, epochs, epoch_selection: "Median validation-selected LSTM epoch across pilot folds; no selection by test performance",

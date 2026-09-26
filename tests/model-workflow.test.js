@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { RESEARCH_SCHEMA, RESEARCH_FEATURES, recentSequence, scaleResearchSequence } from "../src/game/ml/research-features.js";
+import { RESEARCH_SCHEMA, RESEARCH_FEATURES, COLLECTION_SCHEMA, COLLECTION_FEATURES, recentSequence, scaleResearchSequence } from "../src/game/ml/research-features.js";
 import { sealDataset } from "../src/game/ml/export-integrity.js";
 import { readCollection, assessmentSamples } from "../scripts/collection-dataset.js";
 import { digest, makePlan, makePilotPlan, partitions, fitStandardScaler, regressionMetrics } from "../scripts/training-core.js";
@@ -125,6 +125,31 @@ test("local train/evaluate/bundle pipeline runs and blocks reevaluation and modi
     fs.appendFileSync(path.join(run, development.selected.lstm, "weights.bin"), "changed");
     assert.throws(() => bundleWorkflow(run, path.join(dir, "bad-bundle")), /artifacts changed/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("14-feature speed-aware workflow trains both baselines and loads the bundled LSTM", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-active-workflow-fixture-"));
+  try {
+    const data = dataset(); data.feature_schema = COLLECTION_SCHEMA; data.feature_names = COLLECTION_FEATURES;
+    for (const [i,sample] of data.samples.entries()) sample.x = sample.x.map((row,j)=>[...row,[.3,.7,1,2,4][i%5],(20-j)*5]);
+    const plan = makePlan(data,{epochs:1});
+    const input=path.join(dir,"samples.json"),planFile=path.join(dir,"plan.json"),run=path.join(dir,"run"),bundle=path.join(dir,"bundle");
+    fs.writeFileSync(input,JSON.stringify(data));fs.writeFileSync(planFile,JSON.stringify(plan));
+    const result=await trainWorkflow(input,planFile,run);
+    assert.equal(result.feature_schema,COLLECTION_SCHEMA);
+    const evaluation=await evaluateWorkflow(input,run);
+    assert.deepEqual(Object.keys(evaluation.results),["mean","lstm","mlp"]);
+    bundleWorkflow(run,bundle);
+    const scaler=JSON.parse(fs.readFileSync(path.join(bundle,"scaler_params.json")));
+    assert.deepEqual(scaler,fitStandardScaler(partitions(data,plan).train,COLLECTION_SCHEMA));
+    const model=await loadDeployedModel(path.join(bundle,"model.json"));
+    const x=tf.tensor3d([scaleResearchSequence(data.samples[0].x,scaler)]);
+    const prediction=model.predict(x);
+    try {
+      assert.deepEqual(model.inputs[0].shape,[null,20,14]);
+      assert.ok(Number.isFinite((await prediction.data())[0]));
+    } finally {tf.dispose([x,prediction]);model.dispose();}
+  } finally { fs.rmSync(dir,{recursive:true,force:true}); }
 });
 
 test("pilot keeps entire participants separate and preserves the formal holdout minimum", async () => {

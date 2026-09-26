@@ -1,5 +1,5 @@
 import { FEATURE_NAMES } from "./model-input.js";
-import { recentSequence } from "./research-features.js";
+import { recentSequence, activeGameplayWindow, COLLECTION_SCHEMA } from "./research-features.js";
 
 export function inspectCollection(session) {
   const issues = [];
@@ -23,7 +23,11 @@ export function inspectCollection(session) {
   if (gaps) issues.push("sampling_gaps_check_pause_context");
   let recentWindows = 0;
   for (let i = 20; i < snapshots.length; i++) {
-    try { recentSequence(snapshots.slice(i - 20, i + 1)); recentWindows++; } catch { /* Count only complete, compatible windows. */ }
+    if (session.research_features?.schema === COLLECTION_SCHEMA) {
+      if (activeGameplayWindow(snapshots.slice(0, i + 1), snapshots[i].timestamp_ms + 1).ready) recentWindows++;
+    } else {
+      try { recentSequence(snapshots.slice(i - 20, i + 1)); recentWindows++; } catch { /* Count only complete, compatible windows. */ }
+    }
   }
   if (!recentWindows) issues.push("no_usable_recent_feature_window");
   if (attempts.some(a => a.start_time_inferred)) issues.push("inferred_quest_start");

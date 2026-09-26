@@ -1,5 +1,11 @@
 # Game versions
 
+## 1.3.8 collection readiness
+
+Challenges accept normal player speed controls. Twenty observed gameplay intervals within the last fifteen minutes unlock first attempts; short prompts and tab switches no longer erase earlier progress. Segment boundaries exclude pauses, speed changes, demos and challenges from counter differences. Export messages explain the remaining collection wait.
+
+New exports declare `active-14f-v2`: the twelve existing inputs plus speed and observation age. Local training, baseline comparisons, packaging and runtime understand both research schemas. The installed provisional model remains unchanged, preserving its 100%-speed input requirements and rule fallback. Keep the new collection round separate from the older pilot. First evaluated scores, Stop & Edit, first exposure, zero scores and unfinished-attempt rules remain unchanged.
+
 The Start Menu reads the version from `package.json`. Version `1.0.0` displays as **Version 1.0**; nonzero patch versions remain visible (for example, `1.0.1`).
 
 For future game releases, update the version with `npm version patch --no-git-tag-version` for fixes, or `npm version minor --no-git-tag-version` for feature releases. This keeps `package.json` and `package-lock.json` synchronized. Commit the version change with the release changes. Restart the development server when checking the release build metadata.

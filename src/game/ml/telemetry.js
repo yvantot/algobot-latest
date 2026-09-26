@@ -97,6 +97,7 @@ export class TelemetryTracker {
     this.collectionEnabled = false;
     this.collectionSnapshots = [];
     this.collectionContext = { phase: "unknown" };
+    this.gameplaySegment = 0;
     this.getCollectionContext = null;
     this.sessionEndTime = null;
     this.emotionSamples = { count: 0, frustration: 0, flow: 0 };
@@ -434,6 +435,7 @@ export class TelemetryTracker {
   // Sample current snapshot and append to sliding window buffer for LSTM
   setCollectionContext(context) {
     if (JSON.stringify(context) === JSON.stringify(this.collectionContext)) return;
+    if (context.phase !== this.collectionContext.phase || context.game_speed !== this.collectionContext.game_speed) this.gameplaySegment++;
     this.collectionContext = structuredClone(context);
     this._logRawEvent("collection_context");
   }
@@ -442,6 +444,7 @@ export class TelemetryTracker {
     this.updateEmotionScores();
     this.collectionSnapshots.push({
       index: this.collectionSnapshots.length,
+      gameplay_segment: this.gameplaySegment,
       timestamp_ms: Date.now(),
       t: Date.now() - this.sessionStartTime,
       vector: this.getFeatureVector(),

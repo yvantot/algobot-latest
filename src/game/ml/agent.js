@@ -5,7 +5,7 @@ import { telemetry } from "./telemetry.js";
 import { dda, DDA_ACTIONS } from "./dda.js";
 import { recentPolicyState, StableDifficultyPolicy } from "./recent-policy.js";
 import { FEATURE_COUNT, SEQUENCE_LENGTH, validateScaler, normalizeSequence } from "./model-input.js";
-import { RESEARCH_SCHEMA, recentSequence, validateResearchScaler, scaleResearchSequence } from "./research-features.js";
+import { COLLECTION_SCHEMA, researchFeatureNames, activeGameplayWindow, recentSequence, validateResearchScaler, scaleResearchSequence } from "./research-features.js";
 
 
 function validateModel(model, inputShape, outputSize) {
@@ -73,12 +73,12 @@ export class MLDiffAgent {
     const failures = [];
     try {
       const scaler = await this._loadScaler();
-      this.scaler = scaler?.feature_schema === RESEARCH_SCHEMA ? validateResearchScaler(scaler) : validateScaler(scaler);
+      this.scaler = researchFeatureNames(scaler?.feature_schema) ? validateResearchScaler(scaler) : validateScaler(scaler);
     } catch (error) { failures.push(`Scaler: ${error.message}`); }
     try {
       const revision = this.scaler?.model_id ? `?v=${encodeURIComponent(this.scaler.model_id)}` : "";
       this.lstmModel = await this._loadModel(`/models/lstm/model.json${revision}`);
-      validateModel(this.lstmModel, [SEQUENCE_LENGTH, this.scaler?.feature_schema === RESEARCH_SCHEMA ? 12 : FEATURE_COUNT], 1);
+      validateModel(this.lstmModel, [SEQUENCE_LENGTH, researchFeatureNames(this.scaler?.feature_schema)?.length ?? FEATURE_COUNT], 1);
       this.pretrainedLSTM = true;
     } catch (error) {
       this.lstmModel?.dispose();
@@ -156,11 +156,18 @@ export class MLDiffAgent {
 
   async _mlUpdate(stage, generation) {
     let sequence;
-    if (this.scaler.feature_schema === RESEARCH_SCHEMA) {
+    if (researchFeatureNames(this.scaler.feature_schema)) {
       try {
-        const snapshots = telemetry.getFeatureSnapshots().slice(-21);
-        if (!snapshots.length || Date.now() - snapshots.at(-1).timestamp_ms > 7500) throw Error("Waiting for fresh gameplay observations");
-        sequence = scaleResearchSequence(recentSequence(snapshots), this.scaler);
+        const snapshots = telemetry.getFeatureSnapshots();
+        if (this.scaler.feature_schema === COLLECTION_SCHEMA) {
+          const window = activeGameplayWindow(snapshots);
+          if (!window.ready) throw Error("Waiting for 20 observed gameplay intervals");
+          sequence = scaleResearchSequence(window.x, this.scaler);
+        } else {
+          if (!snapshots.length || Date.now() - snapshots.at(-1).timestamp_ms > 7500 ||
+              (telemetry.getCollectionContext && telemetry.getCollectionContext()?.game_speed !== 1)) throw Error("Current model requires fresh normal-speed gameplay");
+          sequence = scaleResearchSequence(recentSequence(snapshots.slice(-21)), this.scaler);
+        }
         this.observationReason = null;
       } catch (error) {
         this.observationReason = error.message;
@@ -199,7 +206,7 @@ export class MLDiffAgent {
       policySource: "rules",
       proficiencySource: this.predictionAvailable ? "lstm" : "unknown",
       proficiency: this.predictionAvailable ? state[0] : null,
-      predictionTarget: this.scaler?.feature_schema === RESEARCH_SCHEMA ? "independent_scored_task" : "legacy_gameplay_proxy",
+      predictionTarget: researchFeatureNames(this.scaler?.feature_schema) ? "independent_scored_task" : "legacy_gameplay_proxy",
       modelId: this.scaler?.model_id ?? "legacy-lstm",
       modelStatus: this.scaler?.model_status ?? "legacy",
       predictionTask: this.scaler?.task_id ?? null,
@@ -300,7 +307,7 @@ export class MLDiffAgent {
       policySource: "rules",
       proficiencySource: this.predictionAvailable ? "lstm" : "unknown",
       observationReason: this.observationReason,
-      predictionTarget: this.scaler?.feature_schema === RESEARCH_SCHEMA ? "independent_scored_task" : "legacy_gameplay_proxy",
+      predictionTarget: researchFeatureNames(this.scaler?.feature_schema) ? "independent_scored_task" : "legacy_gameplay_proxy",
       modelId: this.scaler?.model_id ?? "legacy-lstm",
       modelStatus: this.scaler?.model_status ?? "legacy",
       predictionTask: this.scaler?.task_id ?? null,

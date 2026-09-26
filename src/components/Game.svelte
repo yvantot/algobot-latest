@@ -16,7 +16,7 @@
   import Challenges from "./Challenges.svelte";
   import ChallengeFarm from "./ChallengeFarm.svelte";
   import { CHALLENGES, recordExposure, hasExposure } from "../game/challenges/catalog.js";
-  import { canStartChallenge, challengeAccess, openChallenge, submitChallenge, closeChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
+  import { canStartChallenge, challengeAccess, challengeWaitMessage, openChallenge, submitChallenge, closeChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
   import { INVENTORY, PLAYER_DATA } from "../game/global/global.js";
   import { QUEST_STATE } from "./global.svelte.js";
   import MenuAlert from "./MenuAlert.svelte";
@@ -40,7 +40,7 @@
   import GameDevTools from "./GameDevTools.svelte";
   import DDADashboard from "./DDADashboard.svelte";
   import { k } from "../lib/kaplay.js";
-  import { onMount, onDestroy, tick } from "svelte";
+  import { onMount, onDestroy, tick, untrack } from "svelte";
   import DocumentationPreview from "./DocumentationPreview.svelte";
   import { telemetry } from "../game/ml/telemetry.js";
   import { startCollection } from "../game/ml/collection.js";
@@ -134,7 +134,7 @@
     catch (error) { challengeNotice=error.message; return; }
     if (!challengeEntryAllowed(canStartChallenge(telemetry), exposed, playMode)) {
       challengeAvailability.ready=false;
-      challengeNotice="Keep farming a little longer before starting a challenge.";
+      challengeNotice=challengeWaitMessage(telemetry);
       return;
     }
     try {
@@ -211,13 +211,21 @@
     const session = dataLogger.buildSessionExport();
     const dataset = dataLogger.buildDatasetExport();
     if (!dataset.data_quality.stored_sessions_fully_readable) return {ready:false,message:"Saved data could not be read. Keep this page open and tell your researcher so they can recover it."};
-    return downloadReadiness(session, { cleared:dataLogger.clearedSessionIds.has(session.session_id), sessions:dataset.sessions });
+    const status = downloadReadiness(session, { cleared:dataLogger.clearedSessionIds.has(session.session_id), sessions:dataset.sessions });
+    if (status.reason === "first_challenge_not_started") status.message = challengeWaitMessage(telemetry);
+    return status;
   }
   let activeHint = $state("");
   let storageWarning = $state("");
 
   let game_speed = $state(k.debug.timeScale);
   let camera_scale = $state(1);
+  let refreshCollectionContext = () => {};
+  $effect(() => {
+    // Observe boundaries even if a prompt opens and closes between five-second samples.
+    game_speed; TUTORIAL.active; ONBOARDING.isModalOpen; challenge; showIntroduction; docPreview;
+    untrack(() => refreshCollectionContext());
+  });
 
   onMount(() => {
     let disposed = false;
@@ -262,6 +270,8 @@
       editor: current_editor === Editors.TEXT ? "text" : "blockly",
     });
     const stopCollection = startCollection({ tracker: telemetry, getContext: collectionContext });
+    refreshCollectionContext = () => telemetry.setCollectionContext(collectionContext());
+    document.addEventListener("visibilitychange", refreshCollectionContext);
 
     function saveSession() {
       if (saved) return;
@@ -297,6 +307,8 @@
       clearInterval(predictionTimer);
       clearInterval(saveTimer);
       stopCollection();
+      document.removeEventListener("visibilitychange", refreshCollectionContext);
+      refreshCollectionContext = () => {};
       window.removeEventListener("beforeunload", saveSession);
       eventScheduler.stop();
       configureFarmEvents(farm_grid_index, { shouldRun: () => false });
@@ -306,6 +318,7 @@
   });
   $effect(() => {
     k.debug.timeScale = game_speed;
+    untrack(() => refreshCollectionContext());
     k.setCamScale(camera_scale);
     clampFarmCamera(CAMERA, CONFIG.FARM);
     k.setCamPos(CAMERA.x, CAMERA.y);

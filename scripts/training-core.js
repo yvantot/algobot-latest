@@ -1,10 +1,11 @@
 import crypto from "node:crypto";
-import { RESEARCH_SCHEMA, RESEARCH_FEATURES, scaleResearchSequence } from "../src/game/ml/research-features.js";
+import { RESEARCH_SCHEMA, researchFeatureNames, scaleResearchSequence } from "../src/game/ml/research-features.js";
 
 export const digest = value => crypto.createHash("sha256").update(typeof value === "string" || Buffer.isBuffer(value) ? value : JSON.stringify(value)).digest("hex");
 export function validateDataset(data) {
-  if (data.feature_schema !== RESEARCH_SCHEMA || JSON.stringify(data.feature_names) !== JSON.stringify(RESEARCH_FEATURES) || !data.samples?.length) {
-    throw Error("Prepare a nonempty recent-12f-v1 scored-task dataset first");
+  const names = researchFeatureNames(data.feature_schema);
+  if (!names || JSON.stringify(data.feature_names) !== JSON.stringify(names) || !data.samples?.length) {
+    throw Error("Prepare a nonempty supported scored-task dataset first");
   }
   const ids = new Set(), windows = new Set(), sessions = new Map();
   for (const s of data.samples) {
@@ -14,7 +15,7 @@ export function validateDataset(data) {
         !Number.isFinite(s.y) || s.y < 0 || s.y > 1 ||
         !Number.isFinite(s.input_start_ms) || !Number.isFinite(s.input_end_ms) ||
         !Number.isFinite(s.assessment_start_ms) || s.input_start_ms >= s.input_end_ms || s.input_end_ms >= s.assessment_start_ms ||
-        s.x?.length !== 20 || s.x.some(row => row.length !== 12 || !row.every(Number.isFinite))) throw Error("Invalid, duplicate, synthetic or temporally leaked training sample");
+        s.x?.length !== 20 || s.x.some(row => row.length !== names.length || !row.every(Number.isFinite))) throw Error("Invalid, duplicate, synthetic or temporally leaked training sample");
     const window = `${s.session_id}:${s.input_start_ms}:${s.input_end_ms}`;
     if (windows.has(window)) throw Error("Multiple labels use the same input window");
     if (sessions.has(s.session_id) && sessions.get(s.session_id) !== s.student_id) throw Error("Session belongs to multiple participants");
@@ -33,7 +34,7 @@ export function makePlan(data, { seed = 42, epochs = 60, cutoffs = [.3, .6] } = 
   const ids = [...new Set(data.samples.map(s => s.student_id))].sort((a, b) => digest(`${seed}:${a}`).localeCompare(digest(`${seed}:${b}`)));
   if (ids.length < 6) throw Error("This holdout workflow requires at least 6 participant IDs (a software minimum, not adequate study power)");
   const heldout = Math.max(2, Math.floor(ids.length * .2));
-  return { version: 1, dataset_sha256: digest(data), feature_schema: RESEARCH_SCHEMA,
+  return { version: 1, dataset_sha256: digest(data), feature_schema: data.feature_schema,
     target: "independent_scored_task", task_id: data.samples[0].task_id, rubric_version: data.samples[0].rubric_version,
     assessor_id: data.samples[0].assessor_id,
     seed, epochs, candidate_seeds: [seed, seed + 1], cutoffs, cutoff_status: "provisional",
@@ -44,7 +45,7 @@ export function makePlan(data, { seed = 42, epochs = 60, cutoffs = [.3, .6] } = 
 
 export function partitions(data, plan) {
   validateDataset(data);
-  if (digest(data) !== plan.dataset_sha256 || plan.feature_schema !== RESEARCH_SCHEMA) throw Error("Dataset changed after the split was frozen");
+  if (digest(data) !== plan.dataset_sha256 || plan.feature_schema !== data.feature_schema) throw Error("Dataset changed after the split was frozen");
   const groups = Object.values(plan.split).flat();
   const expected = new Set(data.samples.map(s => s.student_id));
   if (new Set(groups).size !== groups.length || groups.length !== expected.size || groups.some(id => !expected.has(id)) ||
@@ -64,15 +65,17 @@ export function makePilotPlan(data, { seed = 42, epochs = 60 } = {}) {
       train: ids.filter(other => other !== id && other !== ids[(i + 1) % ids.length]) })) };
 }
 
-export function fitStandardScaler(samples) {
+export function fitStandardScaler(samples, schema = RESEARCH_SCHEMA) {
+  const names = researchFeatureNames(schema);
+  if (!names || samples.some(s => s.x.some(row => row.length !== names.length))) throw Error("Feature schema does not match training rows");
   const rows = samples.flatMap(s => s.x), n = rows.length;
   if (!n) throw Error("No training rows");
-  const mean = RESEARCH_FEATURES.map((_, j) => rows.reduce((sum, r) => sum + r[j], 0) / n);
+  const mean = names.map((_, j) => rows.reduce((sum, r) => sum + r[j], 0) / n);
   const scale = mean.map((m, j) => Math.sqrt(rows.reduce((sum, r) => sum + (r[j] - m) ** 2, 0) / n) || 1);
-  return { type: "standard", feature_schema: RESEARCH_SCHEMA, feature_names: RESEARCH_FEATURES, mean, scale };
+  return { type: "standard", feature_schema: schema, feature_names: names, mean, scale };
 }
 export const normalized = (samples, scaler) => samples.map(s => scaleResearchSequence(s.x, scaler));
-export const means = rows => rows.map(sequence => RESEARCH_FEATURES.map((_, j) => sequence.reduce((sum, row) => sum + row[j], 0) / sequence.length));
+export const means = rows => rows.map(sequence => sequence[0].map((_, j) => sequence.reduce((sum, row) => sum + row[j], 0) / sequence.length));
 
 export function regressionMetrics(samples, predictions, cutoffs) {
   if (!samples.length || samples.length !== predictions.length || !predictions.every(Number.isFinite)) throw Error("Invalid evaluation predictions");

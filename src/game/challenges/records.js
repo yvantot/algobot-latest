@@ -1,20 +1,22 @@
-import { recentSequence } from "../ml/research-features.js";
+import { activeGameplayWindow } from "../ml/research-features.js";
 import { challengeMaxScore } from "./catalog.js";
 
 // Like the main farm, this survives a trip to the start menu but not a page reload.
 export const farmChallengeRewards = new Set();
 
 export function challengeWindowReady(tracker, now = Date.now()) {
-  const snapshots = (tracker.collectionSnapshots ?? []).filter(snapshot=>snapshot.timestamp_ms < now).slice(-21);
-  try {
-    recentSequence(snapshots);
-    return now - snapshots.at(-1).timestamp_ms < 15000;
-  } catch { return false; }
+  return activeGameplayWindow(tracker.collectionSnapshots ?? [], now).ready;
 }
 
 export function canStartChallenge(tracker, now = Date.now()) {
   const context=tracker.getCollectionContext?.();
-  return context?.phase === "gameplay" && context.game_speed === 1 && challengeWindowReady(tracker,now);
+  return context?.phase === "gameplay" && context.game_speed > 0 && challengeWindowReady(tracker,now);
+}
+
+export function challengeWaitMessage(tracker, now = Date.now()) {
+  const { count, ready } = activeGameplayWindow(tracker.collectionSnapshots ?? [], now);
+  return ready ? 'Open Challenges and try "Your first harvest". Run your program and wait for its score. A low score is okay!'
+    : `Challenges are getting ready. Close this prompt and keep farming for about ${(20 - count) * 5} more seconds. Any game speed is okay. Short breaks keep your progress.`;
 }
 
 export function challengeAccess(tracker, wasUnlocked, tutorialComplete, now = Date.now()) {

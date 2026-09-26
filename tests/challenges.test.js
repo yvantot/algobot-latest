@@ -14,10 +14,10 @@ import { HISTORICAL_CHALLENGES as CHALLENGES } from "../src/game/challenges/arch
 const context = vm.createContext({ console, setTimeout, clearTimeout });
 vm.runInContext(fs.readFileSync(new URL("../public/js-interpreter.js", import.meta.url), "utf8"), context);
 const solve = "for(var i=0;i<columns();i++){if(bot.is_harvestable()){bot.harvest();}if(i<columns()-1){bot.right();}}";
-test('challenge access requires a fresh full gameplay window and normal-speed active play',()=>{
+test('challenge access requires observed gameplay and supports every player speed',()=>{
   const start=1700000000000;
   let phase='gameplay',speed=1;
-  const snapshots=Array.from({length:21},(_,i)=>({timestamp_ms:start+i*5000,stage:1,
+  const snapshots=Array.from({length:21},(_,i)=>({timestamp_ms:start+i*5000,stage:1,gameplay_segment:1,
     context:{phase:'gameplay',game_speed:1,robot_count:1},
     counters:{errors:0,edits:i,completed_runs:0,failed_runs:0,stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0}}));
   const tracker={collectionSnapshots:snapshots.slice(0,20),getCollectionContext:()=>({phase,game_speed:speed})};
@@ -26,16 +26,18 @@ test('challenge access requires a fresh full gameplay window and normal-speed ac
   tracker.collectionSnapshots=snapshots;
   assert.equal(canStartChallenge(tracker,now),true);
   assert.equal(canStartChallenge(tracker,start+100000),false);
-  assert.equal(canStartChallenge(tracker,start+120000),false);
+  assert.equal(canStartChallenge(tracker,start+120000),true);
+  assert.equal(canStartChallenge(tracker,start+1000000),false);
   for(phase of ['guided_practice','challenge','demonstration','modal','hidden','paused'])assert.equal(canStartChallenge(tracker,now),false,phase);
-  phase='gameplay';speed=2;assert.equal(canStartChallenge(tracker,now),false);
+  phase='gameplay';
+  for (speed of [.3,.7,1,2,4]) assert.equal(canStartChallenge(tracker,now),true);
   speed=1;snapshots[10].context.phase='guided_practice';assert.equal(canStartChallenge(tracker,now),false);
   snapshots[10].context.phase='gameplay';snapshots[10].timestamp_ms+=9000;assert.equal(canStartChallenge(tracker,now),false);
 });
 test('unlocked challenges stay visible through tab gaps and recover without consuming an attempt',()=>{
   const start=1700000000000;
   let phase='gameplay';
-  const snapshot=i=>({timestamp_ms:start+i*5000,stage:1,
+  const snapshot=i=>({timestamp_ms:start+i*5000,stage:1,gameplay_segment:1,
     context:{phase:'gameplay',game_speed:1,robot_count:1},
     counters:{errors:0,edits:i,completed_runs:0,failed_runs:0,stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0}});
   const tracker={collectionSnapshots:Array.from({length:20},(_,i)=>snapshot(i)),challengeAttempts:[],getCollectionContext:()=>({phase,game_speed:1})};
@@ -50,7 +52,7 @@ test('unlocked challenges stay visible through tab gaps and recover without cons
   phase='gameplay';
   for(let i=22;i<=41;i++) tracker.collectionSnapshots.push(snapshot(i));
   access=challengeAccess(tracker,access.unlocked,true,start+205001);
-  assert.deepEqual(access,{unlocked:true,ready:false});
+  assert.deepEqual(access,{unlocked:true,ready:true});
   tracker.collectionSnapshots.push(snapshot(42));
   access=challengeAccess(tracker,access.unlocked,true,start+210001);
   assert.deepEqual(access,{unlocked:true,ready:true});

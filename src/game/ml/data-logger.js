@@ -6,7 +6,7 @@ import { FEATURE_NAMES } from "./model-input.js";
 import { COLLECTION_INTERVAL_MS } from "./collection.js";
 import { inspectCollection } from "./collection-quality.js";
 import { sealDataset } from "./export-integrity.js";
-import { RESEARCH_SCHEMA, RESEARCH_FEATURES } from "./research-features.js";
+import { COLLECTION_SCHEMA, COLLECTION_FEATURES } from "./research-features.js";
 import { clearParticipant } from "./participant.js";
 import { CHALLENGE_STORAGE } from "../challenges/catalog.js";
 
@@ -96,9 +96,9 @@ export class DataLogger {
       dataset_version: this.datasetVersion,
       export_date: new Date().toISOString(),
       feature_schema_version: "10f",
-      telemetry_revision: "v4-blockly-edits-export-fix",
+      telemetry_revision: "v5-context-segmented-gameplay",
       build: typeof __BUILD_PROVENANCE__ === "undefined" ? { commit: "unknown", dirty: null } : __BUILD_PROVENANCE__,
-      research_features: { schema: RESEARCH_SCHEMA, names: RESEARCH_FEATURES, snapshots_required: 21 },
+      research_features: { schema: COLLECTION_SCHEMA, names: COLLECTION_FEATURES, intervals_required: 20, lookback_minutes: 15 },
       source_type: telemetry.researchExclusionReasons.length ? "developer_test" : "recorded",
       research_exclusion_reasons: [...telemetry.researchExclusionReasons],
       feature_names: FEATURE_NAMES,
