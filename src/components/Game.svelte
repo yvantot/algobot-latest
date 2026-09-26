@@ -24,6 +24,7 @@
   import LevelReward from "./LevelReward.svelte";
   import ResearchTree from "./ResearchTree.svelte";
   import FarmPersonalize from "./FarmPersonalize.svelte";
+  import { claimDemoReward } from "../game/global/introduction-story.js";
   import HelpModal from "./HelpModal.svelte";
   import FarmIntroduction from "./FarmIntroduction.svelte";
   import { farmEntryScreen } from "./farm-entry.js";
@@ -112,7 +113,7 @@
   let current_menu = $state(Menus.COMMAND);
   let challenge = $state(null), challengeNotice = $state("");
   let challengeAvailability = $state({ unlocked: false, ready: false });
-  let challengeVisible = $derived(challengeAvailability.unlocked && !challenge && !TUTORIAL.active && !!QUEST_STATE.intro_loop?.is_claimed);
+  let challengeVisible = $derived(challengeAvailability.unlocked && !challenge && !TUTORIAL.active && !!QUEST_STATE.tut_2?.is_claimed);
   let challengeReady = $derived(challengeVisible && challengeAvailability.ready);
   let challengeInvite = $state(null), challengeRewardAvailable = $state(true);
   let rewardedChallenges=$state([...farmChallengeRewards]);
@@ -162,7 +163,7 @@
   }
   onMount(() => {
     const timer = setInterval(() => {
-      challengeAvailability=challengeAccess(telemetry, challengeAvailability.unlocked, !TUTORIAL.active && !!QUEST_STATE.intro_loop?.is_claimed);
+      challengeAvailability=challengeAccess(telemetry, challengeAvailability.unlocked, !TUTORIAL.active && !!QUEST_STATE.tut_2?.is_claimed);
       if (challengeAvailability.ready) challengeNotice="";
       const available = [...CHALLENGES].sort((a,b)=>a.coins-b.coins).find(task => QUEST_STATE[task.prerequisite]?.is_claimed && !invitedChallenges.has(task.id));
       if (available && challengeReady && !challengeInvite && !ONBOARDING.isModalOpen) { invitedChallenges.add(available.id); challengeInvite = available; }
@@ -189,6 +190,10 @@
   }
   let showOnboarding = $state(false);
   let showIntroduction = $state(false);
+  let demoLesson = $state("basics"), completedDemos = $state([]);
+  function completeDemo(lesson) {
+    claimDemoReward(completedDemos, lesson, reward => { INVENTORY.changeCoins(reward.coins); PLAYER_DATA.changeExp(reward.exp); telemetry._logRawEvent("optional_demo_completed", { lesson, coins: reward.coins, exp: reward.exp }); });
+  }
   let showDDADashboard = $state(false);
   let showConfirmReturn = $state(false);
   let activeHint = $state("");
@@ -327,7 +332,7 @@
   <LevelReward />
   <FarmPersonalize />
   <OnboardingModal bind:isOpen={showOnboarding} onClose={() => showOnboarding = false} />
-  <FarmIntroduction bind:isOpen={showIntroduction} />
+  <FarmIntroduction bind:isOpen={showIntroduction} lesson={demoLesson} rewardAvailable={!completedDemos.includes(demoLesson)} onComplete={completeDemo} />
   {#if docPreview}<DocumentationPreview name={docPreview} onClose={closeDocPreview}/>{/if}
   <QuestFeedback />
   <TutorialTarget />
@@ -494,6 +499,8 @@
             >
               ?
             </div>
+            {#if completedDemos.length < 2}<img src="/sprites/icon_alert.png" alt="Optional demos with rewards" class="absolute -top-1 -right-1 w-5 h-5 pointer-events-none" />{/if}
+
             <div
               class="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 opacity-0 group-hover:opacity-100 transition-all duration-150 transform translate-y-1 group-hover:translate-y-0"
             >
@@ -657,7 +664,7 @@
       </div>
     {:else if current_menu === Menus.HELP}
       <div in:panelIn out:panelOut>
-        <HelpModal onClose={() => toggleMenu(Menus.NONE)} onShowIntroduction={() => { stopCodeRuns(robots_state, telemetry); current_menu = Menus.NONE; showIntroduction = true; }} />
+        <HelpModal onClose={() => toggleMenu(Menus.NONE)} {completedDemos} onShowIntroduction={(lesson = "basics") => { demoLesson = lesson; stopCodeRuns(robots_state, telemetry); current_menu = Menus.NONE; showIntroduction = true; }} />
       </div>
     {/if}
   </div>

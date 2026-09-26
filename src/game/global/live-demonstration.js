@@ -10,8 +10,8 @@ import { INTRODUCTION_STORY } from "./introduction-story.js";
 import { addLandBackground } from "../land-background.js";
 
 // The cutscene owns a separate farm; closing it restores the player's exact entities.
-export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
-  const story = singleAction ? INTRODUCTION_STORY.filter(step => step.action === singleAction) : INTRODUCTION_STORY;
+export function startLiveDemonstration(onChange, { singleAction = null, chapters = null } = {}) {
+  const story = singleAction ? INTRODUCTION_STORY.filter(step => step.action === singleAction) : (chapters ?? INTRODUCTION_STORY);
   let disposed = false;
   let running = false;
   let ambientWorkflow = false;
@@ -236,6 +236,7 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
         break;
       }
       case "pest": {
+        if (!await action(robot, -1, "botJump", 1, 1)) return;
         clearCrops();
         plantAt(1, 1, CropStates.HARVESTABLE);
         const pest = addBug(farm, { damage: 1, attack_interval: 2, move_interval: 60, spawnAt: {x:1,y:1}, stationary:true });
@@ -245,6 +246,7 @@ export function startLiveDemonstration(onChange, { singleAction = null } = {}) {
         break;
       }
       case "fire": {
+        if (!await action(robot, -1, "botJump", 1, 1)) return;
         clearCrops();
         for (let y = 0; y < farm.demoBounds.rows; y++) for (let x = 0; x < farm.demoBounds.columns; x++) plantAt(x, y);
         const runtime = eventRuntime();

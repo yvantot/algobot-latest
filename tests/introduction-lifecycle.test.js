@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
-import { INTRODUCTION_STORY } from "../src/game/global/introduction-story.js";
+import { INTRODUCTION_STORY, demonstrationStory, claimDemoReward } from "../src/game/global/introduction-story.js";
 
 function setup(options) {
   const objects = [];
@@ -114,4 +114,16 @@ test("expansion keeps traversing while purchases wait and visits newly added til
   h.controller.purchase("column");await h.tick(100);assert.ok(h.moves.some(([x])=>x===3));
   assert.equal(h.changes.at(-1).ready,true);
  }finally{h.controller.dispose();}
+});
+
+test("optional demos are separate from the short opening and reward only once",()=>{
+  assert.deepEqual(demonstrationStory().map(s=>s.action),['welcome','move','plant','water','harvest','finish']);
+  assert.ok(demonstrationStory('events').some(s=>s.action==='fire'));
+  assert.ok(demonstrationStory('upgrades').some(s=>s.action==='expand'));
+  const completed=[],grants=[];
+  assert.equal(claimDemoReward(completed,'basics',r=>grants.push(r)),false);
+  assert.equal(claimDemoReward(completed,'events',r=>grants.push(r)),true);
+  assert.equal(claimDemoReward(completed,'events',r=>grants.push(r)),false);
+  assert.equal(claimDemoReward(completed,'upgrades',r=>grants.push(r)),true);
+  assert.equal(grants.length,2);
 });

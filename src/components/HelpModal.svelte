@@ -3,7 +3,8 @@
   import { createResizable } from "./interface.svelte.js";
   import { onMount } from "svelte";
 
-  let { onClose, onShowIntroduction } = $props();
+  import { DEMO_LESSONS } from "../game/global/introduction-story.js";
+  let { onClose, onShowIntroduction, completedDemos = [] } = $props();
 
   const resize = createResizable();
 
@@ -198,7 +199,12 @@
 
   <div class="flex flex-col gap-2 overflow-hidden text-sm flex-grow">
     {#if onShowIntroduction}
-      <button onclick={onShowIntroduction} class="rounded-lg border-2 border-slate-400 bg-green-200 hover:bg-green-300 p-2 font-bold text-slate-700 cursor-pointer">Watch the farm introduction</button>
+      <button onclick={() => onShowIntroduction("basics")} class="rounded-lg border-2 border-slate-400 bg-green-200 hover:bg-green-300 p-2 font-bold text-slate-700 cursor-pointer">Watch the short introduction</button>
+      {#each ["events", "upgrades"] as lesson}
+        <button onclick={() => onShowIntroduction(lesson)} class="rounded-lg border-2 border-slate-400 bg-green-200 hover:bg-green-300 p-3 text-left font-bold text-slate-700 cursor-pointer">
+          Watch {lesson === "events" ? "Events" : "Upgrades"}<span class="block text-sm mt-1">{completedDemos.includes(lesson) ? "Reward collected · Watch again" : `Finish to earn ${DEMO_LESSONS[lesson].coins} coins + ${DEMO_LESSONS[lesson].exp} EXP`}</span>
+        </button>
+      {/each}
     {/if}
     <!-- Tab Buttons -->
     <div class="flex flex-wrap gap-1 justify-center shrink-0">

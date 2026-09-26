@@ -4,7 +4,7 @@ export function registerInspectionBlocks(Blockly, generator) {
   for (const name of CROP_READINGS) {
     const type = `bot_${name}`;
     if (!Blockly.Blocks[type]) Blockly.defineBlocksWithJsonArray([{
-      type, message0: `bot.${name} column %1 row %2`,
+      type, message0: `${name === "crop_value" ? "Crop coin value" : name === "crop_time_left" ? "Seconds before crop spoils" : "Crop name"} at column %1 row %2`,
       args0: [{type:"input_value",name:"X",check:"Number"},{type:"input_value",name:"Y",check:"Number"}],
       inputsInline:true, output:name === "crop_type" ? "String" : "Number", colour:160,
       tooltip:name === "crop_value" ? "Current coin value if ready; 0 otherwise."

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import { registerHooks } from "node:module";
-import { INTRODUCTION_STORY } from "../src/game/global/introduction-story.js";
+import { INTRODUCTION_STORY, demonstrationStory } from "../src/game/global/introduction-story.js";
 import { FarmEventSimulation, fireSettings } from "../src/game/events/simulation.js";
 import { getDifficultyParams } from "../src/game/events/difficulty.js";
 import { evaluateChallenge } from "../src/game/challenges/engine.js";
@@ -520,7 +520,7 @@ test("scripted demonstration pest starts on its tile and never begins a wanderin
   assert.equal(pest.animations.pos,undefined);
 });
 
-test("every demonstration chapter completes with real crop, robot and event actions", async () => {
+for (const lesson of ["full", "basics", "events", "upgrades"]) test(`every demonstration chapter completes with real crop, robot and event actions (${lesson})`, async () => {
   const h=harness(), changes=[], runtimes=new Map();
   Object.assign(h.context.CONFIG.FARM,{rows:3,columns:3,gap:6});
   h.context.tutorialPolicy.protected=true;
@@ -537,19 +537,20 @@ test("every demonstration chapter completes with real crop, robot and event acti
   h.context.destroyFarmEvents=grid=>runtimes.get(grid)?.owner.destroy();
   const source=fs.readFileSync(new URL("../src/game/global/live-demonstration.js",import.meta.url),"utf8").replace(/^import .*;\r?\n/gm,"").replace("export function","function");
   vm.runInContext(source,h.context);
-  const controller=h.context.startLiveDemonstration(change=>changes.push(change));
-  for(let chapter=0;chapter<INTRODUCTION_STORY.length;chapter++){
+  const story=lesson === "full" ? INTRODUCTION_STORY : demonstrationStory(lesson);
+  const controller=h.context.startLiveDemonstration(change=>changes.push(change),{chapters:story});
+  for(let chapter=0;chapter<story.length;chapter++){
     let frames=0;
     for(let frame=0;frame<1800&&!changes.findLast(change=>"ready" in change)?.ready;frame++){frames++;const pending=changes.findLast(change=>"purchase" in change)?.purchase;if(pending)controller.purchase(pending.id);h.advance(.05);await Promise.resolve();await Promise.resolve();}
-    assert.equal(changes.at(-1)?.error,undefined,INTRODUCTION_STORY[chapter].action+" failed");
-    assert.equal(changes.findLast(change=>"ready" in change)?.ready,true,INTRODUCTION_STORY[chapter].action+" stalled");
-    if(INTRODUCTION_STORY[chapter].action==="workflow"){
+    assert.equal(changes.at(-1)?.error,undefined,story[chapter].action+" failed");
+    assert.equal(changes.findLast(change=>"ready" in change)?.ready,true,story[chapter].action+" stalled");
+    if(story[chapter].action==="workflow"){
       assert.ok(frames*.05<16,"team explanation must arrive without waiting for a lap");
       const before=changes.filter(change=>change.line>=0).length;
       for(let i=0;i<30;i++){h.advance(.05);await Promise.resolve();await Promise.resolve();}
       assert.ok(changes.filter(change=>change.line>=0).length>before,"bots keep working after the explanation");
     }
-    if(chapter<INTRODUCTION_STORY.length-1)controller.next();
+    if(chapter<story.length-1)controller.next();
   }
   controller.dispose();
   assert.deepEqual(h.rewards,{coins:0,exp:0,seeds:0,spoiled:0});

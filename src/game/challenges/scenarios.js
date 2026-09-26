@@ -37,7 +37,7 @@ export const SCENARIO_CHALLENGES = [
     rules:[{key:"team_harvest",label:"Bot 0 supplies the water; Bot 1 harvests all the wheat."},
       {key:"shared_work",label:"Bot 1 receives each ripe crop's column number from Bot 0 before harvesting it."},safe],
     commands:["jump","right","left","water","wait","harvest","is_watered","is_harvestable","send","has_message","receive"]},
-].map(task=>({...task,prerequisite:"intro_loop"}));
+].map(task=>({...task,prerequisite:"tut_2"}));
 
 // State = position, remaining steps and harvested mask. Kept independent of the
 // student's program so the rubric can compare routes without prescribing code.

@@ -4,7 +4,7 @@ export function registerMessageBlocks(Blockly, generator) {
   for (const name of MESSAGE_COMMANDS) {
     const type = `bot_${name}`;
     if (!Blockly.Blocks[type]) Blockly.defineBlocksWithJsonArray([{
-      type, message0: name === "send" ? "bot.send to bot %1 message %2" : `bot.${name}()`,
+      type, message0: name === "send" ? "Send to Bot %1 message %2" : name === "has_message" ? "Is there a message?" : "Read next message",
       ...(name === "send" ? {
         args0:[{type:"input_value",name:"BOT",check:"Number"},{type:"input_value",name:"MESSAGE"}],
         previousStatement:null,nextStatement:null,

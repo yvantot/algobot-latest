@@ -21,3 +21,9 @@ test("first movement must be authored, and later practice needs connected blocks
   assert.equal(movementQuest("intro_loop", { inLoop: true }), "intro_loop");
   assert.equal(movementQuest("tut_2", { inLoop: true }), null);
 });
+
+test("required tutorial ends with farming; loop remains a later mission", async()=>{
+  const {INTRO_QUESTS}=await import('../src/game/global/tutorial.js');
+  assert.equal(INTRO_QUESTS.at(-1),'tut_2');
+  assert.equal(INTRO_QUESTS.includes('intro_loop'),false);
+});

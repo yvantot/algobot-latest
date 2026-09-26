@@ -5,6 +5,7 @@
   import { javascriptGenerator } from "blockly/javascript";
   import { CONFIG, DOCUMENT_DATA } from "../game/global/global";
   import { robots, robots_state, UNLOCK_VERSION, ONBOARDING, TUTORIAL, currentQuest } from "./global.svelte.js";
+  import { INTRO_QUESTS } from "../game/global/tutorial.js";
   import { trackQuest, beginActiveQuest } from "./global.svelte.js";
   import { createResizable } from "./interface.svelte.js";
   import { createInit } from "../game/global/interpreter.js";
@@ -21,6 +22,9 @@
   let blocklyDiv = $state();
   let hasFirstBlock = $state(false);
   let workspace;
+  let workspaceReady = $state(false);
+  let previousPracticeQuest;
+  let placementWarning = $state("");
   export function targetName() { return `Bot ${selected_robot}`; }
   export function insertExample(state) {
     if (!workspace || robots_state[selected_robot]?.is_running) throw new Error("Stop this bot's program before inserting.");
@@ -111,7 +115,7 @@
     // === BOT ACTIONS ===
     Blockly.Blocks["bot_say"] = {
       init() {
-        this.appendValueInput("TEXT").setCheck(null).appendField("bot.say");
+        this.appendValueInput("TEXT").setCheck(null).appendField("Say");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#6366f1");
@@ -119,8 +123,8 @@
     };
     Blockly.Blocks["bot_jump"] = {
       init() {
-        this.appendValueInput("X").setCheck(null).appendField("bot.jump x");
-        this.appendValueInput("Y").setCheck(null).appendField("y");
+        this.appendValueInput("X").setCheck(null).appendField("Jump to column");
+        this.appendValueInput("Y").setCheck(null).appendField("row");
         this.setInputsInline(true);
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
@@ -129,7 +133,7 @@
     };
     Blockly.Blocks["bot_up"] = {
       init() {
-        this.appendDummyInput().appendField("bot.up");
+        this.appendDummyInput().appendField("Move up");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#6366f1");
@@ -137,7 +141,7 @@
     };
     Blockly.Blocks["bot_down"] = {
       init() {
-        this.appendDummyInput().appendField("bot.down");
+        this.appendDummyInput().appendField("Move down");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#6366f1");
@@ -145,7 +149,7 @@
     };
     Blockly.Blocks["bot_left"] = {
       init() {
-        this.appendDummyInput().appendField("bot.left");
+        this.appendDummyInput().appendField("Move left");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#6366f1");
@@ -153,7 +157,7 @@
     };
     Blockly.Blocks["bot_right"] = {
       init() {
-        this.appendDummyInput().appendField("bot.right");
+        this.appendDummyInput().appendField("Move right");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#6366f1");
@@ -163,7 +167,7 @@
       init() {
         this.appendValueInput("AMOUNT")
           .setCheck("Number")
-          .appendField("bot.wait");
+          .appendField("Wait seconds");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#6366f1");
@@ -173,7 +177,7 @@
     // === FARM ACTIONS ===
     Blockly.Blocks["bot_till"] = {
       init() {
-        this.appendDummyInput().appendField("bot.till");
+        this.appendDummyInput().appendField("Prepare soil");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#854d0e");
@@ -181,7 +185,7 @@
     };
     Blockly.Blocks["bot_water"] = {
       init() {
-        this.appendDummyInput().appendField("bot.water");
+        this.appendDummyInput().appendField("Water soil");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#0369a1");
@@ -189,7 +193,7 @@
     };
     Blockly.Blocks["bot_harvest"] = {
       init() {
-        this.appendDummyInput().appendField("bot.harvest");
+        this.appendDummyInput().appendField("Harvest crop");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#15803d");
@@ -198,7 +202,7 @@
     Blockly.Blocks["bot_plant"] = {
       init() {
         this.appendDummyInput()
-          .appendField("bot.plant")
+          .appendField("Plant")
           .appendField(new Blockly.FieldDropdown(cropDropdown), "TYPE");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
@@ -207,7 +211,7 @@
     };
     Blockly.Blocks["bot_destroy"] = {
       init() {
-        this.appendDummyInput().appendField("bot.destroy");
+        this.appendDummyInput().appendField("Remove crop");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#b91c1c");
@@ -215,7 +219,7 @@
     };
     Blockly.Blocks["bot_kill_bug"] = {
       init() {
-        this.appendDummyInput().appendField("bot.kill_bug");
+        this.appendDummyInput().appendField("Remove pest");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#b91c1c");
@@ -223,7 +227,7 @@
     };
     Blockly.Blocks["bot_extinguish"] = {
       init() {
-        this.appendDummyInput().appendField("bot.extinguish");
+        this.appendDummyInput().appendField("Put out fire");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#0369a1");
@@ -233,49 +237,49 @@
     // === CHECKS ===
     Blockly.Blocks["bot_check_tilled"] = {
       init() {
-        this.appendDummyInput().appendField("bot.is_tilled");
+        this.appendDummyInput().appendField("Is the soil prepared?");
         this.setOutput(true, "Boolean");
         this.setColour("#854d0e");
       },
     };
     Blockly.Blocks["bot_check_watered"] = {
       init() {
-        this.appendDummyInput().appendField("bot.is_watered");
+        this.appendDummyInput().appendField("Is the soil wet?");
         this.setOutput(true, "Boolean");
         this.setColour("#0369a1");
       },
     };
     Blockly.Blocks["bot_check_planted"] = {
       init() {
-        this.appendDummyInput().appendField("bot.is_planted");
+        this.appendDummyInput().appendField("Is there a crop?");
         this.setOutput(true, "Boolean");
         this.setColour("#15803d");
       },
     };
     Blockly.Blocks["bot_is_harvestable"] = {
       init() {
-        this.appendDummyInput().appendField("bot.is_harvestable");
+        this.appendDummyInput().appendField("Is the crop ready?");
         this.setOutput(true, "Boolean");
         this.setColour("#15803d");
       },
     };
     Blockly.Blocks["bot_is_bug"] = {
       init() {
-        this.appendDummyInput().appendField("bot.is_bug");
+        this.appendDummyInput().appendField("Is there a pest?");
         this.setOutput(true, "Boolean");
         this.setColour("#b91c1c");
       },
     };
     Blockly.Blocks["bot_is_fire"] = {
       init() {
-        this.appendDummyInput().appendField("bot.is_fire");
+        this.appendDummyInput().appendField("Is there a fire?");
         this.setOutput(true, "Boolean");
         this.setColour("#b91c1c");
       },
     };
     Blockly.Blocks["bot_is_dead"] = {
       init() {
-        this.appendDummyInput().appendField("bot.is_dead");
+        this.appendDummyInput().appendField("Is the crop spoiled?");
         this.setOutput(true, "Boolean");
         this.setColour("#333333");
       },
@@ -285,9 +289,9 @@
     Blockly.Blocks["math_randint"] = {
       init() {
         this.appendDummyInput()
-          .appendField("randint lower")
+          .appendField("Random whole number from")
           .appendField(new Blockly.FieldNumber(0), "LOWER")
-          .appendField("upper")
+          .appendField("to")
           .appendField(new Blockly.FieldNumber(10), "UPPER");
         this.setOutput(true, "Number");
         this.setColour("#5C68A6");
@@ -296,9 +300,9 @@
     Blockly.Blocks["math_randfloat"] = {
       init() {
         this.appendDummyInput()
-          .appendField("randfloat lower")
+          .appendField("Random decimal from")
           .appendField(new Blockly.FieldNumber(0), "LOWER")
-          .appendField("upper")
+          .appendField("to")
           .appendField(new Blockly.FieldNumber(1), "UPPER");
         this.setOutput(true, "Number");
         this.setColour("#5C68A6");
@@ -306,14 +310,14 @@
     };
     Blockly.Blocks["global_rows"] = {
       init() {
-        this.appendDummyInput().appendField("rows");
+        this.appendDummyInput().appendField("Number of rows");
         this.setOutput(true, "Number");
         this.setColour("#5C68A6");
       },
     };
     Blockly.Blocks["global_columns"] = {
       init() {
-        this.appendDummyInput().appendField("columns");
+        this.appendDummyInput().appendField("Number of columns");
         this.setOutput(true, "Number");
         this.setColour("#5C68A6");
       },
@@ -323,7 +327,7 @@
     Blockly.Blocks["inventory_seeds"] = {
       init() {
         this.appendDummyInput()
-          .appendField("inventory.seeds")
+          .appendField("Seeds available")
           .appendField(new Blockly.FieldDropdown(cropDropdown), "TYPE");
         this.setOutput(true, "Number");
         this.setColour("#745CA6");
@@ -331,7 +335,7 @@
     };
     Blockly.Blocks["inventory_coins"] = {
       init() {
-        this.appendDummyInput().appendField("inventory.coins");
+        this.appendDummyInput().appendField("Coins available");
         this.setOutput(true, "Number");
         this.setColour("#745CA6");
       },
@@ -342,7 +346,7 @@
       init() {
         this.appendValueInput("AMOUNT")
           .setCheck("Number")
-          .appendField("shop.buy_seed")
+          .appendField("Buy seeds")
           .appendField(new Blockly.FieldDropdown(cropDropdown), "TYPE")
           .appendField("amount");
         this.setPreviousStatement(true, null);
@@ -352,7 +356,7 @@
     };
     Blockly.Blocks["shop_buy_row"] = {
       init() {
-        this.appendDummyInput().appendField("shop.buy_row");
+        this.appendDummyInput().appendField("Add a row");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#A65C81");
@@ -360,7 +364,7 @@
     };
     Blockly.Blocks["shop_buy_column"] = {
       init() {
-        this.appendDummyInput().appendField("shop.buy_column");
+        this.appendDummyInput().appendField("Add a column");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#A65C81");
@@ -369,7 +373,7 @@
     Blockly.Blocks["shop_upgrade_bot_action"] = {
       init() {
         this.appendDummyInput()
-          .appendField("shop.upgrade_bot_action")
+          .appendField("Speed up actions for Bot")
           .appendField(new Blockly.FieldNumber(0, 0), "BOT");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
@@ -379,7 +383,7 @@
     Blockly.Blocks["shop_upgrade_bot_check"] = {
       init() {
         this.appendDummyInput()
-          .appendField("shop.upgrade_bot_check")
+          .appendField("Speed up checks for Bot")
           .appendField(new Blockly.FieldNumber(0, 0), "BOT");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
@@ -389,7 +393,7 @@
     Blockly.Blocks["shop_upgrade_bot_move"] = {
       init() {
         this.appendDummyInput()
-          .appendField("shop.upgrade_bot_move")
+          .appendField("Speed up movement for Bot")
           .appendField(new Blockly.FieldNumber(0, 0), "BOT");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
@@ -899,6 +903,8 @@
       }
       const movement = ["bot_left", "bot_right", "bot_up", "bot_down"];
       const blocks = workspace.getAllBlocks(false);
+      const emptyContainer = blocks.find(block => ["controls_repeat_ext", "controls_for", "controls_whileUntil", "controls_if"].includes(block.type) && !block.getInputTargetBlock(block.type === "controls_if" ? "DO0" : "DO"));
+      placementWarning = emptyContainer ? "Put action blocks INSIDE the open space of repeat or if. Blocks above or below run separately." : "";
       hasFirstBlock = blocks.some(block => block.type === "bot_right" && TUTORIAL.authoredBlocks.includes(block.id));
       TUTORIAL.sequenceBlocks = blocks.filter(block => movement.includes(block.type) &&
         (movement.includes(block.getNextBlock()?.type) || movement.includes(block.getPreviousBlock()?.type))).map(block => block.id);
@@ -916,7 +922,27 @@
     } else {
       restoreWorkspace(START_XML);
     }
-    return () => observer.disconnect();
+    previousPracticeQuest = currentQuest();
+    workspaceReady = true;
+    return () => { workspaceReady = false; observer.disconnect(); };
+  });
+
+  $effect(() => {
+    const mission = currentQuest();
+    const ready = workspaceReady;
+    const running = robots_state.some(state => state.is_running);
+    if (!ready || running || previousPracticeQuest === mission) return;
+    if (INTRO_QUESTS.includes(previousPracticeQuest)) {
+      restoreWorkspace(START_XML);
+      if (robots_state[selected_robot]) {
+        robots_state[selected_robot].blockly_xml = START_XML;
+        robots_state[selected_robot].block_code = "";
+      }
+      workspace.clearUndo();
+      TUTORIAL.authoredBlocks = [];
+      TUTORIAL.sequenceBlocks = [];
+    }
+    previousPracticeQuest = mission;
   });
 
   // Dynamically update toolbox whenever unlock version changes
@@ -1010,6 +1036,7 @@
       <button class="underline font-bold cursor-pointer" onclick={focusTutorialBlocks}>Open {tutorialCategory} blocks</button>
     </div>
   {/if}
+  {#if placementWarning}<p class="px-3 py-2 bg-amber-100 text-slate-800 text-sm" role="status">{placementWarning}</p>{/if}
   <div class="flex-1 bg-white min-h-0 overflow-hidden relative">
     <div class="absolute inset-0 w-full h-full" bind:this={blocklyDiv}></div>
   </div>
@@ -1083,7 +1110,7 @@
   <div class="spotlight-hole" style="left: {spotlightRect.left}px; top: {spotlightRect.top}px; width: {spotlightRect.width}px; height: {spotlightRect.height}px;"></div>
   <div class="spotlight-label" style="left: {spotlightRect.labelLeft}px; top: {spotlightRect.labelTop}px;">
     <div class="spotlight-bounce-wrapper">
-      <div class="spotlight-label-bubble">{hasFirstBlock ? "Press Start to move your robot." : "Open Bot. Drag bot.right into the work area."}</div>
+      <div class="spotlight-label-bubble">{hasFirstBlock ? "Press Start to move your robot." : "Open Bot. Drag Move right into the work area."}</div>
       <div class="spotlight-label-arrow"></div>
     </div>
   </div>

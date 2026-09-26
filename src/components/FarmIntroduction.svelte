@@ -6,9 +6,10 @@
   import { cubicOut } from "svelte/easing";
   import { dialogFocus } from "./dialog-focus.js";
   import { startLiveDemonstration } from "../game/global/live-demonstration.js";
-  import { INTRODUCTION_STORY } from "../game/global/introduction-story.js";
+  import { demonstrationStory, DEMO_LESSONS } from "../game/global/introduction-story.js";
   import { farm_grid_index } from "../game/game.js";
-  let { isOpen = $bindable(false) } = $props();
+  let { isOpen = $bindable(false), lesson = "basics", rewardAvailable = true, onComplete } = $props();
+  let story = $derived(demonstrationStory(lesson));
   let chapter = $state(0);
   let line = $state(-1);
   let botLines = $state({});
@@ -24,7 +25,7 @@
   let sceneChanging = $state(false);
   let controller;
   let closeTimer;
-  let step = $derived(INTRODUCTION_STORY[chapter]);
+  let step = $derived(story[chapter]);
   let reducedMotion = $state(false);
   $effect(() => {
     if (!isOpen) return;
@@ -46,14 +47,15 @@
         if (update.coins !== undefined) { coins = update.coins; rewardVisible = true; clearTimeout(rewardTimer); rewardTimer = setTimeout(() => rewardVisible = false, 3800); }
         if (update.exp !== undefined) exp = update.exp;
         if (update.error) error = true;
-      });
+      }, { chapters: story });
     }
     frame = requestAnimationFrame(startWhenReady);
     return () => { cancelAnimationFrame(frame); clearTimeout(rewardTimer); rewardVisible = false; clearTimeout(closeTimer); controller?.dispose(); controller = null; };
   });
-  function close() {
+  function close(completed = false) {
     if (closing) return;
     closing = true;
+    if (completed && ready && !error) onComplete?.(lesson);
     // Restore the real farm only once the closing curtain conceals the swap.
     closeTimer = setTimeout(() => { controller?.dispose(); isOpen = false; }, reducedMotion ? 0 : 450);
   }
@@ -61,16 +63,16 @@
 </script>
 
 {#if isOpen}
-  <div class="live-cutscene" use:dialogFocus tabindex="-1" role="dialog" aria-modal="true" aria-label="Meet your farm" out:fade={{duration:reducedMotion ? 0 : 400}}>
+  <div class="live-cutscene" use:dialogFocus tabindex="-1" role="dialog" aria-modal="true" aria-label={DEMO_LESSONS[lesson].title} out:fade={{duration:reducedMotion ? 0 : 400}}>
     <div class="curtain" class:closing={closing||sceneChanging}></div>
-    <header><span>Meet your farm · {chapter + 1} / {INTRODUCTION_STORY.length}</span><button onclick={close} disabled={closing}>Skip introduction</button></header>
+    <header><span>{DEMO_LESSONS[lesson].title} · {chapter + 1} / {story.length}</span><button onclick={() => close()} disabled={closing}>Close demo</button></header>
     <div class="programs">
     {#each programs.filter(program=>program.code.some(command=>!command.startsWith("//"))) as program,index (step.action+program.bot)}
       <DemoProgramPanel {program} {index} count={programs.length} reduced={reducedMotion} line={ready?-1:(botLines[program.bot]??-1)} dynamicGrid={traversing} {working}/>
     {/each}
     </div>
     {#if rewardVisible}<div class="earnings" in:fly={{y:24,duration:450}} out:fly={{y:-24,duration:450}} role="status"><img src="/sprites/icon_coin.png" alt=""/>+{coins} coins · +{exp} EXP</div>{/if}
-    {#if chapter === INTRODUCTION_STORY.length - 1 && ready && !error}<Confetti/>{/if}
+    {#if chapter === story.length - 1 && ready && !error}<Confetti/>{/if}
     {#if ready || error}
     <section class="teacher" out:fly={{y:24,duration:reducedMotion ? 0 : 200}} in:fly={{y:45,delay:350,duration:reducedMotion ? 0 : 500,easing:cubicOut}}>
       <img class="portrait" class:surprised={step.action === "spoil" || step.action === "pest"} class:happy={step.action === "harvest" || step.action === "finish"} src="/sprites/bot_teacher.png" alt="Bot Teacher"/>
@@ -83,8 +85,8 @@
           </div>
         {/each}
         <footer><span>{ready ? "Take your time. Continue when you’re ready." : "Watch what happens on the farm…"}</span>
-          {#if chapter === INTRODUCTION_STORY.length - 1 || error}
-            <button class="primary" disabled={!ready || closing} onclick={close}>Start my first mission</button>
+          {#if chapter === story.length - 1 || error}
+            <button class="primary" disabled={!ready || closing} onclick={() => close(true)}>{error ? "Back to farm" : lesson === "basics" ? "Your turn!" : rewardAvailable ? "Finish & collect reward" : "Back to farm"}</button>
           {:else}
             <button class="primary" disabled={!ready || closing} onclick={() => controller?.next()}>Continue →</button>
           {/if}

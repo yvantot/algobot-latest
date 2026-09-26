@@ -1,3 +1,4 @@
+import { BLOCK_LABELS } from "../../blockly/labels.js";
 import * as Blockly from "blockly";
 import "blockly/blocks";
 import { JavascriptGenerator, javascriptGenerator, Order } from "blockly/javascript";
@@ -9,7 +10,7 @@ export function createChallengeWorkspace(element, task = {}) {
   const definitions = names.filter(name=>!name.startsWith("crop_")&&!MESSAGE_COMMANDS.includes(name)).map(name => {
     const output = name.startsWith("is_") || name === "columns";
     const inputs = name==="jump"?["X","Y"]:["say","wait","plant"].includes(name)?["VALUE"]:[];
-    return { type: `assessment_${name}`, message0: name === "columns" ? "columns()" : `bot.${name}${inputs.length?inputs.map((_,i)=>` %${i+1}`).join(""):"()"}`,
+    return { type: `assessment_${name}`, message0: `${BLOCK_LABELS[name] ?? name.replaceAll("_", " ")}${inputs.map((_,i)=>` %${i+1}`).join("")}`,
       ...(inputs.length ? { args0: inputs.map(name=>({type:"input_value",name})) } : {}),
       ...(output ? { output: name === "columns" ? "Number" : "Boolean" } : { previousStatement: null, nextStatement: null }),
       colour: output ? 160 : 210, tooltip: name.replaceAll("_", " "), helpUrl: "" };

@@ -29,7 +29,7 @@ export const INTRODUCTION_STORY = [
   },
   {
     "title": "Care makes crops grow",
-    "text": "The bot waited while water soaked in. bot.wait pauses one robot so crops have time to grow. This demo uses a short wait; crops can take longer on your farm.",
+    "text": "Water, then wait. Water again when the soil dries. Crops grow faster in this demo.",
     "code": [
       "bot.water();",
       "bot.wait(3);",
@@ -200,3 +200,19 @@ export const INTRODUCTION_STORY = [
     "scene": "team"
   }
 ];
+
+export const DEMO_LESSONS = {
+  basics: { title: "Meet your farm", actions: ["welcome", "move", "plant", "water", "harvest", "finish"] },
+  events: { title: "Protect your crops", actions: ["spoil", "rain", "fire_loss", "fire", "pest_loss", "pest"], coins: 50, exp: 25 },
+  upgrades: { title: "Grow your farm", actions: ["bots", "upgrade", "expand", "workflow"], coins: 50, exp: 25 },
+};
+export function demonstrationStory(lesson = "basics") {
+  return DEMO_LESSONS[lesson].actions.map(action => INTRODUCTION_STORY.find(step => step.action === action));
+}
+export function claimDemoReward(completed, lesson, grant) {
+  const reward = DEMO_LESSONS[lesson];
+  if (!reward?.coins || completed.includes(lesson)) return false;
+  completed.push(lesson);
+  grant(reward);
+  return true;
+}
