@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as tf from "@tensorflow/tfjs";
 import { loadDeployedModel } from "./model-artifacts.js";
-import { digest, makePlan, partitions, fitStandardScaler, normalized, means, regressionMetrics } from "./training-core.js";
+import { digest, makePlan, makePilotPlan, partitions, fitStandardScaler, normalized, means, regressionMetrics } from "./training-core.js";
 import { RESEARCH_SCHEMA } from "../src/game/ml/research-features.js";
 
 const read = p => JSON.parse(fs.readFileSync(p, "utf8").replace(/^\uFEFF/, ""));
@@ -64,6 +64,58 @@ async function save(model, directory, scaler) {
     return { modelArtifactsInfo: tf.io.getModelArtifactsInfoForJSON(artifact) };
   }));
   write(path.join(directory, "scaler_params.json"), scaler);
+}
+
+export async function pilotWorkflow(datasetPath, output, settings = {}) {
+  const data = read(datasetPath), plan = makePilotPlan(data, settings);
+  freshDirectory(output);
+  write(path.join(output, "pilot-plan.json"), plan);
+  await tf.setBackend("cpu"); await tf.ready();
+  const report = { pilot_only: true, deployment_ready: false, dataset_sha256: digest(data), plan_sha256: digest(plan),
+    source_sha256: data.source_sha256, task_id: data.samples[0].task_id, rubric_version: data.samples[0].rubric_version,
+    feature_schema: RESEARCH_SCHEMA, node: process.version, tensorflowjs: tf.version.tfjs, backend: tf.getBackend(),
+    cutoffs: plan.cutoffs, folds: [], results: {}, predictions: { mean: [], lstm: [], mlp: [] } };
+  const heldout = [];
+  for (const [index, split] of plan.folds.entries()) {
+    const { train, validation, test } = Object.fromEntries(Object.entries(split).map(([key, ids]) =>
+      [key, data.samples.filter(s => ids.includes(s.student_id))]));
+    const scaler = fitStandardScaler(train), mean = train.reduce((sum, s) => sum + s.y, 0) / train.length;
+    const fold = { index, split, baseline_mean: mean, models: {} };
+    heldout.push(...test);
+    const record = (kind, predictions) => report.predictions[kind].push(...test.map((s, i) =>
+      ({ assessment_id: s.assessment_id, student_id: s.student_id, actual: s.y, predicted: predictions[i] })));
+    record("mean", test.map(() => mean));
+    for (const kind of ["lstm", "mlp"]) {
+      console.log(`Pilot fold ${index + 1}/${plan.folds.length}: ${kind}`);
+      const model = createModel(kind, plan.seed);
+      try {
+        const result = await fit(model, train, validation, scaler, kind, plan, plan.seed);
+        const directory = path.join(output, `fold-${index + 1}-${kind}`);
+        await save(model, directory, scaler);
+        const loaded = await loadDeployedModel(path.join(directory, "model.json"));
+        const x = inputs(test, read(path.join(directory, "scaler_params.json")), kind);
+        try {
+          const predictions = await predict(loaded, x), original = await predict(model, x);
+          const reloadError = Math.max(...predictions.map((v, i) => Math.abs(v - original[i])));
+          if (reloadError > 1e-6) throw Error("Saved model predictions changed after reload");
+          record(kind, predictions);
+          fold.models[kind] = { ...result, reload_max_absolute_error: reloadError, files: hashes(directory) };
+        } finally { x.dispose(); loaded.dispose(); }
+      } finally { model.optimizer.dispose(); model.dispose(); }
+    }
+    report.folds.push(fold);
+    write(path.join(output, `fold-${index + 1}.json`), fold);
+  }
+  for (const kind of ["mean", "lstm", "mlp"]) {
+    report.results[kind] = regressionMetrics(heldout, report.predictions[kind].map(p => p.predicted), plan.cutoffs);
+  }
+  report.limitations = ["Exploratory cross-validation, not an untouched final test set.",
+    "Tiny cohorts and single-participant validation give unstable estimates.",
+    "Missing score categories cannot establish performance on those categories.",
+    "Task-score prediction does not establish learning improvement or DDA effectiveness."];
+  write(path.join(output, "pilot-results.json"), report);
+  console.log(`Pilot saved to ${output}. No deployment bundle was created.`);
+  return report;
 }
 
 export async function trainWorkflow(datasetPath, planPath, output) {
@@ -172,6 +224,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     else if (command === "train" && a && b && c) await trainWorkflow(a, b, c);
     else if (command === "evaluate" && a && b) await evaluateWorkflow(a, b);
     else if (command === "bundle" && a && b) bundleWorkflow(a, b);
-    else throw Error("Usage: npm run model -- plan <samples.json> <NEW-plan.json> | train <samples.json> <plan.json> <NEW-run-dir> | evaluate <samples.json> <run-dir> | bundle <run-dir> <NEW-bundle-dir>");
+    else if (command === "pilot" && a && b) await pilotWorkflow(a, b);
+    else throw Error("Usage: npm run model -- plan <samples.json> <NEW-plan.json> | train <samples.json> <plan.json> <NEW-run-dir> | evaluate <samples.json> <run-dir> | bundle <run-dir> <NEW-bundle-dir> | pilot <samples.json> <NEW-pilot-dir>");
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

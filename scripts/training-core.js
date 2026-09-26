@@ -52,6 +52,18 @@ export function partitions(data, plan) {
   return Object.fromEntries(["train", "validation", "test"].map(key => [key, data.samples.filter(s => plan.split[key].includes(s.student_id))]));
 }
 
+export function makePilotPlan(data, { seed = 42, epochs = 60 } = {}) {
+  validateDataset(data);
+  if (!Number.isInteger(seed) || !Number.isInteger(epochs) || epochs < 1 || epochs > 500) throw Error("Invalid pilot settings");
+  const ids = [...new Set(data.samples.map(s => s.student_id))].sort((a, b) => digest(`${seed}:${a}`).localeCompare(digest(`${seed}:${b}`)));
+  if (ids.length < 4) throw Error("Pilot requires at least 4 participants for separate training, validation and test groups");
+  return { version: 1, pilot_only: true, deployment_ready: false, dataset_sha256: digest(data),
+    seed, epochs, cutoffs: [.3, .6], cutoff_status: "provisional",
+    selection: "Fixed seed; early stopping uses validation only. Each participant is tested once. No tuning after results.",
+    folds: ids.map((id, i) => ({ test: [id], validation: [ids[(i + 1) % ids.length]],
+      train: ids.filter(other => other !== id && other !== ids[(i + 1) % ids.length]) })) };
+}
+
 export function fitStandardScaler(samples) {
   const rows = samples.flatMap(s => s.x), n = rows.length;
   if (!n) throw Error("No training rows");

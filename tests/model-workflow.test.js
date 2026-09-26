@@ -6,8 +6,8 @@ import path from "node:path";
 import { RESEARCH_SCHEMA, RESEARCH_FEATURES, recentSequence, scaleResearchSequence } from "../src/game/ml/research-features.js";
 import { sealDataset } from "../src/game/ml/export-integrity.js";
 import { readCollection, assessmentSamples } from "../scripts/collection-dataset.js";
-import { digest, makePlan, partitions, fitStandardScaler, regressionMetrics } from "../scripts/training-core.js";
-import { trainWorkflow, evaluateWorkflow, bundleWorkflow } from "../scripts/model-workflow.js";
+import { digest, makePlan, makePilotPlan, partitions, fitStandardScaler, regressionMetrics } from "../scripts/training-core.js";
+import { trainWorkflow, evaluateWorkflow, bundleWorkflow, pilotWorkflow } from "../scripts/model-workflow.js";
 import { loadDeployedModel } from "../scripts/model-artifacts.js";
 import * as tf from "@tensorflow/tfjs";
 
@@ -124,5 +124,36 @@ test("local train/evaluate/bundle pipeline runs and blocks reevaluation and modi
     finally { tf.dispose([x, y]); model.dispose(); }
     fs.appendFileSync(path.join(run, development.selected.lstm, "weights.bin"), "changed");
     assert.throws(() => bundleWorkflow(run, path.join(dir, "bad-bundle")), /artifacts changed/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("pilot keeps entire participants separate and preserves the formal holdout minimum", async () => {
+  const data = dataset(); data.samples = data.samples.slice(0, 8);
+  assert.throws(() => makePlan(data), /at least 6/);
+  const plan = makePilotPlan(data, { epochs: 1 });
+  assert.deepEqual(plan, makePilotPlan(data, { epochs: 1 }));
+  assert.equal(new Set(plan.folds.flatMap(f => f.test)).size, 4);
+  for (const split of plan.folds) {
+    assert.equal(new Set(Object.values(split).flat()).size, 4);
+    assert.equal(split.train.length, 2);
+  }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-pilot-fixture-"));
+  try {
+    const input = path.join(dir, "samples.json"), output = path.join(dir, "pilot");
+    fs.writeFileSync(input, JSON.stringify(data));
+    const result = await pilotWorkflow(input, output, { epochs: 1 });
+    assert.equal(result.deployment_ready, false);
+    for (const predictions of Object.values(result.predictions)) {
+      assert.equal(predictions.length, 8);
+      assert.equal(new Set(predictions.map(p => p.assessment_id)).size, 8);
+    }
+    for (const fold of result.folds) {
+      const train = data.samples.filter(s => fold.split.train.includes(s.student_id));
+      const scaler = JSON.parse(fs.readFileSync(path.join(output, `fold-${fold.index + 1}-lstm/scaler_params.json`)));
+      assert.deepEqual(scaler, fitStandardScaler(train));
+      for (const model of Object.values(fold.models)) assert.ok(model.reload_max_absolute_error <= 1e-6);
+    }
+    await assert.rejects(() => pilotWorkflow(input, output), /already exists/);
+    assert.throws(() => bundleWorkflow(output, path.join(dir, "bundle")), /ENOENT/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
