@@ -513,7 +513,7 @@ export const DOCUMENT_DATA = {
     },
     shop: {
       definition: "Use this variable to access shop related functions.",
-      example: `shop.buy_plants("wheat", 1)`,
+      example: `shop.buy_seed("wheat", 1)`,
       type: "variable",
       is_unlocked: true,
       tier: 0,

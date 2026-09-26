@@ -42,7 +42,7 @@ Each member gets a letter from the lead. Your codes are `R2-<letter><two digits>
 4. Open Dev Console (`\`) → DDA tab → **Check Collection**. It must show:
    - Participant: your code, spelled exactly
    - Study conditions: fixed-conditions-v1
-   - Build 1.3.9. On the live site it currently also says "UNCOMMITTED CHANGES". That is expected (the Cloudflare build adjusts its own config files) and you can continue.
+   - The build version approved by your lead (this guide originally targeted 1.3.9). If it says "UNCOMMITTED CHANGES", continue only when the lead has checked and approved that exact build fingerprint. Do not assume every Cloudflare dirty flag is harmless.
 
    If any line is wrong or red, stop and see Troubleshooting. Close the Dev Console (`Esc`) before the student starts.
 
@@ -90,7 +90,7 @@ Write anything unusual in Notes. A recorded deviation is fine; an unrecorded one
 | What you see | What to do |
 | --- | --- |
 | "No study conditions", or the participant is `p_…` instead of your code | The code link was not used. If the student has not started, open the code link and Start Game again. If they have, finish, export, and note "no study code". |
-| Build is not 1.3.9 | Stop before the student plays and message the lead researcher. ("UNCOMMITTED CHANGES" next to 1.3.9 is expected on the live site.) |
+| Build differs from the lead's approved release, or has an unapproved dirty flag | Stop before the student plays and message the lead researcher. The lead checks the export's source fingerprint and changed-file list against the reference build. |
 | The page reloaded or the browser closed mid-session | Reopen the same code link and continue. Do not clear data. Note it in the log. |
 | A storage warning appears | Download the JSON immediately, then continue. |
 | The student opened a challenge by accident and closed it | Do not restart. Continue; note it. |

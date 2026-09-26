@@ -2,15 +2,31 @@ import { challengeSamples, collectionProtocolId } from "../src/game/ml/challenge
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { validateDataset, makePlan } from "./training-core.js";
 import { inspectCollection } from "../src/game/ml/collection-quality.js";
 import { ALL_CHALLENGES as CHALLENGES } from "../src/game/challenges/catalog.js";
+
+function rememberProvenance(previous, current, sessionId, field) {
+  // Older exports may lack fields introduced by later collection versions.
+  if (current === undefined) return previous;
+  if (previous === undefined) return structuredClone(current);
+  if (previous && current && typeof previous === "object" && typeof current === "object" &&
+      !Array.isArray(previous) && !Array.isArray(current)) {
+    const known = { ...previous };
+    for (const key of Object.keys(current)) known[key] = rememberProvenance(previous[key], current[key], sessionId, `${field}.${key}`);
+    return known;
+  } else if (!isDeepStrictEqual(previous, current)) {
+    throw Error(`Conflicting ${field} provenance for ${sessionId}`);
+  }
+  return previous;
+}
 
 export function readCollection(input) {
   const files = fs.statSync(input).isDirectory()
     ? fs.readdirSync(input).filter(f => f.endsWith(".json") && !f.includes("replay")).sort().map(f => path.join(input, f))
     : [input];
-  const sessions = new Map(), source_sha256 = {};
+  const sessions = new Map(), provenance = new Map(), source_sha256 = {};
   for (const file of files) {
     const bytes = fs.readFileSync(file);
     source_sha256[path.basename(file)] = crypto.createHash("sha256").update(bytes).digest("hex");
@@ -29,6 +45,16 @@ export function readCollection(input) {
       if (!session?.session_id) throw Error(`${file}: record has no session_id; use canonical dataset exports only`);
       const old = sessions.get(session.session_id);
       if (old && old.student_id !== session.student_id) throw Error(`Conflicting participant IDs for ${session.session_id}`);
+      // Validate every export, even if a more complete legacy record is selected later.
+      const known = provenance.get(session.session_id) ?? {};
+      for (const key of ["build", "feature_names", "feature_schema_version", "telemetry_revision", "research_features"]) {
+        known[key] = rememberProvenance(known[key], session[key], session.session_id, key);
+      }
+      for (const key of ["interval_ms", "participant_id_source", "study_protocol"]) {
+        const field = `collection.${key}`;
+        known[field] = rememberProvenance(known[field], session.collection?.[key], session.session_id, field);
+      }
+      provenance.set(session.session_id, known);
       if (old) for (const key of ["raw_events", "feature_timeseries"]) {
         const a = old[key] ?? [], b = session[key] ?? [];
         for (let i = 0; i < Math.min(a.length, b.length); i++) {

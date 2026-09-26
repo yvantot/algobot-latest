@@ -1,4 +1,4 @@
-import { activeQuest, movementQuest, INTRO_QUESTS } from "../src/game/global/tutorial.js";
+import { activeQuest, movementQuest, createMovementTracker, INTRO_QUESTS } from "../src/game/global/tutorial.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -40,11 +40,13 @@ test("movement credit identifies an executed loop and the executing block, not a
   const h = harness('for(var i=0;i<2;i++){} highlightBlock("outside"); bot.right(); for(var j=0;j<2;j++){ highlightBlock("inside"); bot.down(); }', createInterpreterInit(api));
   h.states[0].robot = robot;
   h.runner.start(0); h.complete();
-  assert.deepEqual(moves, [
+  assert.deepEqual(moves.map(({ direction, runId, fromX, fromY, ...move }) => move), [
     { inLoop: false, blockId: "outside", x: 1, y: 0 },
     { inLoop: true, blockId: "inside", x: 1, y: 1 },
     { inLoop: true, blockId: "inside", x: 1, y: 2 },
   ]);
+  assert.deepEqual(moves.map(move => move.direction), ["right", "down", "down"]);
+  assert.ok(moves.every(move => move.runId === h.states[0].researchRunId));
   assert.equal(robot.executingLoop, false);
 });
 
@@ -202,7 +204,7 @@ test("documented inventory and pest checks work in the actual interpreter bindin
 test("farming tutorial cannot be completed by repeating the same action", () => {
   const completions = [];
   const questContext = vm.createContext({
-    $state: value => value, activeQuest, movementQuest, INTRO_QUESTS, tutorialPolicy: { protected: false },
+    $state: value => value, activeQuest, movementQuest, createMovementTracker, INTRO_QUESTS, tutorialPolicy: { protected: false },
     AvatarTypes: { FARMER: "farmer" }, ModalTypes: {},
     QUEST_DATA: { tut_2: { goal: 4, prereq: [] } },
     PLAYER_DATA: {}, INVENTORY: {}, DOCUMENT_DATA: {}, SHOP_DATA: {}, CROP_DATA: {},

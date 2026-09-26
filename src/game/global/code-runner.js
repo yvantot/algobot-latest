@@ -41,6 +41,7 @@ export function createCodeRunner({ states, InterpreterClass, telemetry, prepare,
     state.runPending = true;
     state.runStartedAt = Date.now();
     state.researchRunId = crypto.randomUUID();
+    if (state.robot) state.robot.executionRunId = state.researchRunId;
     telemetry._logRawEvent?.("code_run_start", { run_id: state.researchRunId, robot_index: index });
     state.runErrorBaseline = state.robot?.executionErrorCount || 0;
     state.branchVisits = new WeakSet();

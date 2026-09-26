@@ -26,7 +26,7 @@ Study conditions switch on automatically when the game is opened with a research
 ## Before the session
 
 1. **Commit and push everything**, and let the deployed site (https://algobot-latest.jidalman-work.workers.dev/) rebuild. For a local run, restart `npm run dev` instead. Do not edit or redeploy while students play. Collection members follow [COLLECTION_MEMBER_GUIDE.md](COLLECTION_MEMBER_GUIDE.md).
-2. Open Dev Console → **Check Collection**. It must show **Build 1.3.9, committed**. If it says *uncommitted changes*, the export's `build.dirty_files` lists which served files differed from the commit; fix that, rebuild and reload. Untracked data files and logs no longer count. Every pilot session was recorded as uncommitted, so its exact code cannot be recovered.
+2. Open Dev Console → **Check Collection**. Use the lead researcher's approved release (the published guide currently targets **1.3.9**; **1.3.10** is a local review candidate until deployed). Before collection, the lead records a reference export's version, commit, `build.source_sha256`, and `build.dirty_files`. A committed build is preferred. A Cloudflare dirty flag is acceptable only after the lead verifies the listed changes and approves that exact fingerprint; it is not a blanket exception. Every study computer must use that approved build. Untracked data files and logs do not count toward build dirtiness.
 3. Create a new folder for this round, e.g. `training/data/round2-2026-09/`. Do not put round 2 files in `training/data/raw` (that folder holds the pilot).
 4. Confirm **Download Dataset JSON** works on each computer and a backup location is ready.
 5. Run one disposable staff practice session with a code like `STAFF-TEST`, export it to a separate folder, then Clear Stored Data and reload. Never mix staff sessions into the student folder, and never use a real student code (such as `R2-P001`) for a staff test: that code was used for the 26 September staff test and is retired.
@@ -57,7 +57,7 @@ node scripts/prepare-challenges.js training/data/round2-2026-09 training/prepare
 Output paths must be new. In the audit, check:
 
 - `collection_protocols` shows only `fixed-conditions-v1`. Sessions under `none` were not started with a code.
-- `build_provenance` shows `dirty_sessions: 0` and version `1.3.9`.
+- `build_provenance` matches the approved release and source fingerprint. Investigate differing fingerprints or dirty-file lists; do not relabel original exports.
 - Per-session issues `no_assigned_participant_code`, `no_fixed_study_protocol` or `uncommitted_build_changes` mean the session was not collected under the agreed conditions.
 - The score distribution. **After the first 5–8 students, if nearly all Your first harvest scores are 3/3, pause and review the task choice with your adviser** before collecting more.
 

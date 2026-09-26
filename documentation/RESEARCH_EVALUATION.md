@@ -1,5 +1,7 @@
 # Research evaluation protocol
 
+Historical protocol: the current challenge-score workflow is in [MODEL_WORKFLOW.md](MODEL_WORKFLOW.md). The Python scripts below train/evaluate the retired gameplay proxy and must not be used for new collection exports. The deployed model has since changed; reproducing the historical diagnostic requires a separately restored historical model bundle, passed explicitly with `--model path/to/historical/model.json`.
+
 This document separates three questions: whether the software works, whether its LSTM agrees with gameplay proxy labels, and whether students improve on an independent algorithmic-logic assessment. None is a substitute for the others.
 
 ## Existing data: what can be recovered without collecting again
@@ -34,7 +36,7 @@ Run from the repository root using a working Python with NumPy. Use new filename
 
 ```powershell
 python training/evaluate_model.py --data training/data/processed --export-inputs logs/legacy-inputs.json
-node scripts/predict-deployed-model.js --input logs/legacy-inputs.json --output logs/legacy-predictions.json
+node scripts/predict-deployed-model.js --input logs/legacy-inputs.json --output logs/legacy-predictions.json --model path/to/historical/model.json
 python training/evaluate_model.py --data training/data/processed --predictions logs/legacy-predictions.json --output training/results/review/legacy-model-evaluation.json
 ```
 

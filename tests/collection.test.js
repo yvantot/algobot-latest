@@ -9,6 +9,7 @@ import { RESEARCH_SCHEMA, RESEARCH_FEATURES } from "../src/game/ml/research-feat
 import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
 import { assessmentSamples, readCollection, auditCollection, summarizeTrainingReadiness } from "../scripts/collection-dataset.js";
 import { resolveParticipant, clearParticipant } from "../src/game/ml/participant.js";
+import { sealDataset } from "../src/game/ml/export-integrity.js";
 
 test("assigned participant codes persist across sessions and can change between players", () => {
   const values = new Map();
@@ -160,6 +161,76 @@ test("crossed partial exports are rejected instead of discarding one history",()
     [first,second].forEach((record,i)=>fs.writeFileSync(path.join(dir,`${i}.json`),JSON.stringify({sessions:[record]})));
     assert.throws(()=>readCollection(dir),/neither export contains the other/);
   } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test("sealed overlapping exports reject conflicting fixed provenance in either order", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-provenance-conflict-"));
+  try {
+    const original = { ...fixture().session, export_date: "2026-09-24T01:03:00Z",
+      build: { commit: "fixture", dirty: false }, feature_schema_version: "10f",
+      telemetry_revision: "fixture-v1", research_features: { schema: RESEARCH_SCHEMA, names: RESEARCH_FEATURES } };
+    original.collection = { ...original.collection, interval_ms: 5000, participant_id_source: "researcher_assigned_code", study_protocol: null };
+    for (const change of [
+      s => s.collection.study_protocol = { id: "fixed-conditions-v1" },
+      s => s.collection.interval_ms = 10000,
+      s => s.collection.participant_id_source = "browser_local_pseudonym",
+      s => s.build.commit = "different",
+      s => s.feature_names.reverse(),
+      s => s.feature_schema_version = "different",
+      s => s.telemetry_revision = "different",
+      s => s.research_features.names.reverse(),
+    ]) {
+      const changed = structuredClone(original);
+      changed.export_date = "2026-09-24T01:04:00Z";
+      change(changed);
+      for (const records of [[original, changed], [changed, original]]) {
+        for (const [i, record] of records.entries()) {
+          fs.writeFileSync(path.join(dir, `${i}.json`), JSON.stringify(await sealDataset({ dataset_version: "v4", sessions: [record] })));
+        }
+        assert.throws(() => readCollection(dir), /Conflicting .* provenance/);
+      }
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("three exports cannot hide contradictory provenance behind missing legacy metadata", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-provenance-chain-"));
+  try {
+    const base = fixture().session;
+    for (const field of ["build", "collection"]) {
+      const records = [0, 1, 2].map(i => ({ ...structuredClone(base), raw_events: Array.from({ length: i }, (_, n) => ({ event: n })) }));
+      if (field === "build") {
+        records[0].build = { commit: "A" }; delete records[1].build; records[2].build = { commit: "B" };
+      } else {
+        records[0].collection.study_protocol = { id: "A" }; delete records[1].collection.study_protocol; records[2].collection.study_protocol = { id: "B" };
+      }
+      for (const order of [[0,1,2], [0,2,1], [1,0,2], [1,2,0], [2,0,1], [2,1,0]]) {
+        for (const [i, index] of order.entries()) fs.writeFileSync(path.join(dir, `${i}.json`), JSON.stringify(await sealDataset({ dataset_version: "v4", sessions: [records[index]] })));
+        assert.throws(() => readCollection(dir), /Conflicting .* provenance/);
+      }
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("overlapping exports allow evolving agent state, scoring and added legacy metadata", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-provenance-extension-"));
+  try {
+    const original = { ...fixture().session, build: { commit: "fixture" },
+      agent_state: { modelId: null, episodeCount: 0 },
+      challenge_attempts: [{ assessment_id: "a", status: "in_progress", reward_claimed: false, submissions: [] }] };
+    const newer = structuredClone(original);
+    newer.build.version = "new-metadata";
+    newer.collection.study_protocol = null;
+    newer.agent_state = { modelId: "loaded-model", episodeCount: 2 };
+    Object.assign(newer.challenge_attempts[0], { status: "scored", reward_claimed: true, submissions: [{ score: 1 }] });
+    for (const records of [[original, newer], [newer, original]]) {
+      records.forEach((record, i) => fs.writeFileSync(path.join(dir, `${i}.json`), JSON.stringify({ sessions: [record] })));
+      const merged = readCollection(dir).sessions[0];
+      assert.deepEqual(merged.agent_state, newer.agent_state);
+      assert.deepEqual(merged.challenge_attempts, newer.challenge_attempts);
+      assert.equal(merged.build.version, "new-metadata");
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
  test("collection readiness distinguishes compatible samples from enough participants to plan training",()=>{

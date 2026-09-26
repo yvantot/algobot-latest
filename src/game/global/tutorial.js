@@ -8,12 +8,37 @@ export function activeQuest(definitions, states) {
     (definitions[key].prereq || []).every(id => states[id]?.is_claimed));
 }
 
-export function movementQuest(key, { authored = false, inLoop = false, sequence = false, x, y } = {}) {
+export function movementQuest(key, { authored = false, inLoop = false, sequence = false, direction, x, y } = {}) {
   if (key === "intro_run" && authored && x === 1 && y === 0) return key;
-  if (key === "intro_build" && authored) return key;
+  if (key === "intro_build" && authored && direction === "down") return key;
   if (key === "intro_sequence" && sequence && !inLoop) return key;
   if (key === "intro_loop" && inLoop) return key;
   return null;
+}
+
+export function createMovementTracker() {
+  let pending = null;
+  return (key, action) => {
+    if (!key) { pending = null; return 0; }
+    if (!["intro_sequence", "intro_loop"].includes(key)) return 1;
+    if (!pending || pending.key !== key || pending.runId !== action.runId) {
+      pending = { key, runId: action.runId, left: null, trips: 0 };
+    }
+    if (!action.runId) return 0;
+    if (action.direction === "left") {
+      if (pending.left) pending.trips = 0;
+      pending.left = action;
+      return 0;
+    }
+    const left = pending.left;
+    pending.left = null;
+    if (action.direction !== "right" || !left || action.fromX !== left.x || action.fromY !== left.y || action.x !== left.fromX || action.y !== left.fromY) {
+      pending.trips = 0;
+      return 0;
+    }
+    pending.trips++;
+    return pending.trips === (key === "intro_loop" ? 2 : 1) ? 2 : 0;
+  };
 }
 
 export const INTRO_HINTS = {

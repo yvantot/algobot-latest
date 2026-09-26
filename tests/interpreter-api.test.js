@@ -33,6 +33,37 @@ function harness(source, methods = {}, dependencies = {}) {
   return { robot, api, log, interpreter, run, telemetry };
 }
 
+test("student code cannot call legacy telemetry hooks", () => {
+  for (const source of ['__trackLoop("for");', '__trackIf(true);']) {
+    const h = harness(source);
+    const observations = [];
+    h.telemetry.recordLoopExecution = value => observations.push(["loop", value]);
+    h.telemetry.recordIfCondition = value => observations.push(["condition", value]);
+    assert.throws(() => h.run(), /is not defined/, source);
+    assert.deepEqual(observations, []);
+    assert.deepEqual(h.log.quests, []);
+  }
+});
+
+test("the runner observes actual loops and branches without student telemetry hooks", () => {
+  const h = harness("");
+  const loops = [], conditions = [];
+  h.telemetry.recordLoopExecution = value => loops.push(value);
+  h.telemetry.recordIfCondition = value => conditions.push(value);
+  const states = [{ robot: h.robot }];
+  const runner = createCodeRunner({ states, InterpreterClass, telemetry: h.telemetry,
+    prepare: () => 'for (var i = 0; i < 2; i++) { if (i === 0) bot.say("first"); else bot.say("second"); } var j = 0; while (j < 1) { j++; }',
+    init: () => createInterpreterInit(h.api), schedule: () => 1, unschedule() {},
+  });
+  runner.start(0);
+  for (let i = 0; i < 100 && states[0].interpreter; i++) runner.step(0);
+  assert.equal(states[0].interpreter, null);
+  assert.deepEqual(h.log.runs, [true]);
+  assert.deepEqual(h.log.output, ["first", "second"]);
+  assert.deepEqual(loops, ["for", "for", "while"]);
+  assert.deepEqual(conditions, [true, false]);
+});
+
 test("successful action credit waits for completion and duplicate callbacks cannot resume twice", () => {
   let completed;
   const h = harness('bot.water(); bot.say("done");', { botWater(callback) { completed = callback; return true; } });

@@ -1,4 +1,4 @@
-import { activeQuest, movementQuest, INTRO_QUESTS, tutorialPolicy } from "../game/global/tutorial.js";
+import { activeQuest, movementQuest, createMovementTracker, INTRO_QUESTS, tutorialPolicy } from "../game/global/tutorial.js";
 import { AvatarTypes, ModalTypes } from "../game/global/enum.js";
 import { QUEST_DATA } from "../game/global/quests.js";
 import { PLAYER_DATA, INVENTORY, DOCUMENT_DATA, SHOP_DATA, CROP_DATA } from "../game/global/global.js";
@@ -75,15 +75,12 @@ export function beginActiveQuest() {
 	}
 }
 
+const movementCredit = createMovementTracker();
 export function trackQuest(key, amount = 1, action = null) {
 	if (key === "tut_1") {
-    key = movementQuest(currentQuest(), { authored: TUTORIAL.authoredBlocks.includes(action?.blockId), sequence: TUTORIAL.sequenceBlocks.includes(action?.blockId), inLoop: action?.inLoop === true, x: action?.x, y: action?.y });
+    key = movementQuest(currentQuest(), { ...action, authored: TUTORIAL.authoredBlocks.includes(action?.blockId), sequence: TUTORIAL.sequenceBlocks.includes(action?.blockId) });
+    amount = movementCredit(key, action);
     if (!key) return;
-  }
-  if(key === "intro_sequence") {
-    const seen = QUEST_STATE[key].blocks || [];
-    if(seen.includes(action?.blockId)) return;
-    QUEST_STATE[key].blocks = [...seen, action?.blockId];
   }
   if (!Number.isFinite(amount) || amount <= 0) return;
 	if (!QUEST_STATE[key] || QUEST_STATE[key].is_completed) return;

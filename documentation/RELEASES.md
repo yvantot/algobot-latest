@@ -1,5 +1,16 @@
 # Game versions
 
+## 1.3.10 system review fixes
+
+- Movement missions check the requested direction and complete left/right trips within a single run instead of rewarding unrelated moves.
+- Student programs no longer expose the obsolete loop/condition telemetry hooks; real interpreter execution supplies those observations.
+- Dataset imports reject contradictory study/build/feature provenance in duplicate session exports.
+- The local prediction diagnostic reads the model's actual input dimensions and weight manifest. Historical models can be selected explicitly with `--model`.
+- The shop reference uses the supported `shop.buy_seed` command.
+- Compatible dependency security updates resolve the 11 package alerts reported by npm audit; no forced major upgrade was used.
+
+This is a local candidate until deployed. Keep collection on one approved build; record the version change before switching any study computers. Challenge rubrics, model weights and existing collected files are unchanged.
+
 ## 1.3.9 round 2 study conditions
 
 Adviser-approved fixed conditions for the round 2 collection. They apply only when the game is opened with a researcher-assigned code (`?study_participant=CODE`); ordinary play is unchanged.
