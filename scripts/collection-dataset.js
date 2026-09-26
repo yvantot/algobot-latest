@@ -2,6 +2,7 @@ import { challengeSamples } from "../src/game/ml/challenge-quality.js";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { validateDataset, makePlan } from "./training-core.js";
 import { inspectCollection } from "../src/game/ml/collection-quality.js";
 import { ALL_CHALLENGES as CHALLENGES } from "../src/game/challenges/catalog.js";
 
@@ -65,13 +66,43 @@ export function readCollection(input) {
   return { sessions: [...sessions.values()], source_sha256 };
 }
 
+export function summarizeTrainingReadiness(data) {
+  const samples = data.samples;
+  let compatible = false, canPlan = false, reason = null;
+  try { validateDataset(data); compatible = true; makePlan(data); canPlan = true; }
+  catch (error) { reason = error.message; }
+  const cutoffs = [.3, .6];
+  const support = [0, 0, 0];
+  for (const sample of samples) support[sample.y < cutoffs[0] ? 0 : sample.y < cutoffs[1] ? 1 : 2]++;
+  return {
+    usable_samples: samples.length,
+    usable_participants: new Set(samples.map(sample => sample.student_id)).size,
+    dataset_compatible: compatible,
+    can_create_holdout_plan: canPlan,
+    blocking_reason: reason,
+    normalized_score_counts: Object.fromEntries([...new Set(samples.map(sample => sample.y))].sort((a,b)=>a-b).map(score=>[score,samples.filter(sample=>sample.y===score).length])),
+    target_category_support: support, cutoffs, cutoff_status: "provisional",
+    constant_features: samples.length ? data.feature_names.filter((_, index) => {
+      const first = samples[0].x[0][index];
+      return samples.every(sample => sample.x.every(row => row[index] === first));
+    }) : [],
+    note: "The holdout gate is a software minimum, not evidence of sufficient study size or deployment readiness. Category counts refer to scored targets, not gameplay proxy labels.",
+  };
+}
+
 export function auditCollection(sessions) {
   const reports = sessions.map(s => ({ session_id: s.session_id, student_id: s.student_id, ...inspectCollection(s) }));
   return { session_count: sessions.length, participant_count: new Set(sessions.map(s => s.student_id)).size,
+    build_provenance: {
+      dirty_sessions: sessions.filter(session=>session.build?.dirty===true).length,
+      sessions_without_version: sessions.filter(session=>!session.build?.version).length,
+      commits: [...new Set(sessions.map(session=>session.build?.commit).filter(Boolean))],
+      note: "Dirty or incomplete build metadata limits reproducibility; do not rewrite recorded provenance to match the current build.",
+    },
     proxy_category_support: [0, 1, 2].map(i => reports.reduce((n, r) => n + r.proxy_category_support[i], 0)),
     challenge_targets: CHALLENGES.map(task => {
       const result = challengeSamples(sessions, task.id);
-      return { task_id: task.id, title: task.title, ...result.participation, excluded: result.excluded };
+      return { task_id: task.id, title: task.title, ...result.participation, training_readiness: summarizeTrainingReadiness(result), excluded: result.excluded };
     }),
     reports, note: "A clean capture audit does not establish model accuracy or adequate participant diversity." };
 }

@@ -37,3 +37,7 @@ Challenges now expose only the Recommended command set. Existing Freestyle expor
 Reverts isolated mission practice at the user's request. Missions again use the main farm, original tutorial spotlight, toolbox restrictions and progression. The prior crop-readiness and conditional-harvest lesson pair is restored with its matching command observers. Removed practice launch/replay controls and the separate mission farm. Scored Challenges remain isolated.
 
 Retained the spoilage scene in the short introduction, Events-to-Upgrades chapter-switch fix, Need help? wording and dismissal on progress, explicit Loop instructions, and Recommended-only Challenges.
+
+## 1.3.2
+
+The short introduction ends with the existing nine-bot cooperative farm scene. Its explanation and Your turn! button become available after five seconds of the scene, while the bots keep working. Collection audits distinguish compatible samples from holdout-plan eligibility, report actual target score/category counts and constant features, and surface incomplete build provenance. September 26 pilot data was prepared without editing the original exports or changing deployed weights.

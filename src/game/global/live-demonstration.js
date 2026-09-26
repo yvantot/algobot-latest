@@ -327,7 +327,7 @@ export function startLiveDemonstration(onChange, { singleAction = null, chapters
           }
         }
         for(const [id,bot] of team.entries())work(bot,id).catch(error=>{if(active&&!disposed)console.error("Team demo action failed",error);});
-        if(!await wait(15))return;
+        if(!await wait(5))return;
         break;
       }
     }

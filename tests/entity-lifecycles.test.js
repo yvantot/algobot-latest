@@ -545,7 +545,7 @@ for (const lesson of ["full", "basics", "events", "upgrades"]) test(`every demon
     assert.equal(changes.at(-1)?.error,undefined,story[chapter].action+" failed");
     assert.equal(changes.findLast(change=>"ready" in change)?.ready,true,story[chapter].action+" stalled");
     if(story[chapter].action==="workflow"){
-      assert.ok(frames*.05<16,"team explanation must arrive without waiting for a lap");
+      assert.ok(frames*.05<6,"team explanation must arrive without waiting for a lap");
       const before=changes.filter(change=>change.line>=0).length;
       for(let i=0;i<30;i++){h.advance(.05);await Promise.resolve();await Promise.resolve();}
       assert.ok(changes.filter(change=>change.line>=0).length>before,"bots keep working after the explanation");

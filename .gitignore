@@ -45,6 +45,8 @@ python311/
 .ipynb_checkpoints/
 
 # Testing & Coverage
+# Derived participant-level research files stay local alongside original exports.
+training/prepared/
 coverage/
 .nyc_output/
 

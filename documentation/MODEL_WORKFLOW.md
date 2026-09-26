@@ -6,7 +6,7 @@ For collection day, use [the short operational checklist](COLLECTION_DAY_CHECKLI
 
 This is the recommended workflow for the next collection. It replaces the legacy experiment command for new data. The model target is the first fully evaluated submission's score on a fixed Challenge Farm task, divided by its maximum. The game scores actual behavior on predefined test rows and includes the score in the dataset automatically. The old gameplay completion formula is retained only as historical/proxy telemetry, not as the target for this workflow.
 
-There is no new real training dataset yet. The workflow has been exercised with temporary automated-test fixtures, which are not research results. Deployed weights remain the original model until a candidate is separately reviewed and installed.
+The September 26 collection contains usable pilot samples: five for Your first harvest and one for Two careful steps. Neither task currently meets the holdout workflow's six-participant software minimum, which is not a claim of adequate study size. See [the collection audit](COLLECTION_AUDIT_2026-09-26.md). Deployed weights remain the original model until a candidate is separately reviewed and installed.
 
 ## One collection export
 

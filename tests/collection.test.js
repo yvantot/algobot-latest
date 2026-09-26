@@ -5,8 +5,9 @@ import os from "node:os";
 import path from "node:path";
 import { TelemetryTracker } from "../src/game/ml/telemetry.js";
 import { startCollection } from "../src/game/ml/collection.js";
+import { RESEARCH_SCHEMA, RESEARCH_FEATURES } from "../src/game/ml/research-features.js";
 import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
-import { assessmentSamples, readCollection, auditCollection } from "../scripts/collection-dataset.js";
+import { assessmentSamples, readCollection, auditCollection, summarizeTrainingReadiness } from "../scripts/collection-dataset.js";
 import { resolveParticipant, clearParticipant } from "../src/game/ml/participant.js";
 
 test("assigned participant codes persist across sessions and can change between players", () => {
@@ -142,3 +143,10 @@ test("crossed partial exports are rejected instead of discarding one history",()
     assert.throws(()=>readCollection(dir),/neither export contains the other/);
   } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+ test("collection readiness distinguishes compatible samples from enough participants to plan training",()=>{
+ const {session,assessment}=fixture(); const data=assessmentSamples([session],[assessment]);
+ data.feature_schema=RESEARCH_SCHEMA;data.feature_names=RESEARCH_FEATURES;data.samples[0].x=Array.from({length:20},()=>Array(12).fill(0));
+ const report=summarizeTrainingReadiness(data);
+ assert.equal(report.dataset_compatible,true);assert.equal(report.can_create_holdout_plan,false);assert.match(report.blocking_reason,/at least 6/);assert.deepEqual(report.target_category_support,[1,0,0]);assert.equal(report.usable_participants,1);
+ });

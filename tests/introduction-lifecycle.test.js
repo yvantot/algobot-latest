@@ -117,7 +117,7 @@ test("expansion keeps traversing while purchases wait and visits newly added til
 });
 
 test("optional demos are separate from the short opening and reward only once",()=>{
-  assert.deepEqual(demonstrationStory().map(s=>s.action),['welcome','move','plant','water','harvest','spoil','finish']);
+  assert.deepEqual(demonstrationStory().map(s=>s.action),['welcome','move','plant','water','harvest','spoil','workflow']);
   assert.ok(demonstrationStory('events').some(s=>s.action==='fire'));
   assert.ok(demonstrationStory('upgrades').some(s=>s.action==='expand'));
   const completed=[],grants=[];

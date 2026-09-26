@@ -202,7 +202,7 @@ export const INTRODUCTION_STORY = [
 ];
 
 export const DEMO_LESSONS = {
-  basics: { title: "Meet your farm", actions: ["welcome", "move", "plant", "water", "harvest", "spoil", "finish"] },
+  basics: { title: "Meet your farm", actions: ["welcome", "move", "plant", "water", "harvest", "spoil", "workflow"] },
   events: { title: "Protect your crops", actions: ["rain", "fire_loss", "fire", "pest_loss", "pest"], coins: 50, exp: 25 },
   upgrades: { title: "Grow your farm", actions: ["bots", "upgrade", "expand", "workflow"], coins: 50, exp: 25 },
 };
