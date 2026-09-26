@@ -3,10 +3,7 @@
   import { CAMERA, CONFIG } from "../game/global/global.js";
   import { createTransientNotice } from "./transient-notice.js";
   import { fly } from "svelte/transition";
-  import PracticeFarm from "./PracticeFarm.svelte";
-  import {QUEST_DATA} from "../game/global/quests.js";
-  import {isPracticeMission} from "../game/global/practice-missions.js";
-  import {completePracticeMission} from "./global.svelte.js";
+  import TutorialTarget from "./TutorialTarget.svelte";
   import QuestFeedback from "./QuestFeedback.svelte";
   import { tutorialPolicy } from "../game/global/tutorial.js";
   import { TUTORIAL, QUEST_FEEDBACK } from "./global.svelte.js";
@@ -119,18 +116,6 @@
   let visitedMenus = $state([Menus.COMMAND]);
   let exposedTasks = $state([]);
   let challenge = $state(null), challengeNotice = $state("");
-  let practice = $state(null);
-  function openPractice(key) {
-    if(!isPracticeMission(key) || (QUEST_DATA[key].prereq||[]).some(id=>!QUEST_STATE[id]?.is_claimed))return;
-    stopCodeRuns(robots_state,telemetry); current_menu=Menus.NONE;
-    practice=key; ONBOARDING.isModalOpen=true;
-    telemetry._logRawEvent("mission_practice_opened",{mission:key,replay:QUEST_STATE[key].is_completed});
-  }
-  function closePractice(tokens=null) {
-    const key=practice; practice=null;
-    if(tokens)completePracticeMission(key,tokens);
-    telemetry._logRawEvent("mission_practice_closed",{mission:key,completed:!!tokens});
-  }
   let challengeAvailability = $state({ unlocked: false, ready: false });
   let challengeVisible = $derived(challengeAvailability.unlocked && !challenge && !TUTORIAL.active && !!QUEST_STATE.tut_2?.is_claimed);
   let challengeReady = $derived(challengeVisible && challengeAvailability.ready);
@@ -258,7 +243,7 @@
     telemetry.participantIdSource = participantSource;
     try { exposedTasks = CHALLENGES.filter(task=>hasExposure(localStorage,participantId,task.id)).map(task=>task.id); } catch { exposedTasks=[]; }
     const collectionContext = () => ({
-      phase: practice ? "guided_practice" : challenge ? "challenge" : showIntroduction || !!docPreview ? "demonstration"
+      phase: challenge ? "challenge" : showIntroduction || !!docPreview ? "demonstration"
         : document.hidden ? "hidden" : ONBOARDING.isModalOpen ? "modal"
         : k.debug.timeScale <= 0 ? "paused" : TUTORIAL.active ? "guided_practice" : "gameplay",
       game_speed: k.debug.timeScale,
@@ -318,7 +303,7 @@
   });
 
   $effect(() => {
-    ONBOARDING.isModalOpen = !!practice || !!challenge || showOnboarding || showIntroduction || !!docPreview || QUEST_FEEDBACK.hazardsPending || !!QUEST_FEEDBACK.queue[0]?.milestone;
+    ONBOARDING.isModalOpen = !!challenge || showOnboarding || showIntroduction || !!docPreview || QUEST_FEEDBACK.hazardsPending || !!QUEST_FEEDBACK.queue[0]?.milestone;
   });
 
   function toggleEditor() {
@@ -343,7 +328,7 @@
 </script>
 
 <svelte:window onkeydown={e=>{if(e.key==="Escape"&&!docPreview&&docOpen){e.preventDefault();closeDocumentation();}}}/>
-<div inert={!!challenge||!!practice} class:challenge-hidden={!!challenge||!!practice} class:cutscene={showIntroduction||!!docPreview} class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
+<div inert={!!challenge} class:challenge-hidden={!!challenge} class:cutscene={showIntroduction||!!docPreview} class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
   {#if storageWarning}
     <div role="alert" class="fixed top-4 left-1/2 -translate-x-1/2 max-w-sm rounded-lg border-2 border-red-400 bg-white p-3 text-sm text-red-900 shadow-lg">{storageWarning}</div>
   {/if}
@@ -360,6 +345,7 @@
   <FarmIntroduction bind:isOpen={showIntroduction} lesson={demoLesson} rewardAvailable={!completedDemos.includes(demoLesson)} onComplete={completeDemo} />
   {#if docPreview}<DocumentationPreview name={docPreview} onClose={closeDocPreview}/>{/if}
   <QuestFeedback />
+  <TutorialTarget />
   <DidYouKnowPopup />
   <UnlockFlyOverlay />
   <EventBanner />
@@ -602,7 +588,7 @@
       </div>
       <div class="flex gap-4 items-start" class:practice-layout={TUTORIAL.active}>
         <div class="inventory-slot"><Inventory /></div>
-        <div class="quest-slot"><QuestHUD onPractice={openPractice} editorMode={current_editor === Editors.TEXT ? "text" : "blocks"} onOpenEditor={() => current_menu = Menus.COMMAND}
+        <div class="quest-slot"><QuestHUD editorMode={current_editor === Editors.TEXT ? "text" : "blocks"} onOpenEditor={() => current_menu = Menus.COMMAND}
           onOpenQuestMenu={() => toggleMenu(Menus.QUEST)}
           onOpenBlockEditor={() => {
             current_menu = Menus.COMMAND;
@@ -675,7 +661,7 @@
     {/if}
     {#if current_menu === Menus.QUEST}
       <div in:panelIn out:panelOut>
-        <Quest onPractice={openPractice}/>
+        <Quest/>
       </div>
     {:else if current_menu === Menus.CHALLENGES && challengeVisible}
       <div in:panelIn out:panelOut><Challenges practiceTasks={exposedTasks} completed={rewardedChallenges} onChallenge={enterChallenge} {challengeReady} {challengeNotice} onClose={()=>toggleMenu(Menus.NONE)}/></div>
@@ -747,7 +733,6 @@
 {#if challenge}
   <ChallengeFarm task={challenge} onSubmit={scoreChallenge} onInterrupted={stopChallenge} onClose={leaveChallenge} onReward={rewardChallenge} rewardAvailable={challengeRewardAvailable}/>
 {/if}
-{#if practice}{#key practice}<PracticeFarm missionKey={practice} replay={QUEST_STATE[practice].is_completed} onClose={()=>closePractice()} onComplete={closePractice}/>{/key}{/if}
 
 <style>
   .challenge-invite button:disabled{background:#e5e7eb;cursor:default}

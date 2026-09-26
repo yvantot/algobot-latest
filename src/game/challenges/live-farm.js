@@ -38,16 +38,15 @@ export function startChallengeFarm(getViewport) {
   }
   function reset(layout, task = {}) {
     if (disposed) throw Error("Challenge farm has closed.");
-    clear(); farm.demoBounds = { columns: Math.ceil(layout.length / (task.rows || 1)), rows: task.rows || 1 };
+    clear(); farm.demoBounds = { columns: layout.length, rows: 1 };
     farm.freezeCropLifecycle = !["sequence", "team"].includes(task.kind);
     owned.push(...addLandBackground(k, { ...CONFIG.FARM, ...farm.demoBounds }));
-    for (let index=0; index<layout.length; index++) {
-      const x=index%farm.demoBounds.columns,y=Math.floor(index/farm.demoBounds.columns);
-      const spec = typeof layout[index] === "object" ? layout[index] : {type:"wheat",state:layout[index] ? "ready" : "young"};
-      const soil = addSoilToGrid(x, y, spec.state === "bare" ? SoilStates.INITIAL : SoilStates.READY, farm);
-      const tile = { soil, crop: null, bots: [] }; farm.set(`${y}-${x}`, tile);
+    for (let x=0; x<layout.length; x++) {
+      const spec = typeof layout[x] === "object" ? layout[x] : {type:"wheat",state:layout[x] ? "ready" : "young"};
+      const soil = addSoilToGrid(x, 0, spec.state === "bare" ? SoilStates.INITIAL : SoilStates.READY, farm);
+      const tile = { soil, crop: null, bots: [] }; farm.set(`0-${x}`, tile);
       if (spec.type) {
-        tile.crop = addCrop(farm, spec.type, x, y, spec.state === "ready" ? CropStates.HARVESTABLE : CropStates.YOUNG);
+        tile.crop = addCrop(farm, spec.type, x, 0, spec.state === "ready" ? CropStates.HARVESTABLE : CropStates.YOUNG);
         if (spec.state === "dead") tile.crop.markDead();
         if (spec.timeLeft) tile.crop.spoilage_remaining = spec.timeLeft;
       }
@@ -63,7 +62,7 @@ export function startChallengeFarm(getViewport) {
   function dispose() { if (disposed) return; disposed = true; clear(); restore(); }
   return { reset, fit, dispose, get robot() { return robot; }, get robots() { return robots; },
     progress: () => JSON.stringify([...farm.values()].filter(tile=>tile.soil).map(tile=>[tile.crop?.crop_state,tile.crop?.crop_grow_time,tile.soil.water_remaining,tile.crop?.crop_health])),
-    inspect: () => [...farm.values()].map(tile => ({ watered:tile.soil.isWatered(), planted:!!tile.crop, ready:tile.crop?.crop_state===CropStates.HARVESTABLE })),
+    inspect: () => [...farm.values()].map(tile => ({ watered:tile.soil.isWatered(), planted:!!tile.crop })),
     async pestEnding({signal,yieldControl}) {
       const targets = [...farm.values()].filter(tile => tile.crop);
       for (const tile of targets) {

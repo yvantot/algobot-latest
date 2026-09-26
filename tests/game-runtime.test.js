@@ -179,7 +179,7 @@ test("documented inventory and pest checks work in the actual interpreter bindin
 test("farming tutorial cannot be completed by repeating the same action", () => {
   const completions = [];
   const questContext = vm.createContext({
-    $state: value => value, isPracticeMission: key => key === "tut_2", activeQuest, movementQuest, INTRO_QUESTS, tutorialPolicy: { protected: false },
+    $state: value => value, activeQuest, movementQuest, INTRO_QUESTS, tutorialPolicy: { protected: false },
     AvatarTypes: { FARMER: "farmer" }, ModalTypes: {},
     QUEST_DATA: { tut_2: { goal: 4, prereq: [] } },
     PLAYER_DATA: {}, INVENTORY: {}, DOCUMENT_DATA: {}, SHOP_DATA: {}, CROP_DATA: {},
@@ -190,13 +190,11 @@ test("farming tutorial cannot be completed by repeating the same action", () => 
   const source = fs.readFileSync(new URL("../src/components/global.svelte.js", import.meta.url), "utf8")
     .replace(/^import .*;\r?\n/gm, "").replaceAll("export ", "");
   vm.runInContext(source, questContext);
-  for (const action of ["till","plant","water","harvest"]) questContext.trackQuest("tut_2",1,action);
-  assert.equal(vm.runInContext("QUEST_STATE.tut_2.progress",questContext),0,"main farm cannot finish a practice mission");
-  for (let n = 0; n < 5; n++) questContext.trackQuest("tut_2", 1, "till", true);
+  for (let n = 0; n < 5; n++) questContext.trackQuest("tut_2", 1, "till");
   assert.deepEqual(completions, []);
-  for (const action of ["plant", "water", "harvest"]) questContext.trackQuest("tut_2", 1, action, true);
+  for (const action of ["plant", "water", "harvest"]) questContext.trackQuest("tut_2", 1, action);
   assert.deepEqual(completions, ["tut_2"]);
-  questContext.trackQuest("tut_2", 1, "harvest", true);
+  questContext.trackQuest("tut_2", 1, "harvest");
   assert.deepEqual(completions, ["tut_2"]);
 });
 

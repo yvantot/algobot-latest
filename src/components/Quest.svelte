@@ -1,8 +1,6 @@
 <script>
   import { QUEST_DATA } from "../game/global/quests.js";
   import { QUEST_STATE, currentQuest, claimQuest } from "./global.svelte.js";
-  import {isPracticeMission} from "../game/global/practice-missions.js";
-  let {onPractice=null}=$props();
   let active = $derived(currentQuest());
 </script>
 <section class="path" aria-label="Mission path">
@@ -17,7 +15,6 @@
         {#if locked}<p class="small">Complete: {(quest.prereq || []).filter(id => !QUEST_STATE[id]?.is_claimed).map(id => QUEST_DATA[id]?.title).join(", ")}</p>{/if}
         {#if quest.rewards?.unlocks}<p class="small">Unlocks: {quest.rewards.unlocks.map(name => name.replaceAll("_", " ")).join(", ")}</p>{/if}
         {#if state.is_completed && !state.is_claimed}<button onclick={() => claimQuest(key)}>Collect reward</button>{/if}
-        {#if onPractice && isPracticeMission(key) && !locked}<button onclick={()=>onPractice(key)}>{state.is_completed?"Replay practice":"Start practice"}</button>{#if state.is_completed}<p class="small">Rewards already earned.</p>{/if}{/if}
       </li>
     {/each}
   </ol>

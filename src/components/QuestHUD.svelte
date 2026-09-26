@@ -5,13 +5,12 @@
   import { onMount, tick as nextRender } from "svelte";
   import { QUEST_DATA } from "../game/global/quests.js";
   import { missionHint, recordMissionHint } from "../game/global/mission-hints.js";
-  import {isPracticeMission} from "../game/global/practice-missions.js";
   import { currentQuest, QUEST_STATE, QUEST_FEEDBACK, TUTORIAL, ONBOARDING, robots_state, claimQuest } from "./global.svelte.js";
   import { telemetry } from "../game/ml/telemetry.js";
   import { INVENTORY } from "../game/global/global.js";
   import { farm_grid_index } from "../game/game.js";
   import { k } from "../lib/kaplay.js";
-  let { onOpenQuestMenu, onOpenBlockEditor, onOpenEditor = onOpenBlockEditor, editorMode = "blocks", onPractice = null } = $props();
+  let { onOpenQuestMenu, onOpenBlockEditor, onOpenEditor = onOpenBlockEditor, editorMode = "blocks" } = $props();
   let key = $derived(currentQuest());
   let mission = $derived(QUEST_DATA[key]);
   let hintLevel = $state(0), guideRevision = $state(0);
@@ -24,7 +23,7 @@
   let needsSeed = $derived.by(() => { const refresh = tick; return INVENTORY.crops.wheat < 1; });
   let hintExample = $state.raw(null);
   $effect(() => { const id = key; hintLevel = 0; hintExample = null; offered = false; idle = 0; lastProgress = 0; lastErrors = telemetry.errorCount || 0; });
-  $effect(() => { const progress=QUEST_STATE[key]?.progress; hintExample=null; offered=false; });
+  $effect(() => { const progress = QUEST_STATE[key]?.progress; hintExample = null; offered = false; });
   async function showHint() {
     const quest = key;
     const crop = [...farm_grid_index.values()].find(tile=>tile.crop?.crop_type === "wheat")?.crop;
@@ -80,15 +79,14 @@
     <p aria-live="polite">{getInstruction(missionKey)}</p>
     <progress value={QUEST_STATE[missionKey]?.progress || 0} max={mission.goal}></progress>
     <p class="count">{QUEST_STATE[missionKey]?.progress || 0} / {mission.goal} successful {mission.goal === 1 ? "action" : "actions"}</p>
-    {#if onPractice && isPracticeMission(missionKey)}<button class="primary" onclick={()=>onPractice(missionKey)}>Start practice</button><p>A prepared farm. Your own farm stays safe.</p>
-    {:else}<button class="primary" onclick={onOpenEditor}>Open {editorMode === "text" ? "code" : "blocks"}</button>
+    <button class="primary" onclick={onOpenEditor}>Open {editorMode === "text" ? "code" : "blocks"}</button>
     <button class="show-step" class:offered onclick={showHint}>Need help?</button>
-    {#if offered && hintLevel === 0}<p class="hint">Need a hand? Try “Need help?”.</p>{/if}{/if}
+    {#if offered && hintLevel === 0}<p class="hint">Need a hand? Try “Need help?”.</p>{/if}
     {#if hintExample}
       {#if editorMode === "blocks"}{#key key + guideRevision}<BlockPlacementGuide mission={key} example={hintExample}/>{/key}
       {:else}<pre class="hint code-hint"><code>{hintExample.code}</code></pre>{/if}
     {/if}
-    {#if key === "tut_2" && needsSeed && !onPractice}<button onclick={() => { if (INVENTORY.crops.wheat < 1) INVENTORY.changeCrops("wheat", 1); }}>Replace a used practice seed</button>{/if}
+    {#if key === "tut_2" && needsSeed}<button onclick={() => { if (INVENTORY.crops.wheat < 1) INVENTORY.changeCrops("wheat", 1); }}>Replace a used practice seed</button>{/if}
   {:else}<h2>All missions complete</h2><p>Keep experimenting with your farm programs.</p>{/if}
   </div>
   {/each}

@@ -31,3 +31,9 @@ Thirteen command and programming missions now launch with Start practice on an i
 Need help? shows blocks or code according to the editor and closes when an objective advances. The loop mission explicitly requires a loop. Crop checks teach true/false with is_planted, followed by conditional planting on prepared soil. Main-farm commands cannot accidentally complete isolated missions.
 
 Challenges now expose only the Recommended command set. Existing Freestyle export records remain identifiable and excluded from training. Mission practice is logged as guided_practice, never as normal gameplay input or a scored challenge target. Collect on one fixed version: the learning conditions changed from 1.2.
+
+## 1.3.1
+
+Reverts isolated mission practice at the user's request. Missions again use the main farm, original tutorial spotlight, toolbox restrictions and progression. The prior crop-readiness and conditional-harvest lesson pair is restored with its matching command observers. Removed practice launch/replay controls and the separate mission farm. Scored Challenges remain isolated.
+
+Retained the spoilage scene in the short introduction, Events-to-Upgrades chapter-switch fix, Need help? wording and dismissal on progress, explicit Loop instructions, and Recommended-only Challenges.
