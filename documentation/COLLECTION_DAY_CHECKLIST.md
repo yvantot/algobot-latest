@@ -25,16 +25,16 @@ Study conditions switch on automatically when the game is opened with a research
 
 ## Before the session
 
-1. **Commit everything**, then restart the server (`npm run dev`) or serve a fresh `npm run build`. Do not edit files while students play.
-2. Open Dev Console → **Check Collection**. It must show **Build 1.3.9, committed**. If it says *uncommitted changes*, commit or stash, restart the server and reload. Every pilot session was recorded as uncommitted, so its exact code cannot be recovered.
+1. **Commit and push everything**, and let the deployed site (https://algobot-latest.jidalman-work.workers.dev/) rebuild. For a local run, restart `npm run dev` instead. Do not edit or redeploy while students play. Collection members follow [COLLECTION_MEMBER_GUIDE.md](COLLECTION_MEMBER_GUIDE.md).
+2. Open Dev Console → **Check Collection**. It must show **Build 1.3.9, committed**. If it says *uncommitted changes*, the export's `build.dirty_files` lists which served files differed from the commit; fix that, rebuild and reload. Untracked data files and logs no longer count. Every pilot session was recorded as uncommitted, so its exact code cannot be recovered.
 3. Create a new folder for this round, e.g. `training/data/round2-2026-09/`. Do not put round 2 files in `training/data/raw` (that folder holds the pilot).
 4. Confirm **Download Dataset JSON** works on each computer and a backup location is ready.
-5. Run one disposable staff practice session with a code like `STAFF-TEST`, export it to a separate folder, then Clear Stored Data and reload. Never mix staff sessions into the student folder.
+5. Run one disposable staff practice session with a code like `STAFF-TEST`, export it to a separate folder, then Clear Stored Data and reload. Never mix staff sessions into the student folder, and never use a real student code (such as `R2-P001`) for a staff test: that code was used for the 26 September staff test and is retired.
 
 ## Per student
 
 1. Confirm the previous student's JSON is downloaded **and** backed up. Only then use **Clear Stored Data**.
-2. Open `http://127.0.0.1:5173/?study_participant=R2-P001` (next code: `R2-P002`, and so on). The `R2-` prefix keeps round 2 codes distinct from any earlier codes. Keep the name-to-code list separately, and reuse the same code for that person's pre/post tests.
+2. Open `https://algobot-latest.jidalman-work.workers.dev/?study_participant=CODE` with the next unused code from your assigned block (see the member guide). Open this URL directly after clearing, before choosing Start Game, so no code-less session is created. The `R2-` prefix keeps round 2 codes distinct from any earlier codes. Keep the name-to-code list separately, and reuse the same code for that person's pre/post tests.
 3. Choose Start Game for a fresh farm. In Dev Console → Check Collection, confirm the participant code and **Study conditions: fixed-conditions-v1**. If it says *No study conditions*, reload with the code before the student plays.
 4. The student finishes the tutorial normally. No tutorial skip, resource grants, developer speed controls or forced events: developer actions exclude the session.
 5. About **two minutes of farming**. Check Collection shows "Gameplay window ready" when ready.

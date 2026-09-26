@@ -70,3 +70,6 @@ coverage/
 Thumbs.db
 ehthumbs.db
 desktop.ini
+
+# Collected participant datasets stay out of Git (folder placeholders are tracked)
+training/data/**/*.json
