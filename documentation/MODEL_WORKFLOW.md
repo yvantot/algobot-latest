@@ -114,6 +114,8 @@ npm run model -- bundle training/runs/run-v1 training/bundles/candidate-v1
 
 The bundle contains browser-compatible `model.json`, weights, the matching scaler, and a model card with hashes and evaluation provenance. It never writes to `public/models`. `deployment_ready` remains false because running the commands does not establish that the model is suitable.
 
+From 1.3.11, formal candidate scalers contain a stable model ID, `candidate` status, task and target before their hashes are recorded. Bundling preserves those files byte-for-byte and checks the runtime metadata. Older formal runs without this metadata must be retrained into a new run directory before bundling; do not patch their scaler after evaluation. The installed provisional pilot model is unchanged.
+
 Before installation, review whether the LSTM improves on both baselines, whether the held-out scores cover the intended categories, whether task forms and scoring are defensible, and whether the cohort is large enough to support the claims. Poor results should be reported and investigated, not concealed by new cutoffs. A successful model prediction also does not prove that DDA improves learning.
 
 The browser understands the legacy ten-feature, recent twelve-feature and active fourteen-feature schemas. Each model waits for observations matching its own schema and uses rules while inputs are unavailable. The same feature and scaling functions are used in training and runtime. Model and scaler must be installed together in a separate reviewed Git change. Difficulty thresholds and score interpretation must be reviewed with that change; a programming-task score is a different target from the old gameplay formula.

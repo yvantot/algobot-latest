@@ -1,5 +1,13 @@
 # Game versions
 
+## 1.3.11 ML workflow verification
+
+- Finish & Download distinguishes a usable first-harvest score from completing both study tasks. Partial downloads remain allowed; unfinished or unusable second-task labels are identified.
+- Duplicate dataset imports retain verified study/build metadata and protect finalized challenge records from contradictory duplicates.
+- Newly trained candidates carry model identity, task and candidate status into their scaler, bundle and runtime logs.
+
+The deployed model, original datasets, feature schemas and scoring rubrics are unchanged. This version is a local candidate until pushed and deployed.
+
 ## 1.3.10 system review fixes
 
 - Movement missions check the requested direction and complete left/right trips within a single run instead of rewarding unrelated moves.

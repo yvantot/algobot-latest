@@ -10,8 +10,14 @@ export function downloadReadiness(session, { cleared = false, sessions = [sessio
     sum + challengeSamples(participantSessions, "first-harvest-v1", {schema}).samples.length, 0);
   if (count) {
     const protocol = session.collection?.study_protocol;
-    const next = protocol?.task_order.find(id => !participantSessions.some(s => (s.challenge_attempts ?? []).some(a => a.task_id === id)));
-    if (next) return { ready:true, next_task:next, message:`Your first harvest is saved. Next, keep farming for about two minutes at 100% speed, then try "${studyTaskTitle(next)}" in Challenges. You can download now, but your researcher will download again after that challenge.` };
+    for (const taskId of protocol?.task_order ?? []) {
+      const usable = [RESEARCH_SCHEMA, COLLECTION_SCHEMA].some(schema =>
+        challengeSamples(participantSessions, taskId, { schema }).samples.length > 0);
+      if (usable) continue;
+      const attempts = participantSessions.flatMap(s => s.challenge_attempts ?? []).filter(a => a.task_id === taskId);
+      if (!attempts.length) return { ready:true, next_task:taskId, message:`Your first harvest is saved. Next, keep farming for about two minutes at 100% speed, then try "${studyTaskTitle(taskId)}" in Challenges. You can download now, but your researcher will download again after that challenge.` };
+      return { ready:true, message:`Your first harvest is saved and you can download now. "${studyTaskTitle(taskId)}" has no usable first-attempt score yet. Please tell your researcher before ending the study; do not clear your data. Repeating the challenge cannot replace its first-attempt record.` };
+    }
     return { ready:true, message:"Your gameplay and challenge score are ready to download. Send the downloaded file to your researcher." };
   }
   const attempts = participantSessions.flatMap(s => s.challenge_attempts ?? []).filter(a => a.task_id === "first-harvest-v1");

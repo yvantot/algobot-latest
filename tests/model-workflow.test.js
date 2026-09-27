@@ -118,6 +118,20 @@ test("local train/evaluate/bundle pipeline runs and blocks reevaluation and modi
     assert.equal(card.files["weights.bin"], digest(fs.readFileSync(path.join(bundle, "weights.bin"))));
     const model = await loadDeployedModel(path.join(bundle, "model.json"));
     const scaler = JSON.parse(fs.readFileSync(path.join(bundle, "scaler_params.json")));
+    const selected = development.candidates.find(c => c.name === development.selected.lstm);
+    assert.equal(new Set(development.candidates.map(c => c.model_id)).size, 4);
+    const repeated = await trainWorkflow(input, planFile, path.join(dir, "repeat-run"));
+    assert.deepEqual(repeated.candidates.map(c => c.model_id), development.candidates.map(c => c.model_id));
+    assert.equal(card.model_id, selected.model_id);
+    assert.equal(scaler.model_id, card.model_id);
+    assert.equal(scaler.model_status, "candidate");
+    assert.equal(card.status, "candidate");
+    assert.equal(scaler.task_id, card.task_id);
+    assert.equal(scaler.prediction_target, card.target);
+    for (const [file, hash] of Object.entries(selected.files)) {
+      assert.equal(digest(fs.readFileSync(path.join(bundle, file))), hash);
+      assert.deepEqual(fs.readFileSync(path.join(bundle, file)), fs.readFileSync(path.join(run, selected.name, file)));
+    }
     const x = tf.tensor3d([scaleResearchSequence(data.samples[0].x, scaler)]);
     let y;
     try { y = model.predict(x); assert.ok(Array.from(await y.data()).every(v => v >= 0 && v <= 1)); }
@@ -141,7 +155,12 @@ test("14-feature speed-aware workflow trains both baselines and loads the bundle
     assert.deepEqual(Object.keys(evaluation.results),["mean","lstm","mlp"]);
     bundleWorkflow(run,bundle);
     const scaler=JSON.parse(fs.readFileSync(path.join(bundle,"scaler_params.json")));
-    assert.deepEqual(scaler,fitStandardScaler(partitions(data,plan).train,COLLECTION_SCHEMA));
+    const {model_id,model_status,task_id,prediction_target,...scaling} = scaler;
+    assert.deepEqual(scaling,fitStandardScaler(partitions(data,plan).train,COLLECTION_SCHEMA));
+    assert.equal(model_status,"candidate");
+    assert.equal(task_id,"fixture-task");
+    assert.equal(prediction_target,"independent_scored_task");
+    assert.ok(model_id.startsWith("scored-task-lstm-"));
     const model=await loadDeployedModel(path.join(bundle,"model.json"));
     const x=tf.tensor3d([scaleResearchSequence(data.samples[0].x,scaler)]);
     const prediction=model.predict(x);

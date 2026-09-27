@@ -267,6 +267,50 @@ test("recent-schema model waits for real history then receives shared training f
   assert.equal(agent.getAgentState().predictionTarget, "independent_scored_task");
 });
 
+test("formal candidate bundle preserves model and task provenance in runtime decisions", async () => {
+  const { RESEARCH_SCHEMA, RESEARCH_FEATURES, recentSequence } = await import("../src/game/ml/research-features.js");
+  const { trainWorkflow, evaluateWorkflow, bundleWorkflow } = await import("../scripts/model-workflow.js");
+  const { loadDeployedModel } = await import("../scripts/model-artifacts.js");
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-candidate-runtime-"));
+  let agent;
+  try {
+    const now = Date.now();
+    const snapshots = Array.from({ length: 21 }, (_, i) => ({ timestamp_ms: now - (20-i)*5000,
+      stage: 1, context: {phase:"gameplay",game_speed:1,robot_count:1},
+      counters: {errors:0,edits:i,completed_runs:0,failed_runs:0,stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0} }));
+    const data = { feature_schema: RESEARCH_SCHEMA, feature_names: RESEARCH_FEATURES,
+      samples: Array.from({ length: 6 }, (_, i) => ({ source_type:"recorded", label_source:"independent_scored_task",
+        student_id:`fixture-p${i}`, session_id:`fixture-s${i}`, assessment_id:`fixture-a${i}`,
+        rubric_version:"fixture", task_id:"fixture-task", assessor_id:"fixture-assessor",
+        input_start_ms:now-100000, input_end_ms:now, assessment_start_ms:now+1000,
+        x:recentSequence(snapshots), y:i/5 })) };
+    const input = path.join(directory,"samples.json"), planFile = path.join(directory,"plan.json");
+    const run = path.join(directory,"run"), bundle = path.join(directory,"bundle");
+    fs.writeFileSync(input,JSON.stringify(data));
+    fs.writeFileSync(planFile,JSON.stringify(makePlan(data,{epochs:1})));
+    await trainWorkflow(input,planFile,run);
+    await evaluateWorkflow(input,run);
+    bundleWorkflow(run,bundle);
+    const scaler = JSON.parse(fs.readFileSync(path.join(bundle,"scaler_params.json")));
+    const card = JSON.parse(fs.readFileSync(path.join(bundle,"model-card.json")));
+    let requested;
+    agent = new MLDiffAgent({loadScaler:async()=>scaler,loadModel:async url=>{
+      requested=url; return loadDeployedModel(path.join(bundle,"model.json"));
+    }});
+    telemetry.collectionEnabled=true;
+    telemetry.collectionSnapshots=snapshots;
+    assert.equal((await agent.updateAndPredict()).mode,"hybrid");
+    assert.equal(requested,`/models/lstm/model.json?v=${encodeURIComponent(card.model_id)}`);
+    for (const record of [agent.getAgentState(),telemetry.ddaActionsLog.at(-1)]) {
+      assert.equal(record.modelId,card.model_id);
+      assert.equal(record.modelStatus,"candidate");
+      assert.equal(record.predictionTask,card.task_id);
+      assert.equal(record.predictionTarget,card.target);
+    }
+    assert.equal(card.deployment_ready,false);
+  } finally { agent?.lstmModel?.dispose(); fs.rmSync(directory,{recursive:true,force:true}); }
+});
+
 test("installed provisional model runs on gameplay history and records its identity", async () => {
   const { loadDeployedModel } = await import("../scripts/model-artifacts.js");
   const deployedScaler = JSON.parse(fs.readFileSync("public/models/lstm/scaler_params.json", "utf8"));

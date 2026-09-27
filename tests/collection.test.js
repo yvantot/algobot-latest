@@ -7,7 +7,7 @@ import { TelemetryTracker } from "../src/game/ml/telemetry.js";
 import { startCollection } from "../src/game/ml/collection.js";
 import { RESEARCH_SCHEMA, RESEARCH_FEATURES } from "../src/game/ml/research-features.js";
 import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
-import { assessmentSamples, readCollection, auditCollection, summarizeTrainingReadiness } from "../scripts/collection-dataset.js";
+import { assessmentSamples, challengeSamples, readCollection, auditCollection, summarizeTrainingReadiness } from "../scripts/collection-dataset.js";
 import { resolveParticipant, clearParticipant } from "../src/game/ml/participant.js";
 import { sealDataset } from "../src/game/ml/export-integrity.js";
 
@@ -229,6 +229,90 @@ test("overlapping exports allow evolving agent state, scoring and added legacy m
       assert.deepEqual(merged.agent_state, newer.agent_state);
       assert.deepEqual(merged.challenge_attempts, newer.challenge_attempts);
       assert.equal(merged.build.version, "new-metadata");
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("merged exports retain verified nested provenance across missing fields in every file order", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-provenance-retained-"));
+  try {
+    const records = [0, 1, 2].map(i => ({ ...fixture().session, export_date: new Date(start + i * 1000).toISOString(),
+      raw_events: Array.from({ length: i }, (_, n) => ({ event: n })) }));
+    records[0].build = { commit: "known", compiler: { version: "1" } };
+    records[0].collection.study_protocol = { id: "fixed-conditions-v1", fresh_window_after_previous_task: true };
+    records[0].collection.interval_ms = 5000;
+    records[1].build = { compiler: { target: "browser" } };
+    records[1].collection.study_protocol = { task_order: ["first-harvest-v1", "careful-steps-v1"] };
+    records[1].collection.participant_id_source = "researcher_assigned_code";
+    for (const order of [[0,1,2], [0,2,1], [1,0,2], [1,2,0], [2,0,1], [2,1,0]]) {
+      const contents = order.map(index => JSON.stringify({ sessions: [records[index]] }));
+      contents.forEach((content, i) => fs.writeFileSync(path.join(dir, `${i}.json`), content));
+      const merged = readCollection(dir).sessions[0];
+      assert.equal(merged.raw_events.length, 2);
+      assert.deepEqual(merged.build, { commit: "known", compiler: { version: "1", target: "browser" } });
+      assert.deepEqual(merged.collection, { independent_of_inference: true, interval_ms: 5000,
+        participant_id_source: "researcher_assigned_code", study_protocol: { id: "fixed-conditions-v1",
+          fresh_window_after_previous_task: true, task_order: ["first-harvest-v1", "careful-steps-v1"] } });
+      contents.forEach((content, i) => assert.equal(fs.readFileSync(path.join(dir, `${i}.json`), "utf8"), content));
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("an overlapping export cannot relax the verified fresh gameplay window by omitting its protocol", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-protocol-window-"));
+  try {
+    const { session, assessment } = fixture();
+    session.collection.study_protocol = { id: "fixed-conditions-v1", fresh_window_after_previous_task: true };
+    session.challenge_attempts = [{ assessment_id: "previous", finished_at: new Date(start + 95000).toISOString(), submissions: [] }];
+    session.export_date = new Date(start + 200000).toISOString();
+    const incomplete = structuredClone(session);
+    incomplete.export_date = new Date(start + 201000).toISOString();
+    delete incomplete.collection.study_protocol;
+    assert.equal(assessmentSamples([session], [assessment]).samples.length, 0);
+    for (const records of [[session, incomplete], [incomplete, session]]) {
+      records.forEach((record, i) => fs.writeFileSync(path.join(dir, `${i}.json`), JSON.stringify({ sessions: [record] })));
+      const result = assessmentSamples(readCollection(dir).sessions, [assessment]);
+      assert.equal(result.samples.length, 0);
+      assert.match(result.excluded[0].reason, /20_contiguous/);
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("duplicate exports reject changed scored summaries and play mode without rejecting legitimate score evolution", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-scored-summary-"));
+  try {
+    const { session, assessment } = fixture();
+    const attempt = { ...assessment, task_id: "first-harvest-v1", rubric_version: "first-harvest-1.0",
+      assessor_id: "algobot-live-cases-5.0", play_mode: "recommended", first_exposure: true, score: 3, max_score: 3,
+      reward_claimed: false, submissions: [{ score: 3, max_score: 3, submitted_at: assessment.finished_at,
+        assistance: "none", cases: [{ checks: { visited_every_tile: true, harvested_all_ready: true, safe_and_finished: true } }] }] };
+    session.challenge_attempts = [attempt];
+    session.export_date = new Date(start + 300000).toISOString();
+    assert.equal(challengeSamples([session], "first-harvest-v1", { schema: "10f" }).samples.length, 1);
+    const readPair = records => {
+      records.forEach((record, i) => fs.writeFileSync(path.join(dir, `${i}.json`), JSON.stringify({ sessions: [record] })));
+      return readCollection(dir).sessions[0];
+    };
+    for (const [key, value] of Object.entries({ status: "in_progress", purpose: "practice", score: 0, max_score: 4,
+      finished_at: new Date(start + 200001).toISOString(), assistance: "reported_or_unconfirmed", play_mode: "freestyle" })) {
+      const changed = structuredClone(session);
+      changed.export_date = new Date(start + 301000).toISOString();
+      changed.challenge_attempts[0][key] = value;
+      assert.equal(challengeSamples([changed], "first-harvest-v1", { schema: "10f" }).samples.length, 0, key);
+      for (const records of [[session, changed], [changed, session]]) assert.throws(() => readPair(records), /Conflicting challenge/, key);
+    }
+    const stopped = structuredClone(session);
+    Object.assign(stopped.challenge_attempts[0], { status: "in_progress", purpose: "practice", score: null,
+      finished_at: null, assistance: "unconfirmed", submissions: [{ status: "stopped", score: null }] });
+    const scored = structuredClone(session);
+    scored.challenge_attempts[0].submissions.unshift({ status: "stopped", score: null });
+    const retried = structuredClone(scored);
+    retried.challenge_attempts[0].reward_claimed = true;
+    retried.challenge_attempts[0].submissions.push({ score: 0 });
+    for (const records of [[stopped, scored], [scored, stopped], [scored, retried], [retried, scored]]) {
+      const merged = readPair(records);
+      assert.equal(challengeSamples([merged], "first-harvest-v1", { schema: "10f" }).samples.length, 1);
+      assert.equal(merged.challenge_attempts[0].score, 3);
     }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

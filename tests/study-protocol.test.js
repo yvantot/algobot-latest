@@ -179,3 +179,41 @@ test("study window start ignores attempts at or after the cutoff", () => {
   assert.equal(studyWindowStart(STUDY_PROTOCOL, attempts, start + 20000), start + 9000);
   assert.equal(studyWindowStart(null, attempts, start + 20000), -Infinity);
 });
+
+test("download remains available but does not call incomplete study labels ready", () => {
+  for (const status of ["in_progress", "abandoned", "scored_without_window", "repeat_after_abandonment"]) {
+    const t = tracker();
+    t.collectionSnapshots.push(...Array.from({ length: 21 }, (_, i) => snapshot(i)));
+    score(t, "first-harvest-v1", 0, start + 101000);
+    if (status === "scored_without_window") {
+      score(t, "careful-steps-v1", 2, start + 110000);
+    } else {
+      const attempt = openChallenge(t, task("careful-steps-v1"), true, start + 110000);
+      if (status !== "in_progress") {
+        attempt.status = "abandoned";
+        attempt.finished_at = new Date(start + 112000).toISOString();
+      }
+      if (status === "repeat_after_abandonment") {
+        t.collectionSnapshots.push(...Array.from({ length: 21 }, (_, i) => snapshot(i + 30, 2)));
+        const repeat = score(t, "careful-steps-v1", 3, start + 251000);
+        repeat.first_exposure = false;
+        repeat.purpose = "practice";
+      }
+    }
+    const exported = session(t);
+    assert.equal(challengeSamples([exported], "careful-steps-v1").samples.length, 0, status);
+    const result = downloadReadiness(exported);
+    assert.equal(result.ready, true, status);
+    assert.equal(result.next_task, undefined, status);
+    assert.match(result.message, /Two careful steps.*no usable first-attempt score/s, status);
+    assert.match(result.message, /tell your researcher/, status);
+    assert.match(result.message, /Repeating the challenge cannot replace/, status);
+  }
+
+  const complete = tracker();
+  complete.collectionSnapshots.push(...Array.from({ length: 21 }, (_, i) => snapshot(i)));
+  score(complete, "first-harvest-v1", 0, start + 101000);
+  complete.collectionSnapshots.push(...Array.from({ length: 21 }, (_, i) => snapshot(i + 30, 2)));
+  score(complete, "careful-steps-v1", 0, start + 251000);
+  assert.match(downloadReadiness(session(complete)).message, /ready to download/);
+});

@@ -67,8 +67,18 @@ export function readCollection(input) {
         for (const key of ["started_at", "task_id", "rubric_version", "assessor_id", "crop_profile", "first_exposure"]) {
           if (previous[key] !== current[key]) throw Error(`Conflicting challenge provenance for ${session.session_id}`);
         }
+        // Exports predating play modes used the recommended challenge flow.
+        if ((previous.play_mode ?? "recommended") !== (current.play_mode ?? "recommended")) {
+          throw Error(`Conflicting challenge play_mode provenance for ${session.session_id}`);
+        }
         for (let i = 0; i < Math.min(previous.submissions?.length ?? 0, current.submissions?.length ?? 0); i++) {
           if (JSON.stringify(previous.submissions[i]) !== JSON.stringify(current.submissions[i])) throw Error(`Conflicting challenge submission for ${session.session_id}`);
+        }
+        const hasEvaluatedScore = attempt => attempt.submissions?.some(s => s.status !== "stopped" && Number.isFinite(s.score));
+        if (hasEvaluatedScore(previous) && hasEvaluatedScore(current)) {
+          for (const key of ["status", "score", "max_score", "finished_at", "assistance", "purpose"]) {
+            if (previous[key] !== current[key]) throw Error(`Conflicting challenge scored ${key} for ${session.session_id}`);
+          }
         }
       }
       if (!old) { sessions.set(session.session_id, session); continue; }
@@ -89,7 +99,19 @@ export function readCollection(input) {
         ...(reasons.length?{research_exclusion_reasons:reasons}:{})});
     }
   }
-  return { sessions: [...sessions.values()], source_sha256 };
+  const mergedSessions = [...sessions.values()].map(session => {
+    const merged = structuredClone(session);
+    // Keep verified metadata from shorter exports even when the selected history lacks it.
+    for (const [field, value] of Object.entries(provenance.get(session.session_id))) {
+      if (value === undefined) continue;
+      if (field.startsWith("collection.")) {
+        merged.collection ??= {};
+        merged.collection[field.slice("collection.".length)] = structuredClone(value);
+      } else merged[field] = structuredClone(value);
+    }
+    return merged;
+  });
+  return { sessions: mergedSessions, source_sha256 };
 }
 
 export function summarizeTrainingReadiness(data) {

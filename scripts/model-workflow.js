@@ -140,8 +140,12 @@ export async function trainWorkflow(datasetPath, planPath, output) {
       try {
         const result = await fit(model, train, validation, scaler, kind, plan, seed);
         const directory = path.join(output, name);
-        await save(model, directory, scaler);
-        report.candidates.push({ name, kind, seed, ...result, files: hashes(directory) });
+        const modelId = `scored-task-${kind}-${digest({ dataset: report.dataset_sha256, plan: report.plan_sha256,
+          seed, architecture: "scored-task-v1" }).slice(0, 24)}`;
+        const candidateScaler = { ...scaler, model_id: modelId, model_status: "candidate",
+          task_id: report.task_id, prediction_target: report.target };
+        await save(model, directory, candidateScaler);
+        report.candidates.push({ name, kind, seed, model_id: modelId, ...result, files: hashes(directory) });
       } finally { model.optimizer.dispose(); model.dispose(); }
     }
     report.selected[kind] = report.candidates.filter(c => c.kind === kind)
@@ -206,9 +210,15 @@ export function bundleWorkflow(run, output) {
   if (!selected || !/^lstm-seed--?\d+$/.test(selected.name)) throw Error("Invalid model selection");
   const source = path.join(run, selected.name);
   if (JSON.stringify(hashes(source)) !== JSON.stringify(selected.files)) throw Error("Model artifacts changed");
+  const scaler = read(path.join(source, "scaler_params.json"));
+  if (!selected.model_id || scaler.model_id !== selected.model_id || scaler.model_status !== "candidate" ||
+      scaler.task_id !== development.task_id || scaler.prediction_target !== development.target) {
+    throw Error("Candidate runtime provenance is missing or inconsistent; train a new candidate run before bundling");
+  }
   freshDirectory(output);
   for (const file of artifactFiles) fs.copyFileSync(path.join(source, file), path.join(output, file));
-  write(path.join(output, "model-card.json"), { target: "independent_scored_task", output: "score / maximum",
+  write(path.join(output, "model-card.json"), { model_id: scaler.model_id, status: scaler.model_status,
+    target: "independent_scored_task", output: "score / maximum",
     task_id:development.task_id, rubric_version:development.rubric_version, assessor_id:development.assessor_id,
     feature_schema: development.feature_schema, input_shape: [20, researchFeatureNames(development.feature_schema).length], collection_interval_ms: 5000,
     dataset_sha256: development.dataset_sha256, plan_sha256: development.plan_sha256,
