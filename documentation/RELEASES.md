@@ -1,5 +1,13 @@
 # Game versions
 
+## 1.3.12 recovery downloads
+
+Completing a challenge no longer leaves the player unable to export simply because the first-harvest record was excluded from training. The finish prompt offers **Download for review** with the recorded rejection reason. The exported data and training exclusions are unchanged. Developer sessions and unreadable-storage recovery use the same explicit review path; cleared data remains blocked.
+
+Regression checks cover an abandoned first opening followed by a scored retry, previous exposure, insufficient observations, storage recovery and three hours of later gameplay. Continued play does not expire a valid first score.
+
+For affected players on older builds, use Dev Console (`\`) → DDA → Research Data → Download Dataset JSON without clearing storage. The precise first-attempt exclusion still requires inspecting their export; completing later challenges does not replace it.
+
 ## 1.3.11 ML workflow verification
 
 - Finish & Download distinguishes a usable first-harvest score from completing both study tasks. Partial downloads remain allowed; unfinished or unusable second-task labels are identified.

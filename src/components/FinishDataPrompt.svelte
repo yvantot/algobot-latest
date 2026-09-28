@@ -15,7 +15,7 @@
   });
   async function save() {
     refresh();
-    if (!status?.ready || busy) return;
+    if (!(status?.ready || status?.canDownload) || busy) return;
     busy = true;
     try { await download(); downloaded = true; }
     catch { error = "The download could not start. Please try again. Your data has not been cleared."; }
@@ -33,12 +33,12 @@
 
 <div class="backdrop" transition:fade={{duration:reducedMotion?0:150}}>
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="finish-title" aria-describedby="finish-status" tabindex="-1" bind:this={panel} onkeydown={keys} transition:fly={{y:18,duration:reducedMotion?0:220}}>
-    <h2 id="finish-title">{downloaded ? "Check your downloads" : status?.ready ? "Your data is ready" : "Not ready yet"}</h2>
+    <h2 id="finish-title">{downloaded ? "Check your downloads" : status?.ready ? "Your data is ready" : status?.canDownload ? "Your data needs review" : "Not ready yet"}</h2>
     <p id="finish-status">{downloaded ? "The download was requested. Check that the JSON file is saved, then send it to your researcher. Your data has not been cleared." : status?.message ?? "Checking your data…"}</p>
     {#if error}<p role="alert">{error}</p>{/if}
     <div class="actions">
       <button disabled={busy} onclick={onClose}>{downloaded ? "Close" : "Keep playing"}</button>
-      {#if status?.ready}<button class="download" disabled={busy} onclick={save}>{busy ? "Preparing…" : downloaded ? "Download again" : "Download data"}</button>{/if}
+      {#if status?.ready || status?.canDownload}<button class="download" disabled={busy} onclick={save}>{busy ? "Preparing…" : downloaded ? "Download again" : status?.ready ? "Download data" : "Download for review"}</button>{/if}
     </div>
   </div>
 </div>

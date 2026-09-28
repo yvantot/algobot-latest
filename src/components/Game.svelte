@@ -216,8 +216,8 @@
   function checkDownload() {
     const session = dataLogger.buildSessionExport();
     const dataset = dataLogger.buildDatasetExport();
-    if (!dataset.data_quality.stored_sessions_fully_readable) return {ready:false,message:"Saved data could not be read. Keep this page open and tell your researcher so they can recover it."};
-    const status = downloadReadiness(session, { cleared:dataLogger.clearedSessionIds.has(session.session_id), sessions:dataset.sessions });
+    const status = downloadReadiness(session, { cleared:dataLogger.clearedSessionIds.has(session.session_id), sessions:dataset.sessions,
+      storageReadable:dataset.data_quality.stored_sessions_fully_readable });
     if (status.reason === "first_challenge_not_started") status.message = challengeWaitMessage(telemetry);
     return status;
   }

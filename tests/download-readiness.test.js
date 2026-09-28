@@ -58,3 +58,55 @@ test("speed-aware first-harvest scores unlock downloads and older saved scores s
   const saved=scoredSession(0),current={...session,session_id:"new-schema-session",challenge_attempts:[]};
   assert.equal(downloadReadiness(current,{sessions:[saved,current]}).ready,true);
 });
+
+test("a scored retry after an abandoned first opening can be downloaded for review without relabeling", () => {
+  const session = scoredSession();
+  const scored = session.challenge_attempts[0];
+  session.challenge_attempts.unshift({...structuredClone(scored),assessment_id:"abandoned-first",
+    started_at:new Date(Date.parse(scored.started_at)-1000).toISOString(),status:"abandoned",score:null,submissions:[]});
+  scored.first_exposure = false;
+  const before = structuredClone(session), status = downloadReadiness(session);
+  assert.equal(status.ready,false);
+  assert.equal(status.canDownload,true);
+  assert.ok(status.exclusion_reasons.includes("unfinished_challenge_not_a_zero_score"));
+  assert.match(status.message,/first opening.*ended without a score/);
+  assert.deepEqual(session,before);
+});
+
+test("practice scores and incomplete observation windows offer review downloads with an explanation", () => {
+  const practice=scoredSession(); practice.challenge_attempts[0].first_exposure=false;
+  assert.equal(downloadReadiness(practice).canDownload,true);
+  assert.match(downloadReadiness(practice).message,/earlier opening/);
+  const incomplete=scoredSession(); incomplete.feature_timeseries=incomplete.feature_timeseries.slice(5);
+  assert.equal(downloadReadiness(incomplete).canDownload,true);
+  assert.match(downloadReadiness(incomplete).message,/gameplay observations/);
+});
+
+test("recovery downloads preserve developer exclusions and unreadable storage, while cleared data stays blocked", () => {
+  const session=scoredSession(); session.source_type="developer_test";
+  const before=structuredClone(session);
+  assert.equal(downloadReadiness(session).ready,false);
+  assert.equal(downloadReadiness(session).canDownload,true);
+  assert.deepEqual(session,before);
+  const recovery=downloadReadiness(scoredSession(),{storageReadable:false});
+  assert.equal(recovery.ready,false); assert.equal(recovery.canDownload,true);
+  const cleared=downloadReadiness(session,{cleared:true,storageReadable:false});
+  assert.equal(cleared.ready,false); assert.notEqual(cleared.canDownload,true);
+});
+
+test("unstarted and unscored first harvests do not gain a normal download", () => {
+  for(const status of [null,"in_progress","abandoned"]) {
+    const session=scoredSession();
+    if(status) session.challenge_attempts[0].status=status;
+    else session.challenge_attempts=[];
+    const result=downloadReadiness(session);
+    assert.equal(result.ready,false); assert.notEqual(result.canDownload,true);
+  }
+});
+
+test("hours of subsequent gameplay do not expire a saved first-harvest score", () => {
+  const session=scoredSession(), last=session.feature_timeseries.at(-1);
+  session.feature_timeseries.push(...Array.from({length:2160},(_,i)=>({...structuredClone(last),
+    timestamp_ms:last.timestamp_ms+(i+1)*5000})));
+  assert.equal(downloadReadiness(session).ready,true);
+});
