@@ -13,7 +13,7 @@ const artifactFiles = ["model.json", "weights.bin", "scaler_params.json"];
 const hashFile = p => digest(fs.readFileSync(p));
 const hashes = dir => Object.fromEntries(artifactFiles.map(f => [f, hashFile(path.join(dir, f))]));
 
-function createModel(kind, seed, featureCount) {
+export function createModel(kind, seed, featureCount) {
   const model = tf.sequential();
   const initializer = () => tf.initializers.glorotUniform({ seed });
   if (kind === "lstm") model.add(tf.layers.lstm({ units: 8, inputShape: [20, featureCount],
@@ -25,10 +25,10 @@ function createModel(kind, seed, featureCount) {
   model.compile({ optimizer: tf.train.adam(.003), loss: "meanSquaredError" });
   return model;
 }
-const inputs = (samples, scaler, kind) => kind === "lstm"
+export const inputs = (samples, scaler, kind) => kind === "lstm"
   ? tf.tensor3d(normalized(samples, scaler)) : tf.tensor2d(means(normalized(samples, scaler)));
 
-async function predict(model, x) {
+export async function predict(model, x) {
   const y = model.predict(x);
   try { return Array.from(await y.data()); } finally { y.dispose(); }
 }
@@ -55,7 +55,7 @@ async function fit(model, train, validation, scaler, kind, plan, seed) {
   } finally { tf.dispose([x, y, vx, ...(bestWeights ?? [])]); }
 }
 
-async function save(model, directory, scaler) {
+export async function save(model, directory, scaler) {
   fs.mkdirSync(directory);
   await model.save(tf.io.withSaveHandler(async artifact => {
     fs.writeFileSync(path.join(directory, "weights.bin"), Buffer.from(artifact.weightData));

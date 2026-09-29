@@ -73,3 +73,5 @@ desktop.ini
 
 # Collected participant datasets stay out of Git (folder placeholders are tracked)
 training/data/**/*.json
+# Explicitly labeled experimental augmentations remain separate from collected exports.
+training/synthetic/
