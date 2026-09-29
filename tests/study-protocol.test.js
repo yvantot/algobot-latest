@@ -151,15 +151,20 @@ test("fixed Normal difficulty ignores the model's proposed action but logs it", 
   dda.applyAction(DDA_ACTIONS.NORMAL);
 });
 
-test("finish prompt points to the second study task; audit flags missing study conditions", () => {
+test("study players cannot download before the second study task; audit flags missing study conditions", () => {
   const t = tracker();
   t.collectionSnapshots.push(...Array.from({ length: 21 }, (_, i) => snapshot(i)));
   score(t, "first-harvest-v1", 0, start + 101000);
   const status = downloadReadiness(session(t));
-  assert.equal(status.ready, true);
+  assert.equal(status.ready, false);
+  assert.equal(status.canDownload, undefined);
+  assert.equal(status.reason, "study_task_not_started");
   assert.equal(status.next_task, "careful-steps-v1");
   assert.match(status.message, /Two careful steps/);
-  assert.equal(downloadReadiness(session(t, null)).next_task, undefined);
+  // Ordinary play keeps downloading after the first harvest.
+  const ordinary = downloadReadiness(session(t, null));
+  assert.equal(ordinary.ready, true);
+  assert.equal(ordinary.next_task, undefined);
 
   const free = session(t, null);
   free.collection.participant_id_source = "browser_local_pseudonym";
@@ -180,8 +185,30 @@ test("study window start ignores attempts at or after the cutoff", () => {
   assert.equal(studyWindowStart(null, attempts, start + 20000), -Infinity);
 });
 
-test("download remains available but does not call incomplete study labels ready", () => {
-  for (const status of ["in_progress", "abandoned", "scored_without_window", "repeat_after_abandonment"]) {
+test("an unscored second study task blocks download; a scored but unusable one downloads with a warning", () => {
+  for (const status of ["in_progress", "abandoned"]) {
+    const t = tracker();
+    t.collectionSnapshots.push(...Array.from({ length: 21 }, (_, i) => snapshot(i)));
+    score(t, "first-harvest-v1", 0, start + 101000);
+    const attempt = openChallenge(t, task("careful-steps-v1"), true, start + 110000);
+    if (status === "abandoned") closeChallenge(t, attempt);
+    const result = downloadReadiness(session(t));
+    assert.equal(result.ready, false, status);
+    assert.equal(result.canDownload, undefined, status);
+    assert.equal(result.next_task, "careful-steps-v1", status);
+    assert.match(result.message, status === "abandoned" ? /left "Two careful steps".*Open it again/s : /not been scored yet/, status);
+  }
+  // A first harvest that is scored but unusable must not bypass the second task.
+  const unusable = tracker();
+  score(unusable, "first-harvest-v1", 1, start + 101000);
+  const blocked = downloadReadiness(session(unusable));
+  assert.equal(blocked.ready, false);
+  assert.equal(blocked.canDownload, undefined);
+  assert.equal(blocked.next_task, "careful-steps-v1");
+  score(unusable, "careful-steps-v1", 1, start + 120000);
+  assert.equal(downloadReadiness(session(unusable)).canDownload, true);
+
+  for (const status of ["scored_without_window", "repeat_after_abandonment"]) {
     const t = tracker();
     t.collectionSnapshots.push(...Array.from({ length: 21 }, (_, i) => snapshot(i)));
     score(t, "first-harvest-v1", 0, start + 101000);
@@ -216,4 +243,36 @@ test("download remains available but does not call incomplete study labels ready
   complete.collectionSnapshots.push(...Array.from({ length: 21 }, (_, i) => snapshot(i + 30, 2)));
   score(complete, "careful-steps-v1", 0, start + 251000);
   assert.match(downloadReadiness(session(complete)).message, /ready to download/);
+});
+
+test("the study download gate reads every saved session of this player only", () => {
+  const first = tracker();
+  first.collectionSnapshots.push(...Array.from({ length: 21 }, (_, i) => snapshot(i)));
+  score(first, "first-harvest-v1", 0, start + 101000);
+  const earlier = session(first);
+  // Reloaded page: a new session for the same player, with the second task left open by the earlier one.
+  const open = openChallenge(first, task("careful-steps-v1"), true, start + 110000);
+  const reloaded = { ...session(tracker()), session_id: "session-reload", challenge_attempts: [] };
+  let status = downloadReadiness(reloaded, { sessions: [earlier, reloaded] });
+  assert.equal(status.ready, false);
+  assert.equal(status.next_task, "careful-steps-v1");
+  assert.match(status.message, /left "Two careful steps".*Open it again/s);
+  assert.equal(open.status, "in_progress");
+
+  // Another player's scored second task does not unlock this player's download.
+  const other = tracker(STUDY_PROTOCOL, "R2-P002");
+  other.collectionSnapshots.push(...Array.from({ length: 21 }, (_, i) => snapshot(i)));
+  score(other, "first-harvest-v1", 0, start + 101000);
+  score(other, "careful-steps-v1", 1, start + 120000);
+  status = downloadReadiness(reloaded, { sessions: [earlier, reloaded, session(other)] });
+  assert.equal(status.ready, false);
+
+  // Scoring the second task in the reloaded session unlocks the download.
+  const later = tracker();
+  later.sessionId = "session-reload";
+  score(later, "careful-steps-v1", 1, start + 300000);
+  const finished = { ...reloaded, challenge_attempts: later.challengeAttempts };
+  status = downloadReadiness(finished, { sessions: [earlier, finished] });
+  assert.ok(status.ready || status.canDownload);
+  assert.equal(status.next_task, undefined);
 });

@@ -51,7 +51,7 @@
   import FinishDataPrompt from "./FinishDataPrompt.svelte";
   import { downloadReadiness } from "../game/ml/download-readiness.js";
   import { dda, DDA_ACTIONS } from "../game/ml/dda.js";
-  import { studyProtocolFor, studySpeedAllowed, studyTaskGate } from "../game/ml/study-protocol.js";
+  import { studyProtocolFor, studySpeedAllowed, studyTaskGate, studyTaskTitle } from "../game/ml/study-protocol.js";
   import { stopCodeRuns } from "../game/global/code-runner.js";
   import { configureFarmEvents } from "../game/event.js";
   import { farm_grid_index } from "../game/game.js";
@@ -219,6 +219,9 @@
     const status = downloadReadiness(session, { cleared:dataLogger.clearedSessionIds.has(session.session_id), sessions:dataset.sessions,
       storageReadable:dataset.data_quality.stored_sessions_fully_readable });
     if (status.reason === "first_challenge_not_started") status.message = challengeWaitMessage(telemetry);
+    // The wait message only sees this page session's attempts, so it is used only for the countdown, never to name the task.
+    else if (status.reason === "study_task_not_started" && !canStartChallenge(telemetry))
+      status.message = `${challengeWaitMessage(telemetry)} You can download after "${studyTaskTitle(status.next_task)}" is scored.`;
     return status;
   }
   let activeHint = $state("");

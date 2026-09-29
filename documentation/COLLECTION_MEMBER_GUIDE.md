@@ -60,7 +60,7 @@ Each member gets a letter from the lead. Your codes are `R2-<letter><two digits>
 11. Upload it unchanged to the shared round-2 folder. Do not rename, open or edit it.
 12. Fill in one row of the log sheet.
 
-Export every student, including students who left early or did not finish a challenge.
+Export every student, including students who left early or did not finish a challenge. From version 1.3.13 the student's **Finish & Download Data** button stays blocked until both challenges are scored, so for a student who stops early use Dev Console → **Download Dataset JSON** on that computer.
 
 ## Do not
 

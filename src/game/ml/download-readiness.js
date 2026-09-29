@@ -20,22 +20,33 @@ export function downloadReadiness(session, { cleared = false, sessions = [sessio
   if (!storageReadable) return recovery("Some saved data could not be read. The download includes any available recovery records.");
   if (session.source_type !== "recorded") return recovery("Testing tools were used in this session. This data cannot be used for the study.");
   const participantSessions = sessions.filter(s => s.student_id === session.student_id);
+  // Study players download only after every study task has a score. The first task keeps its own messages below.
+  const protocol = session.collection?.study_protocol;
+  const taskAttempts = taskId => participantSessions.flatMap(s => s.challenge_attempts ?? []).filter(a => a.task_id === taskId);
+  const pending = protocol?.task_order?.find(taskId => !taskAttempts(taskId).some(a => a.status === "scored"));
+  if (pending && pending !== protocol.task_order[0]) {
+    const title = studyTaskTitle(pending), opened = taskAttempts(pending);
+    if (!opened.length) return { ready:false, reason:"study_task_not_started", next_task:pending,
+      message:`Almost done! Keep farming, then complete "${title}" in Challenges. You can download after it is scored.` };
+    // An attempt left open by an earlier page session can only be resumed by reopening the challenge.
+    if (opened.some(a => a.status === "in_progress" && a.session_id === session.session_id)) return { ready:false, next_task:pending,
+      message:`"${title}" has not been scored yet. Run your program and wait for its score, then download.` };
+    return { ready:false, next_task:pending,
+      message:`You left "${title}" before it was scored. Open it again in Challenges and run your program until it is scored, then download. Do not clear your data.` };
+  }
   const results = [RESEARCH_SCHEMA, COLLECTION_SCHEMA].map(schema =>
     challengeSamples(participantSessions, "first-harvest-v1", {schema}));
   const count = results.reduce((sum, result) => sum + result.samples.length, 0);
   if (count) {
-    const protocol = session.collection?.study_protocol;
     for (const taskId of protocol?.task_order ?? []) {
       const usable = [RESEARCH_SCHEMA, COLLECTION_SCHEMA].some(schema =>
         challengeSamples(participantSessions, taskId, { schema }).samples.length > 0);
       if (usable) continue;
-      const attempts = participantSessions.flatMap(s => s.challenge_attempts ?? []).filter(a => a.task_id === taskId);
-      if (!attempts.length) return { ready:true, next_task:taskId, message:`Your first harvest is saved. Next, keep farming for about two minutes at 100% speed, then try "${studyTaskTitle(taskId)}" in Challenges. You can download now, but your researcher will download again after that challenge.` };
-      return { ready:true, message:`Your first harvest is saved and you can download now. "${studyTaskTitle(taskId)}" has no usable first-attempt score yet. Please tell your researcher before ending the study; do not clear your data. Repeating the challenge cannot replace its first-attempt record.` };
+      return { ready:true, message:`Your first harvest is saved and you can download now. "${studyTaskTitle(taskId)}" has no usable first-attempt score. Please tell your researcher before ending the study; do not clear your data. Repeating the challenge cannot replace its first-attempt record.` };
     }
     return { ready:true, message:"Your gameplay and challenge score are ready to download. Send the downloaded file to your researcher." };
   }
-  const attempts = participantSessions.flatMap(s => s.challenge_attempts ?? []).filter(a => a.task_id === "first-harvest-v1");
+  const attempts = taskAttempts("first-harvest-v1");
   if (!attempts.length) return { ready:false, reason:"first_challenge_not_started", message:'Complete "Your first harvest" in Challenges before downloading. Run your program and wait for its score. A low score is okay! If Challenges is not available yet, keep playing until it unlocks.' };
   if (attempts.some(a => a.status === "scored")) {
     const reasons = [...new Set(results.flatMap(result => result.excluded.map(item => item.reason)))];

@@ -1,5 +1,11 @@
 # Game versions
 
+## 1.3.13 both study tasks before student download
+
+In study sessions, **Finish & Download Data** stays unavailable until both Your first harvest and Two careful steps have a score. Before that it names the missing task, or says to reopen a challenge left before scoring (including one left open by a reload). Scores from any saved session of the same participant count; other participants' scores do not. A scored but unusable second task still downloads with the existing warning. This replaces the 1.3.11 behavior that allowed partial student downloads.
+
+Ordinary play without a study code is unchanged. Researchers can still export unfinished sessions with Dev Console (``) → DDA → Research Data → Download Dataset JSON. Exported data, scoring and training exclusions are unchanged.
+
 ## 1.3.12 recovery downloads
 
 Completing a challenge no longer leaves the player unable to export simply because the first-harvest record was excluded from training. The finish prompt offers **Download for review** with the recorded rejection reason. The exported data and training exclusions are unchanged. Developer sessions and unreadable-storage recovery use the same explicit review path; cleared data remains blocked.
