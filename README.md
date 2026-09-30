@@ -100,6 +100,12 @@ npm run build && npm run verify:upload-build
 
 Keep the frontend deployment configured to publish `dist`. The verification command fails if the built JavaScript is missing the upload configuration. Vite embeds these variables at build time, so changing them requires a new build.
 
+The deploy command is `npx wrangler deploy`. The committed root `wrangler.jsonc`
+publishes the already-verified `dist` assets to `algobot-latest` and `algobot.fun`.
+Keep that configuration: without it, Wrangler's automatic framework setup modifies
+the package files and Vite config, then rebuilds after upload verification. That
+produces research records marked as an uncommitted build.
+
 Merge the intended changes into `main`, then check Cloudflare's build history and production deployment before sharing the updated game. A successful Git merge alone does not confirm that the new frontend is live.
 
 ### Upload Worker
