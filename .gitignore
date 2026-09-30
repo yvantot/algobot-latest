@@ -5,6 +5,9 @@ node_modules/
 
 # Production & Build Artifacts
 dist/
+dist-staging/
+.wrangler/
+cloudflare/test/.wrangler/
 dist-ssr/
 build/
 .svelte-kit/

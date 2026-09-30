@@ -1,0 +1,19 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "algobot-upload-test",
+  "account_id": "ad5d01b72261ea7ae64b9f3ed114564e",
+  "main": "../../upload-worker/index.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "routes": [],
+  "vars": {
+    "ROUND": "testing",
+    "ALLOWED_ORIGINS": "https://algobot-test.jidalman-work.workers.dev,http://localhost:5173,http://127.0.0.1:5173"
+  },
+  "r2_buckets": [{ "binding": "DATA", "bucket_name": "algobot-data-test" }],
+  "observability": {
+    "enabled": true,
+    "traces": { "enabled": true, "head_sampling_rate": 0.1 }
+  }
+}

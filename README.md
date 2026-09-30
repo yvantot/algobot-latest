@@ -63,6 +63,26 @@ The [save/load verification record](documentation/SAVE_CONTINUE_VALIDATION.md) d
 
 The game frontend and the upload Worker are separate deployments.
 
+### Test online without pushing
+
+Open [the test game](https://algobot-test.jidalman-work.workers.dev). From a terminal in this repository, update it with:
+
+```sh
+npm run deploy:staging
+```
+
+This builds your current local files and deploys the test game and test upload Worker through Wrangler. No Git push is required. The test game uses `algobot-data-test` in R2, under `testing/`; production uses `algobot-data`. Test saves are separate because the game runs at a different address. The test URL is public; its browser tab says **Algobot TEST**.
+
+To run locally with uploads to the same test storage:
+
+```sh
+npm run dev:staging
+```
+
+Use `http://localhost:5173`. The command refuses to use a different port because the test upload Worker only permits the listed origins. Plain `npm run dev` retains its existing configuration.
+
+Test credentials are already configured on the setup computer in the ignored `.env.staging.local` and `cloudflare/test/.secrets.local` files. They are separate from production credentials. On another computer, restore these files securely and authenticate Wrangler before deploying. See [test environment setup](cloudflare/test/README.md). `npm run deploy:staging:check` builds and checks packaging without deploying.
+
 ### Game frontend
 
 The production branch is `main`. Configure these in the game project's **Build variables and secrets** before building:
