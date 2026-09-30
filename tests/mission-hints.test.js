@@ -48,6 +48,7 @@ test("every mission hint builds real Blockly blocks and generates text code",()=
 });
 
 test("hints escalate without revealing the answer on the first clicks", () => {
+  assert.equal(missionHint("intro_run", 2).block.type, "bot_right");
   for (const key of Object.keys(QUEST_DATA)) {
     const shape = missionHint(key, 2), answer = missionHint(key, 3);
     assert.ok(shape.code.includes("YOUR TURN"), key);

@@ -45,10 +45,6 @@ function incomplete(answer) {
   if (result.blocks) {
     result.blocks = result.blocks.map(block => { removeSlot(block); return block; });
   }
-  if (!missing) {
-    result.block = { type: "bot_say" };
-    delete result.blocks;
-  }
   const lines = answer.code.split("\n");
   const at = Math.max(0, lines.findIndex(line => /bot\.(plant|water|harvest|say|right|down|destroy|wait|jump)|return /.test(line)));
   lines[at] = "// YOUR TURN: fill in this step.";
