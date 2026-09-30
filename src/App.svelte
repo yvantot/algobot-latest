@@ -16,6 +16,8 @@
   let currentView = $state("MENU"); // 'MENU' | 'GAME'
   let savedFarm = $state(null);
   let hasSave = $state(false);
+  let slotKnown = $state(false);
+  let slotRevision = $state(null);
   let loading = $state(true);
   let menuError = $state("");
   let canRecover = $state(false);
@@ -31,8 +33,10 @@
   async function inspectSave() {
     loading = true;
     savedFarm = null; menuError = ""; researchRecovery = null;
+    slotKnown = false; slotRevision = null; hasSave = false; canRecover = false;
     try {
       const root = await persistence.inspect();
+      slotKnown = true; slotRevision = root.revision;
       hasSave = !!root.active;
       canRecover = !!root.previous;
       if (root.active) savedFarm = validateSave(root.active);
@@ -54,20 +58,21 @@
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) { menuError = error.message; }
   }
-  async function startGame(newGame = false, recover = false, recoverResearch = false) {
-    if (loading) return;
+  async function startGame(newGame = false, recover = false, recoverResearch = false, replacementRevision = hasSave ? slotRevision : null) {
+    if (loading || newGame && !slotKnown) return;
     loading = true; menuError = "";
     try {
       isNewFarm = newGame;
-      await startPlaythrough({ newGame, recover, recoverResearch });
+      await startPlaythrough({ newGame, recover, recoverResearch, replacementRevision });
       researchRecovery = null;
       currentView = "GAME";
       k.debug.timeScale = 1;
       play_music_farm();
       if (!newGame) saveStatus.notice = "Farm restored. Programs are stopped; press Start when you are ready.";
     } catch (error) {
+      await inspectSave();
       menuError = error.message;
-      if (error.code === "legacy_research") researchRecovery = { newGame, recover };
+      if (error.code === "legacy_research") researchRecovery = { newGame, recover, replacementRevision };
     }
     finally { loading = false; }
   }
@@ -91,7 +96,7 @@
 
 <div class="flex justify-center align-middle gap-4 h-screen">
   {#if currentView === "MENU"}
-    <StartMenu onStart={() => startGame(true)} onContinue={() => startGame()} onRecover={() => startGame(false, true)} onRetry={inspectSave} onExport={exportSave} onExportResearch={exportResearch} canRecoverResearch={!!researchRecovery} onRecoverResearch={() => startGame(researchRecovery.newGame, researchRecovery.recover, true)} {savedFarm} {hasSave} {loading} error={menuError} {canRecover} />
+    <StartMenu onStart={() => startGame(true)} onContinue={() => startGame()} onRecover={() => startGame(false, true)} onRetry={inspectSave} onExport={exportSave} onExportResearch={exportResearch} canRecoverResearch={!!researchRecovery} onRecoverResearch={() => startGame(researchRecovery.newGame, researchRecovery.recover, true, researchRecovery.replacementRevision)} {savedFarm} {hasSave} {slotKnown} {loading} error={menuError} {canRecover} />
   {:else}
     <Game onReturnMenu={returnToMenu} {isNewFarm} />
   {/if}

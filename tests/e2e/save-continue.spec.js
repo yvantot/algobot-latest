@@ -37,6 +37,106 @@ test("New Game cancel preserves the slot, confirmation creates a fresh playthrou
   await expect.poll(async () => (await readSave(page)).active.playthroughId).not.toBe(original.playthroughId);
   expect((await readSave(page)).active.payload.economy.coins).toBe(50);
 });
+
+test("a transient save inspection failure requires Retry and overwrite confirmation", async ({ page }) => {
+  await fresh(page);
+  const original = (await readSave(page)).active;
+  await page.addInitScript(() => {
+    const get = IDBObjectStore.prototype.get; let failed = false;
+    IDBObjectStore.prototype.get = function (key) {
+      if (key === "root" && !failed) { failed = true; throw new DOMException("Transient read failure", "UnknownError"); }
+      return get.call(this, key);
+    };
+  });
+  await page.reload();
+  await expect(page.getByRole("alert")).toContainText("Transient read failure");
+  await expect(page.getByRole("button", { name: "New Game", exact: true })).toBeDisabled();
+  expect((await readSave(page)).active.playthroughId).toBe(original.playthroughId);
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(page.getByRole("button", { name: "New Game", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "New Game", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect((await readSave(page)).active.playthroughId).toBe(original.playthroughId);
+  await page.getByRole("button", { name: "New Game", exact: true }).click();
+  await page.getByRole("button", { name: "Replace farm", exact: true }).click();
+  await expect.poll(async () => (await readSave(page)).active.playthroughId).not.toBe(original.playthroughId);
+});
+
+test("a stale empty menu cannot overwrite a farm created by another tab", async ({ page, context }) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "New Game", exact: true })).toBeEnabled();
+  const other = await context.newPage(); await fresh(other);
+  const original = (await readSave(other)).active;
+  await other.close();
+  await page.getByRole("button", { name: "New Game", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("confirm New Game again");
+  expect((await readSave(page)).active.playthroughId).toBe(original.playthroughId);
+  await page.getByRole("button", { name: "New Game", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeEnabled();
+});
+
+test("a farm changed after the overwrite dialog opened requires renewed confirmation", async ({ page, context }) => {
+  await fresh(page); await page.reload();
+  await page.getByRole("button", { name: "New Game", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  const other = await context.newPage(); await other.goto("/");
+  await other.getByRole("button", { name: "New Game", exact: true }).click();
+  await other.getByRole("button", { name: "Replace farm", exact: true }).click();
+  await expect(other.getByRole("button", { name: "New Game", exact: true })).toHaveCount(0);
+  const replacement = (await readSave(other)).active; await other.close();
+  await page.getByRole("button", { name: "Replace farm", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("confirm New Game again");
+  expect((await readSave(page)).active.playthroughId).toBe(replacement.playthroughId);
+});
+
+test("startup identity-write failure refreshes the committed slot before another New Game", async ({ page }) => {
+  await page.addInitScript(() => {
+    const set = Storage.prototype.setItem; let failed = false;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "algobot_participant_id" && !failed) { failed = true; throw new DOMException("Identity write denied", "QuotaExceededError"); }
+      return set.call(this, key, value);
+    };
+  });
+  await page.goto("/"); await page.getByRole("button", { name: "New Game", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Identity write denied");
+  const committed = (await readSave(page)).active;
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "New Game", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("button", { name: "New Game", exact: true })).toHaveCount(0);
+  expect((await readSave(page)).active.playthroughId).toBe(committed.playthroughId);
+});
+
+test("scheduled hazard random draws match before and after Continue and subsequent New Game", async ({ page }) => {
+  await fresh(page, true); await closeDemo(page);
+  const runs = await page.evaluate(async () => {
+    const t = window.saveTesting; t.k.debug.timeScale = 0; t.persistence.busy = true;
+    const results = [];
+    try {
+      for (let run = 0; run < 2; run++) {
+        if (run) await t.newWorld();
+        t.eventScheduler.stop();
+        const saved = t.captureWorld();
+        const draws = () => Array.from({ length: 20 }, () => t.eventScheduler._bootstrapCheck().reason);
+        const original = draws(), originalState = t.captureWorld().rng;
+        await t.restoreWorld(saved);
+        const restored = draws(), restoredState = t.captureWorld().rng;
+        results.push({ original, restored, originalState, restoredState, initialState: saved.rng });
+      }
+    } finally { t.persistence.busy = false; }
+    return results;
+  });
+  for (const result of runs) {
+    expect(result.originalState).not.toEqual(result.initialState);
+    expect(result.restored).toEqual(result.original);
+    expect(result.restoredState).toEqual(result.originalState);
+  }
+});
 test("OWNER-1 changing a study participant blocks Continue without relabeling the save", async ({ page }) => {
   await page.goto("/?study_participant=A");
   await page.getByRole("button", { name: "New Game", exact: true }).click();
@@ -257,7 +357,8 @@ test("denied IndexedDB shows a retryable error without entering an unsaved farm"
   await page.addInitScript(() => Object.defineProperty(window, "indexedDB", { value: undefined }));
   await page.goto("/");
   await expect(page.getByRole("alert")).toContainText("does not allow farm storage");
-  await page.getByRole("button", { name: "New Game", exact: true }).click();
+  await expect(page.getByRole("button", { name: "New Game", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("does not allow farm storage");
   await expect(page.getByRole("button", { name: "Retry", exact: true })).toBeEnabled();
 });
@@ -367,6 +468,25 @@ test("a stopped challenge submission survives Continue and remains attached to i
   expect(restored.status).toBe("abandoned"); expect(restored.session_id).toBe(original.session_id);
   expect(restored.submissions).toEqual(original.submissions);
   expect(root.research.sessions[original.session_id].challenge_attempts[0].submissions).toEqual(original.submissions);
+});
+
+test("Clear Data before the first periodic save prevents assessment writes from reviving the session", async ({ page }) => {
+  await fresh(page, true); await closeDemo(page);
+  const result = await page.evaluate(async () => {
+    const t = window.saveTesting; t.k.debug.timeScale = 0;
+    await t.persistence.tail;
+    const id = t.telemetry.sessionId, before = !!t.persistence.root.research.sessions[id];
+    t.telemetry._logRawEvent("before_clear_regression", {});
+    await t.dataLogger.clearAllData();
+    let code;
+    try { await t.assessmentTransition("opened", () => ({ assessment: t.openChallenge(t.telemetry, t.CHALLENGES[0], true) })); }
+    catch (error) { code = error.code; }
+    const root = await t.persistence.storage.read();
+    return { before, code, tombstoned: root.research.tombstones[id], exists: !!root.research.sessions[id],
+      assessments: Object.keys(root.research.assessments).length, attempts: t.telemetry.challengeAttempts.length,
+      exported: t.dataLogger.buildDatasetExport().session_count };
+  });
+  expect(result).toEqual({ before: false, code: "research_deleted", tombstoned: true, exists: false, assessments: 0, attempts: 0, exported: 0 });
 });
 
 test("persistent Clear Data removes replay records from storage and memory", async ({ page }) => {

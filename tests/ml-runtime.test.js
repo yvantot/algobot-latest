@@ -248,6 +248,24 @@ test("persistent Clear Data removes replay storage and memory while retaining ex
   assert.equal(logger.buildDatasetExport().session_count, 0);
 });
 
+test("persistent Clear Data includes unsaved and pending sessions without clearing a later session", async () => {
+  const logger = new DataLogger(), currentId = telemetry.sessionId;
+  logger.pendingSessions.set("pending-old", { session_id: "pending-old" });
+  let requested, complete;
+  logger.persistence = { clear: ids => { requested = ids; return new Promise(resolve => { complete = resolve; }); }, sessions: () => [] };
+  const clearing = logger.clearAllData();
+  assert.deepEqual(new Set(requested), new Set([currentId, "pending-old"]));
+  telemetry.resetSession();
+  const nextId = telemetry.sessionId;
+  logger.pendingSessions.set(nextId, { session_id: nextId });
+  complete(); await clearing;
+  assert.equal(logger.clearedSessionIds.has(currentId), true);
+  assert.equal(logger.clearedSessionIds.has("pending-old"), true);
+  assert.equal(logger.clearedSessionIds.has(nextId), false);
+  assert.equal(logger.pendingSessions.has(nextId), true);
+  assert.equal(logger.pendingSessions.has("pending-old"), false);
+});
+
 test("challenge records and developer-test provenance survive the canonical export", () => {
   telemetry.challengeAttempts.push({assessment_id:"a",status:"abandoned",score:null,submissions:[]});
   const logger=new DataLogger();

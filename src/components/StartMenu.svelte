@@ -8,7 +8,7 @@
 
   const displayVersion = version.replace(/\.0$/, "");
 
-  let { onStart, onContinue, onRecover, onRetry, onExport, onExportResearch, onRecoverResearch, canRecoverResearch = false, savedFarm = null, hasSave = false, loading = false, error = "", canRecover = false } = $props();
+  let { onStart, onContinue, onRecover, onRetry, onExport, onExportResearch, onRecoverResearch, canRecoverResearch = false, savedFarm = null, hasSave = false, slotKnown = false, loading = false, error = "", canRecover = false } = $props();
   let chapter = $derived(savedFarm ? Object.entries(QUEST_DATA).find(([id, quest]) => !quest.optional && !savedFarm.payload.quests[id]?.is_claimed)?.[1].chapter : null);
   let overwriteDialog;
   function newGame() {
@@ -85,7 +85,7 @@
       {#if savedFarm}
         <p class="rounded bg-slate-900/90 p-2 text-center text-white text-sm">{savedFarm.payload.personalize.FARM_NAME}{chapter ? ` · Chapter ${chapter}` : ""}<br />Saved {new Date(savedFarm.savedAt).toLocaleString()}</p>
       {/if}
-      <button onclick={newGame} disabled={loading} class="wood-button-25d w-full py-3.5 text-base cursor-pointer text-center select-none">New Game</button>
+      <button onclick={newGame} disabled={loading || !slotKnown} class="wood-button-25d w-full py-3.5 text-base cursor-pointer text-center select-none">New Game</button>
       {#if error}
         <div role="alert" class="rounded border-2 border-red-700 bg-white p-3 text-red-900 text-sm">
           <p>{error}</p>

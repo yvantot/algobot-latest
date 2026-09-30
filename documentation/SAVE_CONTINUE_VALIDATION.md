@@ -3,7 +3,33 @@
 September 30, 2026. Windows development host; KAPLAY pinned to
 `4000.0.0-alpha.27`. Implemented on `codex/farm-lifecycles-weather`; not deployed.
 
-Latest follow-up: the user requires Chromium only. All four findings from the
+Latest review follow-up (Chromium only): **389 unit tests**, **30 Chromium
+browser tests**, **10 production smoke tests**, and the production build passed.
+The build retains the existing Svelte/asset and large-chunk warnings.
+
+1. Failed save inspection leaves the slot unknown and disables New Game until
+   Retry succeeds. Replacement is checked against the confirmed database
+   revision before research initialization and again before rebuilding the farm.
+   Stale empty menus and confirmations from another revision cannot overwrite
+   a newer farm. Startup failures refresh the menu even if a save committed
+   before an identity-storage failure.
+2. New Game and Continue both bind the event scheduler to the saved gameplay
+   RNG. Browser tests compare actual scheduled-hazard checks and RNG state
+   across reconstruction, including a subsequent New Game in the same page.
+3. The additional review reproduced Clear Data reviving a session that had not
+   reached its first periodic save. Deletion now includes the current and
+   pending session IDs in durable tombstones. A later assessment write is
+   rejected and rolled back; deleted events stay out of storage and exports.
+
+Review covered replacement authorization, failed startup, ownership and writer
+checks, checkpoint/research atomicity, recovery floors, reconstruction, RNG,
+research deletion, and the changed menu states. No further actionable findings
+remained in that review. Production UI checks at 390 × 844 exercised keyboard
+Retry, confirmation, Escape, and focus return. The error and confirmation
+controls fit the viewport. The pre-existing menu canvas extends beyond document
+bounds inside an overflow-hidden body; the fixed menu controls are not clipped.
+
+Earlier follow-up: the user requires Chromium only. All four findings from the
 subsequent implementation review have been fixed and checked:
 
 1. A current writer can renew an expired lease after suspension. Revision and

@@ -284,13 +284,14 @@ export class DataLogger {
   }
 
   clearAllData() {
-    if (this.persistence) return this.persistence.clear().then(() => {
+    const sessionIds = [...new Set([...this.pendingSessions.keys(), telemetry.sessionId])];
+    if (this.persistence) return this.persistence.clear(sessionIds).then(() => {
       localStorage.removeItem("algobot_replay_buffer");
       mlAgent.replayBuffer = [];
       mlAgent.prevState = null;
       mlAgent.prevAction = null;
       mlAgent.pendingCompletionReward = 0;
-      this.pendingSessions.clear(); this.clearedSessionIds.add(telemetry.sessionId);
+      for (const id of sessionIds) { this.pendingSessions.delete(id); this.clearedSessionIds.add(id); }
       clearParticipant(localStorage);
       return "Research data and participant ID cleared. Reload to start with a new participant.";
     });

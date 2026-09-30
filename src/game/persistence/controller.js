@@ -31,7 +31,11 @@ export class PersistenceController {
     this.current = save; this.report("saved");
     return save;
   }
-  async start(owner, { newGame = false, recover = false, identityIntent = null } = {}) {
+  requireReplacementConfirmation(replacementRevision) {
+    if (this.root.active && replacementRevision !== this.root.revision)
+      throw new SaveError("confirmation", "The saved farm has changed. Review it and confirm New Game again.");
+  }
+  async start(owner, { newGame = false, recover = false, identityIntent = null, replacementRevision = null } = {}) {
     if (this.busy) throw new SaveError("busy", "A game transition is already running.");
     this.busy = true; this.ready = false; this.pause();
     const old = this.current;
@@ -39,6 +43,7 @@ export class PersistenceController {
       await this.tail; await this.acquire();
       this.report("loading");
       if (newGame) {
+        this.requireReplacementConfirmation(replacementRevision);
         await this.fresh();
         const save = this.envelope(this.capture(), owner, crypto.randomUUID());
         await this.write(save, { replace: true, research: research => {

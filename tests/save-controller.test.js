@@ -22,7 +22,7 @@ test("New Game failure retains old farm; foreign-owner Continue never hydrates",
   h.world().economy.coins = 420; await h.controller.checkpoint();
   const saved = structuredClone((await h.storage.read()).active);
   fail = true;
-  await assert.rejects(h.controller.start(saveFixture().owner, { newGame: true }));
+  await assert.rejects(h.controller.start(saveFixture().owner, { newGame: true, replacementRevision: h.controller.revision }));
   fail = false;
   assert.deepEqual((await h.storage.read()).active, saved);
   assert.equal(h.world().economy.coins, 420);
@@ -41,6 +41,39 @@ test("RESEARCH-5 backup recovery cannot cross the durable research floor", async
   await assert.rejects(h.controller.start(saveFixture().owner, { recover: true }), { code: "recovery" });
   h.storage.close();
 });
+
+test("replacement requires confirmation of the current stored revision before building a farm", async () => {
+  const h = setup(); await h.controller.start(saveFixture().owner, { newGame: true });
+  h.world().economy.coins = 420; await h.controller.checkpoint();
+  const confirmedRevision = h.controller.revision;
+  h.world().economy.coins = 421; await h.controller.checkpoint();
+  const before = await h.storage.read();
+  let builds = 0; const fresh = h.controller.fresh;
+  h.controller.fresh = async () => { builds++; await fresh(); };
+  for (const replacementRevision of [undefined, confirmedRevision]) {
+    await assert.rejects(h.controller.start(saveFixture().owner, { newGame: true, replacementRevision }), { code: "confirmation" });
+    const after = await h.storage.read();
+    assert.deepEqual(after.active, before.active);
+    assert.deepEqual(after.previous, before.previous);
+    assert.deepEqual(after.research, before.research);
+  }
+  assert.equal(builds, 0);
+  await h.controller.start(saveFixture().owner, { newGame: true, replacementRevision: before.revision });
+  assert.equal(builds, 1);
+  assert.notEqual(h.controller.current.playthroughId, before.active.playthroughId);
+  assert.equal((await h.storage.read()).previous, null);
+  h.storage.close();
+});
+
+test("explicit replacement works even when the existing save envelope is corrupt", async () => {
+  const h = setup();
+  await h.storage.transaction(root => { root.active = { damaged: true }; root.revision = 7; });
+  await assert.rejects(h.controller.start(saveFixture().owner, { newGame: true }), { code: "confirmation" });
+  assert.deepEqual((await h.storage.read()).active, { damaged: true });
+  await h.controller.start(saveFixture().owner, { newGame: true, replacementRevision: 7 });
+  assert.equal(h.controller.current.payload.economy.coins, 50);
+  h.storage.close();
+});
 test("endurance: 100 load/checkpoint cycles and 50 replacements preserve invariants", async () => {
   const h = setup(); await h.controller.start(saveFixture().owner, { newGame: true });
   for (let i = 0; i < 100; i++) {
@@ -50,7 +83,7 @@ test("endurance: 100 load/checkpoint cycles and 50 replacements preserve invaria
   }
   const ids = new Set();
   for (let i = 0; i < 50; i++) {
-    await h.controller.start(saveFixture().owner, { newGame: true });
+    await h.controller.start(saveFixture().owner, { newGame: true, replacementRevision: h.controller.revision });
     ids.add(h.controller.current.playthroughId);
     assert.equal(h.world().economy.coins, 50);
     assert.equal((await h.storage.read()).previous, null);

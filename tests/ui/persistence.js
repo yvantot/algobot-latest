@@ -15,7 +15,8 @@ import { openChallenge, submitChallenge, interruptChallenge, claimChallengeRewar
 import { mlAgent } from "../../src/game/ml/agent.js";
 import { wasExposed } from "../../src/game/persistence/runtime.svelte.js";
 import { CHALLENGES } from "../../src/game/challenges/catalog.js";
+import { eventScheduler } from "../../src/game/ml/event-scheduler.js";
 window.saveTesting = { get k() { return k; }, persistence, captureWorld, restoreWorld, newWorld, farm_grid_index, addCrop,
   INVENTORY, PLAYER_DATA, robots_state, Personalize, QUEST_DATA, QUEST_STATE, TUTORIAL, ONBOARDING, assessmentTransition,
-  telemetry, dataLogger, openChallenge, submitChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards, CHALLENGES, mlAgent, wasExposed };
+  telemetry, dataLogger, openChallenge, submitChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards, CHALLENGES, mlAgent, wasExposed, eventScheduler };
 mount(App, { target: document.getElementById("app") });

@@ -43,12 +43,14 @@ export async function startPlaythrough(options = {}) {
   try {
   await holdLock();
   await persistence.acquire();
+  if (options.newGame) persistence.requireReplacementConfirmation(options.replacementRevision);
   await initializeResearch({ recover: !!options.recoverResearch });
   if (!options.newGame) await reconcileIdentity();
   const owner = currentOwner({ create: options.newGame });
   if (!owner) throw Error("Restore this farm's participant identity, or choose New Game.");
   const identityIntent = options.newGame ? { owner, priorId: localStorage.getItem("algobot_participant_id"), priorSource: localStorage.getItem("algobot_participant_id_source") } : null;
-  const save = await persistence.start(owner, { ...options, identityIntent });
+  // Research import may advance the revision after the confirmed slot was checked.
+  const save = await persistence.start(owner, { ...options, identityIntent, replacementRevision: persistence.revision });
   if (options.newGame) {
     await reconcileIdentity();
   }
@@ -94,8 +96,8 @@ async function initializeResearch({ recover = false } = {}) {
     sessions: () => Object.values(persistence.root.research.sessions),
     backups: () => persistence.root.research.legacyBackups ?? [],
     save: session => persistence.research(research => saveResearchSession(research, session)).then(syncResearch),
-    clear: async () => {
-      await persistence.research(research => clearResearch(research));
+    clear: async (sessionIds = []) => {
+      await persistence.research(research => clearResearch(research, [...Object.keys(research.sessions), ...sessionIds]));
       localStorage.removeItem("algobot_raw_sessions");
       await syncResearch();
     },

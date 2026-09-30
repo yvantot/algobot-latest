@@ -60,6 +60,7 @@ export async function newWorld() {
   CONFIG.FARM.rows = CONFIG.FARM.columns = 3;
   robots_state.splice(0); eventScheduler.reset();
   rng.restore(createRandom().snapshot()); farm_grid_index.random = () => rng.next();
+  eventScheduler.random = () => rng.next();
   await game();
   farm_grid_index.restoring = false; farm_grid_index.lessonActive = false; farm_grid_index.lessonQuest = null;
 }
