@@ -1,8 +1,12 @@
 # Collection readiness review, 1 October 2026
 
-Reviewed source: `9b82683`. No remaining collection-blocking defect was found in
-the exercised paths. Production publication and its final smoke test will be
-recorded below after completion.
+Reviewed gameplay/upload source: `9b82683`, published through PR #2 at `9ec025d`.
+The production smoke test confirmed browser uploads and caught a deployment
+provenance problem: with no root Wrangler configuration, automatic Vite setup
+modified `package.json`, `package-lock.json` and `vite.config.ts`, then rebuilt
+after the upload verifier ran. A committed assets-only `wrangler.jsonc` now makes
+deployment publish the already-verified `dist` files without changing source.
+The final production smoke test must confirm the recorded build is clean.
 
 ## Checks completed
 
