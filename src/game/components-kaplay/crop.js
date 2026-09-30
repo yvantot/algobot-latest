@@ -199,10 +199,10 @@ export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
       if (this.crop_removed) return;
       const tile = farm_grid_index.get(`${this.grid_y}-${this.grid_x}`);
       if (tile?.crop !== this) { this.cropDestroy("replaced"); return; }
-      if (tile.lesson && (tile.lesson !== "growing" || this.crop_state === CropStates.HARVESTABLE)) return;
       if (this.is_harvesting) return;
       if (!Number.isFinite(seconds) || seconds <= 0) return;
       if (this.crop_state === CropStates.HARVESTABLE) {
+        if (tile.lesson) return;
         if (tutorialPolicy.protected && !farm_grid_index.isChallenge && !farm_grid_index.freezeCropLifecycle && !(farm_grid_index.isDemonstration && this.demonstrateSpoilage)) return;
         this.spoilage_remaining = Math.max(0, this.spoilage_remaining - seconds);
         if (this.spoilage_remaining === 0) this.markDead();

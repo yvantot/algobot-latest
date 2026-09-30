@@ -24,7 +24,8 @@ up to a fixed minimum, and sets up ready, growing, or spoiled crops as needed.
 Automatic preparation only touches unoccupied lesson tiles. The **Reset lesson
 tiles** control explicitly replaces crops in the named practice area, preserves
 the program, and cannot run while a robot is busy. It is available for retries.
-Lesson crops remain stable while students edit. The while lesson starts with a
+Lesson crops absorb water and grow normally; ready crops are protected from
+spoilage while students edit. The while lesson starts with a
 watered, growing crop. Bug and fire lessons place harmless hazards at both ends
 of the farm; leaving the lesson releases its protections and owned hazards.
 

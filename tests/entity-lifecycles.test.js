@@ -12,6 +12,7 @@ import { evaluateChallenge } from "../src/game/challenges/engine.js";
 import { CHALLENGES } from "../src/game/challenges/catalog.js";
 import { joinBotInbox } from "../src/game/global/bot-messages.js";
 import { cropReading } from "../src/game/global/crop-inspection.js";
+import { prepareLesson, releaseLesson } from "../src/game/global/quest-setup.js";
 import { scenarioSolutions } from "./scenario-solutions.js";
 import { CropStates, CropTypes, FreshnessStates, SoilStates, IconTypes, OrbTypes } from "../src/game/global/enum.js";
 
@@ -163,6 +164,67 @@ test("protected practice allows crop growth but defers deterioration until relea
   h.context.tutorialPolicy.protected = false;
   h.advance(8);
   assert.equal(crop.crop_state, CropStates.DEAD);
+});
+
+test("Water the row reset crops absorb water, mature, and defer spoilage until released", () => {
+  const h = harness();
+  for (let x = 0; x < 3; x++) { h.addSoil(x); h.plant(CropTypes.WHEAT, CropStates.YOUNG, x); }
+  h.addSoil(0, 1);
+  const outside = h.plant(CropTypes.WHEAT, CropStates.HARVESTABLE, 0, 1);
+  const original = h.farm.get("0-0").crop;
+  const result = prepareLesson("loop_water_0", {
+    grid: h.farm, size: { columns: 3, rows: 2 }, robot: { botJump() {} },
+    inventory: h.context.INVENTORY, replace: true,
+    createCrop: (x, y, state) => h.plant(CropTypes.WHEAT, state, x, y),
+  });
+  assert.equal(result.prepared, true);
+  assert.equal(original.removed, true);
+  const row = [0, 1, 2].map(x => h.farm.get("0-" + x));
+  for (const tile of row) tile.soil.water();
+  h.advance(4);
+  for (const { crop, soil } of row) {
+    assert.equal(crop.absorbing_water, true);
+    assert.equal(crop.crop_grow_time, 4);
+    assert.equal(soil.water_remaining, 0.6);
+  }
+  h.advance(6);
+  for (const { crop, soil } of row) {
+    assert.equal(crop.crop_state, CropStates.GROWING);
+    assert.equal(soil.water_remaining, 0);
+    soil.water();
+  }
+  h.advance(10);
+  h.advance(100);
+  for (const { crop } of row) {
+    assert.equal(crop.crop_state, CropStates.HARVESTABLE);
+    assert.equal(crop.spoilage_remaining, 8);
+  }
+  assert.equal(outside.crop_state, CropStates.DEAD, "lesson protection is limited to its tiles");
+  releaseLesson(h.farm);
+  h.advance(8);
+  for (const { crop } of row) assert.equal(crop.crop_state, CropStates.DEAD);
+});
+
+test("lesson tiles drain after removal and replanted crops absorb a fresh watering", () => {
+  const h = harness(); const soil = h.addSoil();
+  const tile = h.farm.get("0-0");
+  tile.lesson = "row-young";
+  const original = h.plant();
+  soil.water();
+  original.cropDestroy("remove");
+  h.advance(0.25);
+  assert.equal(soil.water_remaining, 0);
+  assert.equal(soil.soil_water_mask, null);
+  soil.water(); h.advance(0.25);
+  assert.equal(soil.soil_water_mask, null, "watering an empty lesson tile still drains quickly");
+  const replacement = h.plant();
+  h.advance(1);
+  assert.equal(replacement.crop_grow_time, 0);
+  soil.water(); h.advance(4);
+  assert.equal(replacement.absorbing_water, true);
+  assert.equal(replacement.crop_grow_time, 4);
+  assert.equal(soil.water_remaining, 0.6);
+  assert.equal(tile.lesson, "row-young");
 });
 
 test("only the cutscene's designated crop can spoil during protected practice", () => {
