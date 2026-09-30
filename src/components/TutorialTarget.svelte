@@ -15,7 +15,7 @@
       const tile = farm_grid_index.get(`${y}-${x}`);
       if (!tile?.soil) return;
       k.drawRect({ pos: tile.soil.pos, width: CONFIG.FARM.tile_size, height: CONFIG.FARM.tile_size,
-        anchor: "center", fill: false, outline: { width: 3, color: k.rgb(255, 230, 120) }, radius: 5 });
+        anchor: "topleft", fill: false, outline: { width: 3, color: k.rgb(255, 230, 120) }, radius: 5 });
     } }]);
     return () => drawing.destroy();
   });
