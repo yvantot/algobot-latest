@@ -1,37 +1,125 @@
 # Algobot
 
-Algobot is a browser game for first-year computer science students. Players program farm robots using Blockly blocks or JavaScript, progressing through sequencing, conditionals and loops. Greedy decisions and state optimization are additional DDA concepts whose formal curriculum stages remain incomplete. Svelte 5 provides the interface, KAPLAY draws the farm, JS-Interpreter executes student code, and TensorFlow.js runs a saved LSTM model locally.
+Algobot is a browser game for first-year computer science students. Players use Blockly blocks or JavaScript to move farm robots, plant and water crops, harvest produce, and respond to pests and fire. Guided quests introduce programming concepts through tasks on the farm.
 
-The deployment uses **LSTM proficiency estimates plus explicit difficulty rules**. DQN has been removed from live inference and the research dashboard. Its original artifacts remain only to preserve the research record. Neither student learning improvement nor reliable three-category proficiency discrimination has been demonstrated.
+[Play Algobot](https://algobot.fun)
 
-The previous datasets and experimental outputs have been [removed for a fresh collection](training/DATA_RESET.md), with a Git recovery checkpoint. The [September 24 experiment report](documentation/LSTM_IMPROVEMENT.md) remains a historical account. Neither candidate beat the mean baseline, so deployed weights remain unchanged. Rule decisions use recent gameplay and confirmation before increasing difficulty; the trained LSTM's feature definitions remain unchanged.
+## Gameplay
 
-## Run and verify
+- Follow 44 quests: 38 required quests, an optional return-value lesson, and five optional crop quests.
+- Practice commands, loops, conditions, variables, comparisons, functions, and lists in either editor.
+- Use lesson practice tiles and progressive hints to retry a program and understand what went wrong.
+- Earn coins and experience, unlock crops, expand the farm, and program multiple robots.
+- Manage crop growth, soil moisture, spoilage, weather, and hazards.
 
-Before collecting more players, follow the [round 2 collection checklist](documentation/COLLECTION_DAY_CHECKLIST.md) (fixed study conditions, version 1.3.9); the [collection and scored-task protocol](documentation/DATA_COLLECTION_PROTOCOL.md) gives the background. Exports sample gameplay independently of DDA, retain unfinished attempts and distinguish stopped programs from errors. The protocol includes assigned participant codes and a draft independent assessment.
-The [current local model workflow](documentation/MODEL_WORKFLOW.md) uses one v4 JSON export with integrity checks, recent-activity features, a frozen participant split, validation-selected LSTM and dense baselines, a separate held-out evaluation, and a reviewable model bundle. Use this workflow for new training; the earlier experiment script remains for historical reproduction.
+The [quest guide](documentation/QUEST_PATH_V2.md) describes the curriculum, completion rules, hints, and lesson protection. The [farm systems guide](documentation/FARM_LIFECYCLES_AND_WEATHER.md) covers crop and weather behavior.
 
-From the repository root, with a Node version supported by the installed Vite package:
+## New Game and Continue
 
-```powershell
+Algobot automatically saves one playthrough in the browser. Continue restores the farm, quests, inventory, robots, and editor programs after a reload or browser restart. New Game asks for confirmation before replacing an existing playthrough.
+
+Growth, spoilage, hazards, and other simulation timers pause while the game is closed. Restored programs remain stopped until the player runs them again.
+
+Saves belong to the browser profile and site address where the game was played. They do not transfer between devices or domains. Clearing site data removes local progress. Research uploads are separate archives for the study; they do not provide cloud saves or restore a farm on another device.
+
+## Run locally
+
+Use Node.js compatible with Vite 7 and npm. Development has been verified with Node 24.19.0 and npm 11.17.0. Chromium is the supported browser target.
+
+```sh
 npm ci
-npm test
-npm run verify:artifacts
-npm run build
 npm run dev
 ```
 
-The audit was run with Node 24.19.0 and npm 11.17.0. Python is optional for playing the game. Use a working Python environment with NumPy for dataset auditing; training additionally needs TensorFlow and the packages in `training/requirements.txt`.
+Open the local address printed by Vite. To build and preview the production bundle:
 
-See [the project audit](documentation/PROJECT_AUDIT.md) for architecture, verified defects, data limitations, research objectives and remaining work. [Research evaluation](documentation/RESEARCH_EVALUATION.md) explains how to evaluate the preserved model and plan the upcoming paired pre/post assessment. [Setup guide](SETUP_GUIDE.md) provides Windows installation instructions.
+```sh
+npm run build
+npm run preview
+```
 
-[Farm lifecycles and weather](documentation/FARM_LIFECYCLES_AND_WEATHER.md) documents the decoupled soil/crop/interpreter components, soil water lifecycles, fire and moving rain clouds, event tuning, and the expected artwork filenames.
+Python is only needed for the research data and training tools. See [Windows setup](SETUP_GUIDE.md) and the [model workflow](documentation/MODEL_WORKFLOW.md) for those dependencies.
 
-## Preserve the research record
+## Tests
 
-- Retired samples, processed arrays and evaluation outputs are recoverable from Git history. `npm run verify:artifacts` checks retired baseline artifacts in history and retained legacy models in the working tree. This requires the original baseline commit to be available locally.
-- Write corrected preparation and evaluation to **new directories**. Do not overwrite historical results or change cutoffs after inspecting predictions.
-- This is a local browser prototype. It has no server database or complete farm save/restore. Export research sessions through the research tools; do not rely on browser storage as your only copy.
-- Use short feature branches and separate commits for substantial changes. For example, `git switch -c codex/quest-fix`, then review `git diff`, run the checks above, and commit the intended files. Keep the lockfile; use `npm ci` for a repeatable install. Push only when ready to publish the branch to the repository.
+```sh
+# Unit and regression tests
+npm test
 
-The earlier [ML design document](documentation/ml-doc.md) describes the intended full architecture and illustrative scenarios. The audit documents take precedence for verified implementation and research claims.
+# Install the browser once, then run the Chromium suite
+npx playwright install chromium
+npm run test:e2e:chromium
+
+# Browser uploads through local workerd and disposable local R2 storage
+npm run test:upload:integration
+
+# Check preserved research artifacts; requires the historical Git commits
+npm run verify:artifacts
+```
+
+The [save/load verification record](documentation/SAVE_CONTINUE_VALIDATION.md) documents automated checks. The [manual campaign record](documentation/save-load-manual-review/STATUS.md) tracks three completed 44-quest playthroughs and the remaining fault and endurance cases. It also records an open canvas-resize issue; reloading restores the layout after enlarging a small viewport.
+
+## Deploy to Cloudflare
+
+The game frontend and the upload Worker are separate deployments.
+
+### Game frontend
+
+The production branch is `main`. Configure these in the game project's **Build variables and secrets** before building:
+
+| Variable | Value |
+| --- | --- |
+| `VITE_UPLOAD_URL` | `https://upload.algobot.fun` |
+| `VITE_UPLOAD_TOKEN` | The upload Worker's `STUDY_TOKEN` value |
+
+Set the Cloudflare build command to:
+
+```sh
+npm run build && npm run verify:upload-build
+```
+
+Keep the frontend deployment configured to publish `dist`. The verification command fails if the built JavaScript is missing the upload configuration. Vite embeds these variables at build time, so changing them requires a new build.
+
+Merge the intended changes into `main`, then check Cloudflare's build history and production deployment before sharing the updated game. A successful Git merge alone does not confirm that the new frontend is live.
+
+### Upload Worker
+
+From the repository root, using a Cloudflare account with access to the Worker and bucket:
+
+```sh
+npx wrangler deploy --config upload-worker/wrangler.toml
+```
+
+The Worker serves `upload.algobot.fun` and stores archives in the `algobot-data` R2 bucket. It requires the `STUDY_TOKEN` and `ADMIN_TOKEN` secrets. Keep existing values when redeploying; see the [upload setup guide](upload-worker/README.md) for initial configuration, limits, and verification.
+
+The browser upload token is public in the built JavaScript. `ADMIN_TOKEN` is for researcher downloads only and must never be placed in a `VITE_` variable.
+
+## Research data and adaptive difficulty
+
+Algobot records gameplay for research and uses a browser-based LSTM with explicit difficulty rules. The current model predicts a first-harvest task score from recent gameplay. It is provisional and has not been validated as a reliable measure of general programming proficiency. DQN is not used in live inference. The [model card](public/models/lstm/model-card.json) and [deployment record](documentation/MODEL_DEPLOYMENT_2026-09-26.md) describe the active model and its limitations.
+
+With uploads configured, the game sends compressed research archives periodically and when Finish opens or the player returns to the menu. Players can also download their data. Wait for upload confirmation or save the download before closing the game; browser closure does not guarantee that an upload finishes.
+
+Researchers can retrieve a collection round with:
+
+```sh
+npm run pull-data -- round3
+```
+
+Configure the administrator credentials as described in the [upload guide](upload-worker/README.md). Downloads go to the ignored `training/raw/round3` directory. Keep participant exports and credentials out of Git, preserve historical experiment outputs, and write new analyses to separate directories.
+
+For study preparation and analysis, see the [collection protocol](documentation/DATA_COLLECTION_PROTOCOL.md), [collection checklist](documentation/COLLECTION_DAY_CHECKLIST.md), and [model workflow](documentation/MODEL_WORKFLOW.md). Check the recorded version and study conditions before reusing an earlier collection protocol.
+
+## Project structure
+
+| Path | Contents |
+| --- | --- |
+| `src/components/` | Svelte interface, editors, menus, and research controls |
+| `src/game/` | KAPLAY game systems, quests, persistence, and ML runtime |
+| `public/` | Game assets and browser model files |
+| `upload-worker/` | Cloudflare upload service and deployment configuration |
+| `tests/` | Unit tests, Chromium scenarios, and upload integration tests |
+| `training/` | Research preparation and model training tools |
+| `documentation/` | System guides, protocols, and verification records |
+
+The interface uses Svelte 5, the farm uses KAPLAY, and TensorFlow.js runs the model locally. Both editors execute student programs through the game's interpreter.
