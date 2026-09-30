@@ -415,6 +415,26 @@ test("bot removal during absorption releases water and a replacement needs a fre
   assert.equal(replacement.crop_state, CropStates.GROWING);
 });
 
+for (const removal of ["harvest", "destroy", "raw", "dead"]) test(`dry soil releases its former crop owner after ${removal}`, () => {
+  const h = harness(), soil = h.addSoil(), crop = h.plant();
+  h.context.tutorialPolicy.protected = true;
+  soil.water(); h.advance(10); soil.water(); h.advance(10);
+  assert.equal(crop.crop_state, CropStates.HARVESTABLE);
+  assert.equal(soil.water_remaining, 0);
+  if (removal === "harvest") { crop.harvest(); h.advance(1); }
+  if (removal === "destroy") crop.cropDestroy();
+  if (removal === "raw") crop.destroy();
+  if (removal === "dead") crop.markDead();
+  soil.releaseUnusedWater();
+  assert.equal(soil.water_crop, null);
+  assert.equal(soil.water_remaining, 0);
+  assert.equal(soil.removed, false);
+  const replacement = h.plant(); h.advance(1);
+  assert.equal(replacement.crop_grow_time, 0);
+  soil.water(); h.advance(1);
+  assert.equal(replacement.crop_grow_time, 1);
+});
+
 test("raw destruction preserves the soil and a replacement's newly watered dose", () => {
   const h = harness(); const soil = h.addSoil();
   const first = h.plant(); soil.water(); h.advance(3);

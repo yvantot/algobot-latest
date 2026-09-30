@@ -182,6 +182,29 @@ test("crop ownership, programs, economy and all crop types survive closure witho
     expect(restored.tiles[i].crop.state).toBe("_young");
   }
 });
+test("harvesting a naturally grown dry crop can save and Continue without dangling water ownership", async ({ page }) => {
+  await fresh(page, true); await closeDemo(page);
+  const before = await page.evaluate(async () => {
+    const t = window.saveTesting; t.k.debug.timeScale = 0;
+    const tile = t.farm_grid_index.get("0-0"); tile.soil.till();
+    tile.crop = t.addCrop(t.farm_grid_index, "wheat", 0, 0);
+    tile.soil.water(); tile.crop.advanceGrowth(tile.crop.crop_grow_duration);
+    tile.soil.water(); tile.crop.advanceGrowth(tile.crop.crop_grow_duration);
+    await t.persistence.checkpoint({ required: true });
+    const coins = t.INVENTORY.coins, reward = tile.crop.crop_reward;
+    tile.crop.harvest(); t.k.debug.timeScale = 1;
+    return { coins, reward };
+  });
+  await expect.poll(() => page.evaluate(() => !!window.saveTesting.farm_grid_index.get("0-0").crop)).toBe(false);
+  await page.evaluate(async () => { window.saveTesting.k.debug.timeScale = 0; await window.saveTesting.persistence.checkpoint({ required: true }); });
+  const saved = (await readSave(page)).active;
+  expect(saved.payload.tiles.find(t => t.x === 0 && t.y === 0)).toMatchObject({ crop: null, soil: { water: 0, owner: null } });
+  expect(saved.payload.economy.coins).toBe(before.coins + before.reward);
+  await page.reload(); await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("button", { name: "New Game", exact: true })).toHaveCount(0);
+  expect((await readSave(page)).active.payload.economy.coins).toBe(saved.payload.economy.coins);
+});
+
 test("a second tab cannot replace an actively owned farm", async ({ page, context }) => {
   await fresh(page); const original = (await readSave(page)).active.playthroughId;
   const other = await context.newPage(); await other.goto("/");

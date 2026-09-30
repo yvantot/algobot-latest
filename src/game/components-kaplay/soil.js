@@ -24,7 +24,7 @@ export function soil(state = SoilStates.INITIAL, getCrop = () => null) {
     },
 
     releaseUnusedWater() {
-      if (this.water_remaining <= 0) return;
+      if (this.water_remaining <= 0) { this.water_crop = null; return; }
       if (this.water_crop && this.water_crop === this.livingCrop()) return;
       this.drain_amount = this.water_remaining;
       this.drain_elapsed = 0;
