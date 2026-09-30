@@ -1,181 +1,181 @@
-// Automated Event Scheduler
-// Periodically checks whether to spawn game events (bug, fire, rain) based on
-// farm state, player level, and DDA mode (Bootstrap vs ML).
-//
-// Bootstrap Mode: Every 5 minutes, rolls a random chance (scaled by player level, max 30%)
-// ML Mode: Every 2 minutes, uses the DQN's selected action to determine event type
-// Precondition: > 1/3 of total grid tiles must have harvestable crops
-// Cooldown: 5 minutes minimum between events
-
+// Periodic DDA events: rules or LSTM-assisted rules.
+// Rain helps plants; challenge events choose eligible pests or fire.
 import { farm_grid_index } from "../game.js";
 import { CONFIG, PLAYER_DATA } from "../global/global.js";
 import { CropStates } from "../global/enum.js";
-import { spawnBugEvent } from "../event.js";
+import { spawnBugEvent, spawnRainEvent, spawnFireEvent, canStartFireEvent } from "../event.js";
 import { mlAgent } from "./agent.js";
-import { dda, DDA_ACTIONS } from "./dda.js";
+import { DDA_ACTIONS } from "./dda.js";
+import { telemetry } from "./telemetry.js";
 
-const BOOTSTRAP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-const ML_INTERVAL_MS = 2 * 60 * 1000;         // 2 minutes
-const COOLDOWN_MS = 5 * 60 * 1000;            // 5 minutes between events
+const BOOTSTRAP_INTERVAL_MS = 5 * 60 * 1000;
+const ML_INTERVAL_MS = 2 * 60 * 1000;
+const COOLDOWN_MS = 5 * 60 * 1000;
 
-class EventScheduler {
-  constructor() {
+export class EventScheduler {
+  constructor({ random = Math.random, events = {} } = {}) {
+    this.random = random;
+    this.events = { bug: spawnBugEvent, rain: spawnRainEvent, fire: spawnFireEvent, canStartFire: canStartFireEvent, ...events };
     this.intervalId = null;
     this.lastEventTime = 0;
     this.isRunning = false;
     this.lastCheckTime = 0;
     this.eventsTriggered = 0;
+    this.shouldRun = () => true;
+    this.clock = 1;
+    this.checkRemaining = this._intervalMs();
   }
 
-  start() {
+  snapshot() { return { clock: this.clock, checkRemaining: this.checkRemaining, lastEventTime: this.lastEventTime, lastCheckTime: this.lastCheckTime, eventsTriggered: this.eventsTriggered }; }
+  restore(state) { this.stop(); Object.assign(this, state); }
+  reset() { this.restore({ clock: 1, checkRemaining: this._intervalMs(), lastEventTime: 0, lastCheckTime: 0, eventsTriggered: 0 }); }
+  advance(milliseconds) {
+    if (!this.shouldRun()) return;
+    this.clock += milliseconds;
+    this.checkRemaining -= milliseconds;
+    if (this.checkRemaining <= 0) { this._check(); this.checkRemaining = this._intervalMs(); }
+  }
+
+  start({ shouldRun = () => true } = {}) {
     if (this.isRunning) return;
+    this.shouldRun = shouldRun;
+    this.lastTick = Date.now();
     this.isRunning = true;
     this._scheduleNext();
-    console.log(`Event Scheduler started (${mlAgent.mode} mode)`);
   }
 
   stop() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-    }
+    clearTimeout(this.intervalId);
+    this.intervalId = null;
     this.isRunning = false;
   }
 
-  _scheduleNext() {
-    if (this.intervalId) clearInterval(this.intervalId);
+  _intervalMs() {
+    return mlAgent.mode === "bootstrap" ? BOOTSTRAP_INTERVAL_MS : ML_INTERVAL_MS;
+  }
 
-    const intervalMs = mlAgent.mode === "ml" ? ML_INTERVAL_MS : BOOTSTRAP_INTERVAL_MS;
-    this.intervalId = setInterval(() => this._check(), intervalMs);
+  _scheduleNext() {
+    clearTimeout(this.intervalId);
+    if (!this.isRunning) return;
+    // Re-read mode each tick in case inference fell back after initialization.
+    this.intervalId = setTimeout(() => {
+      try {
+        const now = Date.now();
+        this.advance(Math.min(1000, Math.max(0, now - this.lastTick)));
+        this.lastTick = now;
+      } finally {
+        this._scheduleNext();
+      }
+    }, 250);
   }
 
   _check() {
-    this.lastCheckTime = Date.now();
-
-    if (mlAgent.mode === "bootstrap") {
-      this._bootstrapCheck();
-    } else {
-      this._mlCheck();
-    }
+    this.lastCheckTime = this.clock;
+    if (!this.shouldRun()) return { triggered: false, reason: "gameplay_paused" };
+    return mlAgent.mode === "bootstrap" ? this._bootstrapCheck() : this._mlCheck();
   }
 
-  // Count harvestable crops on the farm grid
   countHarvestableCrops() {
-    let count = 0;
-    for (const [, tile] of farm_grid_index) {
-      if (tile.crop && tile.crop.crop_state === CropStates.HARVESTABLE) {
-        count++;
-      }
-    }
-    return count;
+    return [...farm_grid_index.values()].filter(tile => tile.crop?.crop_state === CropStates.HARVESTABLE).length;
   }
 
-  // Get total grid tile count (dynamic — expands when player buys land)
   getTotalTiles() {
     return CONFIG.FARM.rows * CONFIG.FARM.columns;
   }
 
-  // Check precondition: > 1/3 of grid must be harvestable
   checkPrecondition() {
-    const totalTiles = this.getTotalTiles();
-    const threshold = Math.ceil(totalTiles / 3);
-    const harvestable = this.countHarvestableCrops();
-    return harvestable >= threshold;
+    return this.getTotalTiles() > 0 && this.countHarvestableCrops() > this.getTotalTiles() / 3;
   }
 
-  // Check if cooldown has elapsed
+  countPlantedCrops() {
+    return [...farm_grid_index.values()].filter(tile => tile.soil && tile.crop && tile.crop.crop_state !== CropStates.DEAD).length;
+  }
+
+  eventSeverity() {
+    return Math.min(10000, 100 + this.countPlantedCrops() * 50 + Math.max(0, PLAYER_DATA.level) * 100);
+  }
+
   isCooldownActive() {
-    return (Date.now() - this.lastEventTime) < COOLDOWN_MS;
+    return this.lastEventTime > 0 && this.clock - this.lastEventTime < COOLDOWN_MS;
   }
 
-  // Compute spawn chance for Bootstrap mode (level-scaled, max 30%)
+  beginCooldown() {
+    this.lastEventTime = this.clock;
+  }
+
   computeSpawnChance() {
-    const level = PLAYER_DATA.level;
-    const baseChance = 0.03;
-    const levelBonus = Math.min(0.27, level * 0.018);
-    return Math.min(0.30, baseChance + levelBonus);
+    return Math.min(0.30, 0.03 + Math.min(0.27, Math.max(0, PLAYER_DATA.level) * 0.018));
   }
 
-  // Bootstrap mode: 5-min interval, random-chance roll scaled by player level
-  _bootstrapCheck() {
-    if (!this.checkPrecondition()) return;
-    if (this.isCooldownActive()) return;
-
-    const spawnChance = this.computeSpawnChance();
-    const roll = Math.random();
-
-    if (roll > spawnChance) return; // failed roll
-
-    const harvestable = this.countHarvestableCrops();
-    const baseDifficulty = 100 + (harvestable * 50);
-    spawnBugEvent(farm_grid_index, baseDifficulty);
-    this.lastEventTime = Date.now();
+  _markEvent(type, result) {
+    this.beginCooldown();
     this.eventsTriggered++;
+    telemetry.recordScheduledEvent(type, { mode: mlAgent.mode, actionId: mlAgent.lastAction,
+      severity_points: this.eventSeverity(), planted_crops: this.countPlantedCrops(), total_tiles: this.getTotalTiles() });
+    return { triggered: true, reason: type, event: result };
   }
 
-  // ML mode: 2-min interval, DQN action determines event type
+  _rainCheck() {
+    const result = this.events.rain(farm_grid_index, this.eventSeverity());
+    return result.applied ? this._markEvent("rain", result) : { triggered: false, reason: result.reason || "no_waterable_tiles" };
+  }
+
+  _bugCheck() {
+    if (!this.checkPrecondition()) return { triggered: false, reason: "precondition" };
+    const result = this.events.bug(farm_grid_index, this.eventSeverity());
+    if (result.applied === false) return { triggered: false, reason: result.reason || "no_bug_targets" };
+    return this._markEvent("bug", result);
+  }
+
+  _challengeCheck() {
+    const eligible = [];
+    if (this.checkPrecondition()) eligible.push("bug");
+    if (this.events.canStartFire(farm_grid_index)) eligible.push("fire");
+    if (!eligible.length) return { triggered: false, reason: "precondition" };
+    const choice = eligible[Math.min(eligible.length - 1, Math.floor(this.random() * eligible.length))];
+    if (choice === "bug") return this._bugCheck();
+    const result = this.events.fire(farm_grid_index, this.eventSeverity());
+    return result.applied ? this._markEvent("fire", result) : { triggered: false, reason: result.reason || "no_fire_targets" };
+  }
+
+  _bootstrapCheck(force = false) {
+    if (this.isCooldownActive()) return { triggered: false, reason: "cooldown" };
+    if (!force && this.random() >= this.computeSpawnChance()) return { triggered: false, reason: "chance" };
+    if (mlAgent.lastAction === DDA_ACTIONS.SCAFFOLD) return this._rainCheck();
+    return this._challengeCheck();
+  }
+
   _mlCheck() {
-    if (!this.checkPrecondition()) return;
-    if (this.isCooldownActive()) return;
-
-    const action = mlAgent.lastAction;
-    const harvestable = this.countHarvestableCrops();
-    const baseDifficulty = 100 + (harvestable * 50);
-
-    // DQN-selected action determines which event fires
-    if (action === DDA_ACTIONS.CHALLENGE || action === DDA_ACTIONS.STATE_OPTIMIZE) {
-      spawnBugEvent(farm_grid_index, baseDifficulty);
-      this.lastEventTime = Date.now();
-      this.eventsTriggered++;
-    }
-    // Future: DDA_ACTIONS.SCAFFOLD → spawnRainEvent (helpful event)
-    // NORMAL / GREEDY_GUIDE → no event
+    if (this.isCooldownActive()) return { triggered: false, reason: "cooldown" };
+    if (mlAgent.lastAction === DDA_ACTIONS.SCAFFOLD) return this._rainCheck();
+    if ([DDA_ACTIONS.CHALLENGE, DDA_ACTIONS.STATE_OPTIMIZE].includes(mlAgent.lastAction)) return this._challengeCheck();
+    return { triggered: false, reason: "no_event_for_action" };
   }
 
-  // Force an event check (for DevTools testing)
   forceCheck() {
-    this.lastCheckTime = Date.now();
-    if (mlAgent.mode === "bootstrap") {
-      // Skip chance roll for forced check — just check precondition and cooldown
-      if (!this.checkPrecondition()) return { triggered: false, reason: "precondition" };
-      if (this.isCooldownActive()) return { triggered: false, reason: "cooldown" };
-
-      const harvestable = this.countHarvestableCrops();
-      const baseDifficulty = 100 + (harvestable * 50);
-      spawnBugEvent(farm_grid_index, baseDifficulty);
-      this.lastEventTime = Date.now();
-      this.eventsTriggered++;
-      return { triggered: true, reason: "forced" };
-    } else {
-      this._mlCheck();
-      return { triggered: this.lastEventTime === Date.now(), reason: "ml_check" };
-    }
+    this.lastCheckTime = this.clock;
+    return mlAgent.mode === "bootstrap" ? this._bootstrapCheck(true) : this._mlCheck();
   }
 
-  // Get scheduler state for DevTools display
   getState() {
-    const intervalMs = mlAgent.mode === "ml" ? ML_INTERVAL_MS : BOOTSTRAP_INTERVAL_MS;
-    const timeSinceLastCheck = this.lastCheckTime ? Date.now() - this.lastCheckTime : null;
-    const nextCheckIn = this.lastCheckTime
-      ? Math.max(0, intervalMs - timeSinceLastCheck)
-      : intervalMs;
-    const cooldownRemaining = this.isCooldownActive()
-      ? Math.max(0, COOLDOWN_MS - (Date.now() - this.lastEventTime))
-      : 0;
-
+    const intervalMs = this._intervalMs();
+    const cooldownRemaining = this.isCooldownActive() ? COOLDOWN_MS - (this.clock - this.lastEventTime) : 0;
     return {
       isRunning: this.isRunning,
       mode: mlAgent.mode,
       intervalMs,
-      nextCheckIn,
+      nextCheckIn: this.checkRemaining,
       lastCheckTime: this.lastCheckTime,
       lastEventTime: this.lastEventTime,
       cooldownRemaining,
       cooldownActive: this.isCooldownActive(),
       harvestableCount: this.countHarvestableCrops(),
       totalTiles: this.getTotalTiles(),
-      threshold: Math.ceil(this.getTotalTiles() / 3),
+      threshold: Math.floor(this.getTotalTiles() / 3) + 1,
       preconditionMet: this.checkPrecondition(),
+      plantedCount: this.countPlantedCrops(),
+      firePreconditionMet: this.events.canStartFire(farm_grid_index),
+      severity: this.eventSeverity(),
       spawnChance: this.computeSpawnChance(),
       playerLevel: PLAYER_DATA.level,
       eventsTriggered: this.eventsTriggered,

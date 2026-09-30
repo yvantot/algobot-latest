@@ -8,6 +8,8 @@
 //
 // Expanded for ML Pipeline: 10-feature vector, raw event stream, quest attempt tracking.
 
+import { QUEST_PATH_VERSION } from "../global/quests.js";
+
 export const CS1_STAGES = {
   SEQUENTIAL: 1,
   CONDITIONAL: 2,
@@ -16,7 +18,7 @@ export const CS1_STAGES = {
   STATE_OPTIMIZATION: 5,
 };
 
-class TelemetryTracker {
+export class TelemetryTracker {
   constructor() {
     this.resetSession();
   }
@@ -29,6 +31,8 @@ class TelemetryTracker {
     this.sessionId = crypto.randomUUID();
     this.sessionStartTime = Date.now();
     this.participantId = "anonymous";
+    this.participantIdSource = "unspecified";
+    this.studyProtocol = null;
 
     // Overall Metrics
     this.totalInterpreterSteps = 0;
@@ -68,6 +72,8 @@ class TelemetryTracker {
     // Code execution tracking (Feature 7: code execution success rate)
     this.codeRunCount = 0;
     this.codeRunSuccessCount = 0;
+    this.runOutcomes = { completed: 0, error: 0, stopped: 0 };
+    this.requestedHints = 0;
 
     // Hint tracking (Feature 8: hint consumption rate)
     this.hintsShown = 0;
@@ -84,15 +90,26 @@ class TelemetryTracker {
 
     // Raw event stream (immutable, for future re-processing)
     this.rawEvents = [];
+    this.challengeAttempts = [];
+    this.researchExclusionReasons = [];
 
     // Telemetry Buffer for RNN Model (Sliding Window of Feature Vectors)
     this.historyBuffer = [];
     this.bufferMaxSize = 20;
+    this.featureSnapshots = [];
+    this.collectionEnabled = false;
+    this.collectionSnapshots = [];
+    this.collectionContext = { phase: "unknown" };
+    this.gameplaySegment = 0;
+    this.getCollectionContext = null;
+    this.sessionEndTime = null;
+    this.emotionSamples = { count: 0, frustration: 0, flow: 0 };
 
     // Computed Scores (0.0 to 1.0)
     this.frustrationScore = 0.0;
     this.flowScore = 0.5;
     this.currentStage = CS1_STAGES.SEQUENTIAL;
+    this.maxStageReached = CS1_STAGES.SEQUENTIAL;
   }
 
   // --- Session Management ---
@@ -111,6 +128,9 @@ class TelemetryTracker {
     this.rawEvents.push({
       t: Date.now() - this.sessionStartTime,
       event: type,
+      quest_key: this.activeQuestKey,
+      stage: this.currentStage,
+      context: { ...(this.getCollectionContext?.() ?? this.collectionContext) },
       ...data,
     });
   }
@@ -196,6 +216,7 @@ class TelemetryTracker {
 
   recordInterpreterStep() {
     this.totalInterpreterSteps++;
+    this._logRawEvent("interpreter_step");
   }
 
   recordCodeReset() {
@@ -207,6 +228,7 @@ class TelemetryTracker {
 
   recordCodeEdit() {
     this.codeEditsCount++;
+    this._logRawEvent("code_edit");
   }
 
   recordError(errorMessage = "") {
@@ -217,25 +239,31 @@ class TelemetryTracker {
   }
 
   setStage(stage) {
+    if (!Number.isInteger(stage) || stage < 1 || stage > 5) return;
+    if (stage === this.currentStage) return;
     this.currentStage = stage;
+    this.maxStageReached = Math.max(this.maxStageReached, stage);
     this._logRawEvent("stage_change", { stage });
   }
 
   // --- New ML Pipeline Methods ---
 
   // Code run tracking (Feature 7)
-  recordCodeRun(success) {
+  recordCodeRun(success, details = {}) {
+    const outcome = details.outcome ?? (success ? "completed" : "error");
+    if (outcome in this.runOutcomes) this.runOutcomes[outcome]++;
     this.codeRunCount++;
     if (success) this.codeRunSuccessCount++;
     this._recordQuestCodeRun();
-    this._logRawEvent("code_run", { success });
+    this._logRawEvent("code_run", { success, ...details });
   }
 
   // Hint tracking (Feature 8)
-  recordHintShown(hintText = "") {
+  recordHintShown(hintText = "", source = "unspecified", details = {}) {
+    if (source === "requested_quest_hint") this.requestedHints++;
     this.hintsShown++;
     this._recordQuestHint();
-    this._logRawEvent("hint_shown", { hint: hintText });
+    this._logRawEvent("hint_shown", { hint: hintText, source, ...details });
   }
 
   // Editor mode (metadata only)
@@ -245,26 +273,35 @@ class TelemetryTracker {
   }
 
   // DDA action logging
-  recordDDAAction(actionId, stage) {
+  recordDDAAction(actionId, stage, decision = {}) {
     this.ddaActionsLog.push({
       timestamp: Date.now() - this.sessionStartTime,
       actionId,
       stage,
+      ...decision,
     });
-    this._logRawEvent("dda_action", { actionId, stage });
+    this._logRawEvent("dda_action", { actionId, stage, ...decision });
+  }
+
+  recordScheduledEvent(type, details = {}) {
+    this._logRawEvent("scheduled_event", { type, ...details });
   }
 
   // --- Quest Attempt Tracking ---
 
   recordQuestStart(questKey) {
-    if (this.questAttempts[questKey]) return; // Already tracking this quest
+    if (this.questAttempts[questKey]?.completed) return;
+    this.activeQuestKey = questKey;
+    if (this.questAttempts[questKey]) return;
     this.questAttempts[questKey] = {
       startTime: Date.now(),
+      stage: this.currentStage,
       errors: 0,
       resets: 0,
       codeRuns: 0,
       hintsShown: 0,
       completed: false,
+      contextAtStart: { ...(this.getCollectionContext?.() ?? this.collectionContext) },
       featureVectorAtStart: this.getFeatureVector(),
     };
     this.activeQuestKey = questKey;
@@ -272,10 +309,13 @@ class TelemetryTracker {
   }
 
   recordQuestComplete(questKey) {
+    if (this.questAttempts[questKey]?.completed) return false;
     if (!this.questAttempts[questKey]) {
       // Quest was completed without being explicitly started — create a retroactive entry
       this.questAttempts[questKey] = {
         startTime: this.sessionStartTime,
+        stage: this.currentStage,
+        startTimeInferred: true,
         errors: 0,
         resets: 0,
         codeRuns: 0,
@@ -289,14 +329,17 @@ class TelemetryTracker {
     attempt.endTime = Date.now();
     attempt.durationSeconds = (attempt.endTime - attempt.startTime) / 1000;
     attempt.featureVectorAtEnd = this.getFeatureVector();
-    attempt.proficiencyLabel = this._computeProficiencyLabel(attempt);
+    // A completion reconstructed without a tracked attempt has no defensible
+    // error/reset/hint history; do not fabricate a perfect proficiency label.
+    attempt.proficiencyLabel = attempt.startTimeInferred ? null : this._computeProficiencyLabel(attempt);
     attempt.ddaAction = this.ddaActionsLog.length > 0
       ? this.ddaActionsLog[this.ddaActionsLog.length - 1].actionId
       : 0;
-    attempt.stage = this.currentStage;
+    if (this.activeQuestKey === questKey) this.activeQuestKey = null;
 
     this.questsCompleted++;
     this._logRawEvent("quest_complete", { quest: questKey, label: attempt.proficiencyLabel });
+    return true;
   }
 
   // Internal: accumulate per-quest metrics from session-wide events
@@ -393,19 +436,68 @@ class TelemetryTracker {
   }
 
   // Sample current snapshot and append to sliding window buffer for LSTM
+  setCollectionContext(context) {
+    if (JSON.stringify(context) === JSON.stringify(this.collectionContext)) return;
+    if (context.phase !== this.collectionContext.phase || context.game_speed !== this.collectionContext.game_speed) this.gameplaySegment++;
+    this.collectionContext = structuredClone(context);
+    this._logRawEvent("collection_context");
+  }
+
+  sampleCollection() {
+    this.updateEmotionScores();
+    this.collectionSnapshots.push({
+      index: this.collectionSnapshots.length,
+      gameplay_segment: this.gameplaySegment,
+      timestamp_ms: Date.now(),
+      t: Date.now() - this.sessionStartTime,
+      vector: this.getFeatureVector(),
+      stage: this.currentStage,
+      quest_key: this.activeQuestKey,
+      context: structuredClone(this.collectionContext),
+      counters: {
+        errors: this.errorCount, resets: this.resetCount, hints: this.hintsShown,
+        code_runs: this.codeRunCount, successful_runs: this.codeRunSuccessCount,
+        completed_runs: this.runOutcomes.completed, failed_runs: this.runOutcomes.error,
+        stopped_runs: this.runOutcomes.stopped, requested_hints: this.requestedHints,
+        steps: this.totalInterpreterSteps, edits: this.codeEditsCount,
+        for_loops: this.forLoopExecutions, while_loops: this.whileLoopExecutions,
+        conditions: this.ifEvaluations, harvested: this.cropsHarvestedFresh,
+        spoiled: this.cropsSpoiled, quests_completed: this.questsCompleted,
+      },
+    });
+  }
+
+  endCollection(reason = "session_exit") {
+    if (this.sessionEndTime !== null) return;
+    this.sessionEndTime = Date.now();
+    this._logRawEvent("session_end", { reason });
+  }
+
   sampleHistory() {
+    this.updateEmotionScores();
     const vector = this.getFeatureVector();
     this.historyBuffer.push(vector);
     if (this.historyBuffer.length > this.bufferMaxSize) {
       this.historyBuffer.shift();
     }
+    this.featureSnapshots.push({
+      index: this.featureSnapshots.length,
+      timestamp_ms: Date.now(),
+      t: Date.now() - this.sessionStartTime,
+      vector: [...vector],
+      stage: this.currentStage,
+      quest_key: this.activeQuestKey,
+    });
+    this.emotionSamples.count++;
+    this.emotionSamples.frustration += this.frustrationScore;
+    this.emotionSamples.flow += this.flowScore;
     return this.historyBuffer;
   }
 
   // Returns array of shape [bufferMaxSize, 10] padded if buffer is shorter
   getLSTMInputTensor() {
     const featureCount = 10;
-    const sequence = [...this.historyBuffer];
+    const sequence = this.historyBuffer.map(vector => [...vector]);
     while (sequence.length < this.bufferMaxSize) {
       sequence.unshift(new Array(featureCount).fill(0)); // zero-pad start
     }
@@ -417,11 +509,13 @@ class TelemetryTracker {
   getSessionSummary() {
     return {
       sessionId: this.sessionId,
+      introductionVersion: QUEST_PATH_VERSION,
       participantId: this.participantId,
       startTime: new Date(this.sessionStartTime).toISOString(),
       durationMinutes: Number(((Date.now() - this.sessionStartTime) / 60000).toFixed(2)),
       editorMode: this.editorMode,
       currentStage: this.currentStage,
+      maxStageReached: this.maxStageReached,
       totalSteps: this.totalInterpreterSteps,
       totalErrors: this.errorCount,
       totalResets: this.resetCount,
@@ -429,29 +523,28 @@ class TelemetryTracker {
       codeRunSuccessRate: this.codeRunCount > 0 ? Number((this.codeRunSuccessCount / this.codeRunCount).toFixed(3)) : 0,
       totalHintsShown: this.hintsShown,
       questsCompleted: this.questsCompleted,
-      avgFrustration: Number(this.frustrationScore.toFixed(3)),
-      avgFlow: Number(this.flowScore.toFixed(3)),
+      avgFrustration: Number((this.emotionSamples.count
+        ? this.emotionSamples.frustration / this.emotionSamples.count : this.frustrationScore).toFixed(3)),
+      avgFlow: Number((this.emotionSamples.count
+        ? this.emotionSamples.flow / this.emotionSamples.count : this.flowScore).toFixed(3)),
+      emotionSampleCount: this.emotionSamples.count,
     };
   }
 
   getQuestAttempts() {
-    return { ...this.questAttempts };
+    return structuredClone(this.questAttempts);
   }
 
   getRawEvents() {
-    return [...this.rawEvents];
+    return structuredClone(this.rawEvents);
   }
 
   getFeatureSnapshots() {
-    return this.historyBuffer.map((vector, i) => ({
-      index: i,
-      vector: [...vector],
-      stage: this.currentStage,
-    }));
+    return structuredClone(this.collectionEnabled ? this.collectionSnapshots : this.featureSnapshots);
   }
 
   getDDALog() {
-    return [...this.ddaActionsLog];
+    return structuredClone(this.ddaActionsLog);
   }
 }
 

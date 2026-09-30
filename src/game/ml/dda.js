@@ -1,5 +1,5 @@
 // Dynamic Difficulty Adjustment (DDA) Controller
-// Modulates game mechanics in real-time based on DQN policy recommendations:
+// Modulates game mechanics in real-time based on LSTM-assisted rule decisions:
 // 1. Crop Growth Speeds & Spoilage Windows
 // 2. Pest & Fire Event Frequencies
 // 3. Adaptive Pedagogical Scaffolding (Hints & Visual Priority Pulses)
@@ -22,7 +22,7 @@ export const DDA_ACTION_NAMES = {
   4: "State Optimization Mode",
 };
 
-class DDAController {
+export class DDAController {
   constructor() {
     this.currentAction = DDA_ACTIONS.NORMAL;
     this.growthMultiplier = 1.0;
@@ -42,6 +42,7 @@ class DDAController {
   }
 
   applyAction(actionId, stage = 1) {
+    if (!Number.isInteger(actionId) || !(actionId in DDA_ACTION_NAMES)) actionId = DDA_ACTIONS.NORMAL;
     this.currentAction = actionId;
 
     switch (actionId) {

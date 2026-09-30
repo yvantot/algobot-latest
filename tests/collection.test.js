@@ -1,0 +1,325 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { TelemetryTracker } from "../src/game/ml/telemetry.js";
+import { startCollection } from "../src/game/ml/collection.js";
+import { RESEARCH_SCHEMA, RESEARCH_FEATURES } from "../src/game/ml/research-features.js";
+import { FEATURE_NAMES } from "../src/game/ml/model-input.js";
+import { assessmentSamples, challengeSamples, readCollection, auditCollection, summarizeTrainingReadiness } from "../scripts/collection-dataset.js";
+import { resolveParticipant, clearParticipant } from "../src/game/ml/participant.js";
+import { sealDataset } from "../src/game/ml/export-integrity.js";
+
+test("assigned participant codes persist across sessions and can change between players", () => {
+  const values = new Map();
+  const storage = { getItem: k => values.get(k), setItem: (k, v) => values.set(k, v) };
+  assert.equal(resolveParticipant("?study_participant=P001", storage).id, "P001");
+  assert.equal(resolveParticipant("", storage).id, "P001");
+  assert.equal(resolveParticipant("?study_participant=P002", storage).id, "P002");
+  assert.throws(() => resolveParticipant("?study_participant=", storage), /participant code/);
+  assert.equal(values.get("algobot_participant_id"), "P002");
+});
+
+test("clearing participant identity removes saved and URL codes while preserving unrelated settings", () => {
+  const values = new Map([["unrelated_preference", "keep"]]);
+  const storage = { getItem: k => values.get(k), setItem: (k, v) => values.set(k, v), removeItem: k => values.delete(k) };
+  resolveParticipant("?study_participant=P001", storage);
+  const browser = { location: { href: "http://localhost:5173/?study_participant=P001&view=farm#help" },
+    history: { state: { retained: true }, replaceState(state, title, url) { assert.deepEqual(state, { retained: true }); browser.location.href = url; } } };
+  clearParticipant(storage, browser);
+  assert.equal(storage.getItem("algobot_participant_id"), undefined);
+  assert.equal(storage.getItem("algobot_participant_id_source"), undefined);
+  assert.equal(storage.getItem("unrelated_preference"), "keep");
+  assert.equal(browser.location.href, "http://localhost:5173/?view=farm#help");
+  const next = resolveParticipant(new URL(browser.location.href).search, storage, () => "p_new");
+  assert.deepEqual(next, { id: "p_new", source: "browser_local_pseudonym" });
+  assert.equal(resolveParticipant("", storage, () => "must_not_change").id, "p_new");
+});
+
+test("collection includes practice without inference, excludes demos and pauses, and stops its timer", () => {
+  const tracker = new TelemetryTracker();
+  let tick, phase = "guided_practice", cancelled;
+  const stop = startCollection({ tracker, getContext: () => ({ phase }), schedule: fn => { tick = fn; return 7; }, cancel: id => cancelled = id });
+  assert.equal(tracker.getFeatureSnapshots().length, 1);
+  assert.equal(tracker.historyBuffer.length, 0);
+  phase = "demonstration"; tick();
+  phase = "hidden"; tick();
+  assert.equal(tracker.getFeatureSnapshots().length, 1);
+  phase = "gameplay";
+  tracker.recordError("bad command");
+  assert.equal(tracker.rawEvents.at(-1).context.phase, "gameplay");
+  tick();
+  assert.equal(tracker.getFeatureSnapshots().at(-1).counters.errors, 1);
+  tracker.sampleHistory();
+  tracker.sampleHistory();
+  assert.equal(tracker.getFeatureSnapshots().length, 2);
+  stop(); assert.equal(cancelled, 7);
+});
+
+const start = Date.parse("2026-09-24T01:00:00Z");
+function fixture() {
+  const session = { session_id: "session-1", student_id: "P01", source_type: "recorded",
+    collection: { independent_of_inference: true }, feature_names: FEATURE_NAMES,
+    raw_events: [{ event: "quest_start" }], quest_attempts: [{ completed: false, proficiency_label: null }],
+    feature_timeseries: Array.from({ length: 21 }, (_, i) => ({ timestamp_ms: start + i * 5000,
+      vector: Array(10).fill(i / 21), context: { phase: "gameplay", game_speed: 1 } })) };
+  const assessment = { assessment_id: "A01", session_id: "session-1", student_id: "P01", purpose: "model_target",
+    status: "scored", assistance: "none", rubric_version: "draft-v1", task_id: "task-A", assessor_id: "R01",
+    score: 0, max_score: 10, started_at: new Date(start + 100000).toISOString(), finished_at: new Date(start + 200000).toISOString() };
+  return { session, assessment };
+}
+
+test("assessment window excludes assessment-time data, preserves zero score, and never invents labels for unfinished quests", () => {
+  const { session, assessment } = fixture();
+  const result = assessmentSamples([session], [assessment]);
+  assert.equal(result.samples.length, 1);
+  assert.equal(result.samples[0].y, 0);
+  assert.equal(result.samples[0].input_end_ms, start + 95000);
+  assert.equal(result.samples[0].real_timesteps, 20);
+  const audit = auditCollection([session]);
+  assert.equal(audit.reports[0].unfinished_attempts, 1);
+  assert.deepEqual(audit.proxy_category_support, [0, 0, 0]);
+});
+
+test("preparation preserves collection build and model as metadata without changing features or targets", () => {
+  const { session, assessment } = fixture();
+  const original = assessmentSamples([session], [assessment]).samples[0];
+  session.build = { version:"test-build", source_sha256:"fixture-hash", dirty:true };
+  session.agent_state = { modelId:"fixture-model", modelStatus:"provisional", predictionTarget:"independent_scored_task" };
+  const prepared = assessmentSamples([session], [assessment]).samples[0];
+  assert.deepEqual(prepared.x, original.x);
+  assert.equal(prepared.y, original.y);
+  assert.deepEqual(prepared.collection_build, session.build);
+  assert.equal(prepared.collection_model.id, "fixture-model");
+  prepared.collection_build.version = "changed";
+  assert.equal(session.build.version, "test-build");
+  const old = { ...session, session_id:"older", agent_state:undefined, build:undefined };
+  const report = auditCollection([session, old]);
+  assert.equal(report.build_provenance.sessions_without_source_fingerprint, 1);
+  assert.deepEqual(report.model_cohorts.map(c => c.model_id), ["fixture-model", "legacy-or-unidentified"]);
+});
+
+test("assessment import rejects assisted, mismatched, invalid, gapped, practice, and short observations", () => {
+  for (const mutate of [
+    ({assessment:a}) => a.student_id = "P02",
+    ({assessment:a}) => a.score = 11,
+    ({assessment:a}) => a.assistance = "hint",
+    ({assessment:a}) => a.purpose = "post_test",
+    ({assessment:a}) => a.started_at = "2026-09-24T01:01:40",
+    ({session:s}) => s.source_type = "synthetic",
+    ({session:s}) => s.feature_timeseries[10].timestamp_ms += 9000,
+    ({session:s}) => s.feature_timeseries[10].context.phase = "guided_practice",
+    ({session:s}) => s.feature_timeseries[10].context.game_speed = 2,
+    ({session:s}) => s.feature_timeseries = s.feature_timeseries.slice(5),
+  ]) {
+    const f = fixture(); mutate(f);
+    const result = assessmentSamples([f.session], [f.assessment]);
+    assert.equal(result.samples.length, 0);
+    assert.equal(result.excluded.length, 1);
+  }
+  const f = fixture();
+  assert.throws(() => assessmentSamples([f.session], [f.assessment, f.assessment]), /duplicate/);
+});
+
+test("overlapping exports keep more observations even without additional completed quests", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-collection-"));
+  try {
+    const { session } = fixture();
+    fs.writeFileSync(path.join(dir, "a.json"), JSON.stringify({ sessions: [{ ...session, feature_timeseries: session.feature_timeseries.slice(0, 3) }] }));
+    fs.writeFileSync(path.join(dir, "b.json"), JSON.stringify({ sessions: [session] }));
+    const read = readCollection(dir);
+    assert.equal(read.sessions.length, 1);
+    assert.equal(read.sessions[0].feature_timeseries.length, 21);
+    assert.equal(Object.keys(read.source_sha256).length, 2);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("overlapping exports retain new challenge submissions and developer exclusions in either order",()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"algobot-export-merge-"));
+  try {
+    const old=fixture().session;
+    old.challenge_attempts=[{assessment_id:"challenge-1",started_at:"2026-09-24T01:02:00Z",task_id:"task",rubric_version:"1",first_exposure:true,submissions:[]}];
+    old.source_type="developer_test";old.research_exclusion_reasons=["developer_console"];
+    const newer=structuredClone(old);newer.source_type="recorded";delete newer.research_exclusion_reasons;
+    newer.challenge_attempts[0].submissions.push({score:2});
+    for(const records of [[old,newer],[newer,old]]){
+      records.forEach((record,i)=>fs.writeFileSync(path.join(dir,`${i}.json`),JSON.stringify({sessions:[record]})));
+      const merged=readCollection(dir).sessions[0];
+      assert.equal(merged.challenge_attempts[0].submissions.length,1);
+      assert.equal(merged.source_type,"developer_test");
+      assert.deepEqual(merged.research_exclusion_reasons,["developer_console"]);
+    }
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test("crossed partial exports are rejected instead of discarding one history",()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"algobot-export-conflict-"));
+  try {
+    const first=fixture().session,second=structuredClone(first);
+    first.raw_events.push({event:"code_run"});first.feature_timeseries=first.feature_timeseries.slice(0,3);
+    [first,second].forEach((record,i)=>fs.writeFileSync(path.join(dir,`${i}.json`),JSON.stringify({sessions:[record]})));
+    assert.throws(()=>readCollection(dir),/neither export contains the other/);
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test("sealed overlapping exports reject conflicting fixed provenance in either order", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-provenance-conflict-"));
+  try {
+    const original = { ...fixture().session, export_date: "2026-09-24T01:03:00Z",
+      build: { commit: "fixture", dirty: false }, feature_schema_version: "10f",
+      telemetry_revision: "fixture-v1", research_features: { schema: RESEARCH_SCHEMA, names: RESEARCH_FEATURES } };
+    original.collection = { ...original.collection, interval_ms: 5000, participant_id_source: "researcher_assigned_code", study_protocol: null };
+    for (const change of [
+      s => s.collection.study_protocol = { id: "fixed-conditions-v1" },
+      s => s.collection.interval_ms = 10000,
+      s => s.collection.participant_id_source = "browser_local_pseudonym",
+      s => s.build.commit = "different",
+      s => s.feature_names.reverse(),
+      s => s.feature_schema_version = "different",
+      s => s.telemetry_revision = "different",
+      s => s.research_features.names.reverse(),
+    ]) {
+      const changed = structuredClone(original);
+      changed.export_date = "2026-09-24T01:04:00Z";
+      change(changed);
+      for (const records of [[original, changed], [changed, original]]) {
+        for (const [i, record] of records.entries()) {
+          fs.writeFileSync(path.join(dir, `${i}.json`), JSON.stringify(await sealDataset({ dataset_version: "v4", sessions: [record] })));
+        }
+        assert.throws(() => readCollection(dir), /Conflicting .* provenance/);
+      }
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("three exports cannot hide contradictory provenance behind missing legacy metadata", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-provenance-chain-"));
+  try {
+    const base = fixture().session;
+    for (const field of ["build", "collection"]) {
+      const records = [0, 1, 2].map(i => ({ ...structuredClone(base), raw_events: Array.from({ length: i }, (_, n) => ({ event: n })) }));
+      if (field === "build") {
+        records[0].build = { commit: "A" }; delete records[1].build; records[2].build = { commit: "B" };
+      } else {
+        records[0].collection.study_protocol = { id: "A" }; delete records[1].collection.study_protocol; records[2].collection.study_protocol = { id: "B" };
+      }
+      for (const order of [[0,1,2], [0,2,1], [1,0,2], [1,2,0], [2,0,1], [2,1,0]]) {
+        for (const [i, index] of order.entries()) fs.writeFileSync(path.join(dir, `${i}.json`), JSON.stringify(await sealDataset({ dataset_version: "v4", sessions: [records[index]] })));
+        assert.throws(() => readCollection(dir), /Conflicting .* provenance/);
+      }
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("overlapping exports allow evolving agent state, scoring and added legacy metadata", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-provenance-extension-"));
+  try {
+    const original = { ...fixture().session, build: { commit: "fixture" },
+      agent_state: { modelId: null, episodeCount: 0 },
+      challenge_attempts: [{ assessment_id: "a", status: "in_progress", reward_claimed: false, submissions: [] }] };
+    const newer = structuredClone(original);
+    newer.build.version = "new-metadata";
+    newer.collection.study_protocol = null;
+    newer.agent_state = { modelId: "loaded-model", episodeCount: 2 };
+    Object.assign(newer.challenge_attempts[0], { status: "scored", reward_claimed: true, submissions: [{ score: 1 }] });
+    for (const records of [[original, newer], [newer, original]]) {
+      records.forEach((record, i) => fs.writeFileSync(path.join(dir, `${i}.json`), JSON.stringify({ sessions: [record] })));
+      const merged = readCollection(dir).sessions[0];
+      assert.deepEqual(merged.agent_state, newer.agent_state);
+      assert.deepEqual(merged.challenge_attempts, newer.challenge_attempts);
+      assert.equal(merged.build.version, "new-metadata");
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("merged exports retain verified nested provenance across missing fields in every file order", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-provenance-retained-"));
+  try {
+    const records = [0, 1, 2].map(i => ({ ...fixture().session, export_date: new Date(start + i * 1000).toISOString(),
+      raw_events: Array.from({ length: i }, (_, n) => ({ event: n })) }));
+    records[0].build = { commit: "known", compiler: { version: "1" } };
+    records[0].collection.study_protocol = { id: "fixed-conditions-v1", fresh_window_after_previous_task: true };
+    records[0].collection.interval_ms = 5000;
+    records[1].build = { compiler: { target: "browser" } };
+    records[1].collection.study_protocol = { task_order: ["first-harvest-v1", "careful-steps-v1"] };
+    records[1].collection.participant_id_source = "researcher_assigned_code";
+    for (const order of [[0,1,2], [0,2,1], [1,0,2], [1,2,0], [2,0,1], [2,1,0]]) {
+      const contents = order.map(index => JSON.stringify({ sessions: [records[index]] }));
+      contents.forEach((content, i) => fs.writeFileSync(path.join(dir, `${i}.json`), content));
+      const merged = readCollection(dir).sessions[0];
+      assert.equal(merged.raw_events.length, 2);
+      assert.deepEqual(merged.build, { commit: "known", compiler: { version: "1", target: "browser" } });
+      assert.deepEqual(merged.collection, { independent_of_inference: true, interval_ms: 5000,
+        participant_id_source: "researcher_assigned_code", study_protocol: { id: "fixed-conditions-v1",
+          fresh_window_after_previous_task: true, task_order: ["first-harvest-v1", "careful-steps-v1"] } });
+      contents.forEach((content, i) => assert.equal(fs.readFileSync(path.join(dir, `${i}.json`), "utf8"), content));
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("an overlapping export cannot relax the verified fresh gameplay window by omitting its protocol", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-protocol-window-"));
+  try {
+    const { session, assessment } = fixture();
+    session.collection.study_protocol = { id: "fixed-conditions-v1", fresh_window_after_previous_task: true };
+    session.challenge_attempts = [{ assessment_id: "previous", finished_at: new Date(start + 95000).toISOString(), submissions: [] }];
+    session.export_date = new Date(start + 200000).toISOString();
+    const incomplete = structuredClone(session);
+    incomplete.export_date = new Date(start + 201000).toISOString();
+    delete incomplete.collection.study_protocol;
+    assert.equal(assessmentSamples([session], [assessment]).samples.length, 0);
+    for (const records of [[session, incomplete], [incomplete, session]]) {
+      records.forEach((record, i) => fs.writeFileSync(path.join(dir, `${i}.json`), JSON.stringify({ sessions: [record] })));
+      const result = assessmentSamples(readCollection(dir).sessions, [assessment]);
+      assert.equal(result.samples.length, 0);
+      assert.match(result.excluded[0].reason, /20_contiguous/);
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("duplicate exports reject changed scored summaries and play mode without rejecting legitimate score evolution", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-scored-summary-"));
+  try {
+    const { session, assessment } = fixture();
+    const attempt = { ...assessment, task_id: "first-harvest-v1", rubric_version: "first-harvest-1.0",
+      assessor_id: "algobot-live-cases-5.0", play_mode: "recommended", first_exposure: true, score: 3, max_score: 3,
+      reward_claimed: false, submissions: [{ score: 3, max_score: 3, submitted_at: assessment.finished_at,
+        assistance: "none", cases: [{ checks: { visited_every_tile: true, harvested_all_ready: true, safe_and_finished: true } }] }] };
+    session.challenge_attempts = [attempt];
+    session.export_date = new Date(start + 300000).toISOString();
+    assert.equal(challengeSamples([session], "first-harvest-v1", { schema: "10f" }).samples.length, 1);
+    const readPair = records => {
+      records.forEach((record, i) => fs.writeFileSync(path.join(dir, `${i}.json`), JSON.stringify({ sessions: [record] })));
+      return readCollection(dir).sessions[0];
+    };
+    for (const [key, value] of Object.entries({ status: "in_progress", purpose: "practice", score: 0, max_score: 4,
+      finished_at: new Date(start + 200001).toISOString(), assistance: "reported_or_unconfirmed", play_mode: "freestyle" })) {
+      const changed = structuredClone(session);
+      changed.export_date = new Date(start + 301000).toISOString();
+      changed.challenge_attempts[0][key] = value;
+      assert.equal(challengeSamples([changed], "first-harvest-v1", { schema: "10f" }).samples.length, 0, key);
+      for (const records of [[session, changed], [changed, session]]) assert.throws(() => readPair(records), /Conflicting challenge/, key);
+    }
+    const stopped = structuredClone(session);
+    Object.assign(stopped.challenge_attempts[0], { status: "in_progress", purpose: "practice", score: null,
+      finished_at: null, assistance: "unconfirmed", submissions: [{ status: "stopped", score: null }] });
+    const scored = structuredClone(session);
+    scored.challenge_attempts[0].submissions.unshift({ status: "stopped", score: null });
+    const retried = structuredClone(scored);
+    retried.challenge_attempts[0].reward_claimed = true;
+    retried.challenge_attempts[0].submissions.push({ score: 0 });
+    for (const records of [[stopped, scored], [scored, stopped], [scored, retried], [retried, scored]]) {
+      const merged = readPair(records);
+      assert.equal(challengeSamples([merged], "first-harvest-v1", { schema: "10f" }).samples.length, 1);
+      assert.equal(merged.challenge_attempts[0].score, 3);
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+ test("collection readiness distinguishes compatible samples from enough participants to plan training",()=>{
+ const {session,assessment}=fixture(); const data=assessmentSamples([session],[assessment]);
+ data.feature_schema=RESEARCH_SCHEMA;data.feature_names=RESEARCH_FEATURES;data.samples[0].x=Array.from({length:20},()=>Array(12).fill(0));
+ const report=summarizeTrainingReadiness(data);
+ assert.equal(report.dataset_compatible,true);assert.equal(report.can_create_holdout_plan,false);assert.match(report.blocking_reason,/at least 6/);assert.deepEqual(report.target_category_support,[1,0,0]);assert.equal(report.usable_participants,1);
+ });

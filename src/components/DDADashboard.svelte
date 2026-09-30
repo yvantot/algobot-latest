@@ -26,35 +26,31 @@
 
   let proficiency = $state(0.5);
   let actionId = $state(0);
-  let qValues = $state([0, 0, 0, 0, 0]);
   let frustration = $state(0);
   let flow = $state(0.5);
   let stage = $state(1);
   let ddaState = $state(null);
   let agentMode = $state("bootstrap");
   let sessionCount = $state(0);
-  let replaySize = $state(0);
 
   // Poll DDA + telemetry state every 2 seconds for dashboard display
   $effect(() => {
     const interval = setInterval(() => {
       proficiency = mlAgent.predictedProficiency;
       actionId = mlAgent.lastAction;
-      qValues = mlAgent.predictedQValues || [0, 0, 0, 0, 0];
       frustration = telemetry.frustrationScore;
       flow = telemetry.flowScore;
       stage = telemetry.currentStage;
       ddaState = dda.getDDAState();
       agentMode = mlAgent.mode || "bootstrap";
       sessionCount = dataLogger.getSessionCount();
-      replaySize = mlAgent.replayBuffer?.length || 0;
     }, 2000);
     return () => clearInterval(interval);
   });
 
   function colorBar(val) {
-    if (val < 0.33) return "#ef4444";
-    if (val < 0.66) return "#f59e0b";
+    if (val < 0.3) return "#ef4444";
+    if (val < 0.6) return "#f59e0b";
     return "#22c55e";
   }
 
@@ -129,7 +125,7 @@
             ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
             : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}"
         >
-          {agentMode === "ml" ? "ML Mode" : "Bootstrap"}
+          {agentMode === "hybrid" ? "LSTM + Rules" : "Rules"}
         </span>
       </div>
       <button
@@ -146,11 +142,15 @@
         class="flex justify-between text-sm text-gray-400 bg-gray-900/60 p-2 rounded border border-gray-800"
       >
         <span>Sessions: {sessionCount}</span>
-        <span>Replay: {replaySize}</span>
         <span class="font-mono">{telemetry.participantId}</span>
       </div>
 
       <!-- CS1 Curriculum Stage -->
+      {#if agentMode === "hybrid"}
+        <p class="text-amber-200 text-xs">
+          LSTM estimates gameplay proficiency; rules select difficulty.
+        </p>
+      {/if}
       <div class="flex flex-col gap-1">
         <span
           class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
@@ -170,13 +170,13 @@
             >Proficiency (LSTM)</span
           >
           <span class="font-bold" style="color: {colorBar(proficiency)}"
-            >{(proficiency * 100).toFixed(1)}%</span
+            >{agentMode === "bootstrap" || !Number.isFinite(proficiency) ? "Unavailable" : `${(proficiency * 100).toFixed(1)}%`}</span
           >
         </div>
         <div class="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
           <div
             class="h-2 rounded-full transition-all duration-500"
-            style="width: {proficiency * 100}%; background-color: {colorBar(
+            style="width: {agentMode === 'bootstrap' || !Number.isFinite(proficiency) ? 0 : proficiency * 100}%; background-color: {colorBar(
               proficiency,
             )}"
           ></div>
@@ -188,7 +188,7 @@
         <div class="flex justify-between items-center">
           <span
             class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
-            >Frustration Index</span
+            >Frustration Proxy</span
           >
           <span class="font-bold" style="color: {colorBar(1 - frustration)}"
             >{(frustration * 100).toFixed(1)}%</span
@@ -209,7 +209,7 @@
         <div class="flex justify-between items-center">
           <span
             class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
-            >Flow Score</span
+            >Flow Proxy</span
           >
           <span class="font-bold" style="color: {colorBar(flow)}"
             >{(flow * 100).toFixed(1)}%</span
@@ -230,7 +230,7 @@
         >
           <span
             class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
-            >Active DDA Action (DQN)</span
+            >Active DDA Action (Rules)</span
           >
           <span
             class="font-bold"
@@ -247,46 +247,6 @@
           </div>
         </div>
       {/if}
-
-      <!-- DQN Q-Values -->
-      <div class="flex flex-col gap-1">
-        <span
-          class="text-gray-500 uppercase text-[9px] font-bold tracking-wider"
-          >DQN Q-Values</span
-        >
-        <div class="flex flex-col gap-0.5">
-          {#each qValues as q, i}
-            {@const labels = [
-              "Normal",
-              "Scaffold",
-              "Challenge",
-              "Greedy Guide",
-              "State Opt.",
-            ]}
-            <div class="flex items-center gap-2">
-              <span
-                class="text-[9px] w-20 shrink-0"
-                style="color: {i === actionId ? ACTION_COLORS[i] : '#94a3b8'}"
-                >{labels[i]}</span
-              >
-              <div class="flex-1 bg-gray-800 rounded h-1 overflow-hidden">
-                <div
-                  class="h-1 rounded transition-all"
-                  style="width: {Math.max(
-                    0,
-                    Math.min(100, (q + 1) * 50),
-                  )}%; background-color: {i === actionId
-                    ? ACTION_COLORS[i]
-                    : '#475569'}"
-                ></div>
-              </div>
-              <span class="text-[9px] text-gray-400 w-10 text-right"
-                >{q.toFixed(2)}</span
-              >
-            </div>
-          {/each}
-        </div>
-      </div>
 
       <!-- Telemetry Counters -->
       <div

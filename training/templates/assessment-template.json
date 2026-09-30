@@ -1,0 +1,17 @@
+[
+  {
+    "assessment_id": "REPLACE_UNIQUE_ASSESSMENT_CODE",
+    "student_id": "REPLACE_PARTICIPANT_CODE",
+    "session_id": "REPLACE_FROM_GAMEPLAY_EXPORT",
+    "purpose": "model_target",
+    "task_id": "REPLACE_REVIEWED_TASK_FORM",
+    "rubric_version": "REPLACE_REVIEWED_RUBRIC_VERSION",
+    "assessor_id": "REPLACE_ASSESSOR_CODE",
+    "started_at": null,
+    "finished_at": null,
+    "status": "unscored",
+    "assistance": "unknown",
+    "score": null,
+    "max_score": 10
+  }
+]

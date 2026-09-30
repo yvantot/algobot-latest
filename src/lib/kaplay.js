@@ -3,8 +3,13 @@ import kaplay from "kaplay";
 export let k;
 
 export function initKaplay() {
-	const savedDensity = Number(localStorage.getItem("algobot_pixel_density") || 1);
-	const savedSound = localStorage.getItem("algobot_sound") ?? "on";
+	let savedDensity = 1;
+	let savedSound = "on";
+	try {
+		const density = Number(localStorage.getItem("algobot_pixel_density") || 1);
+		if ([0.5, 1, 1.5, 2, 3, 4].includes(density)) savedDensity = density;
+		savedSound = localStorage.getItem("algobot_sound") ?? "on";
+	} catch { /* Storage can be unavailable in private or restricted browsers. */ }
 
 	k = kaplay({
 		canvas: document.getElementById("game"),

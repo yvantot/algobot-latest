@@ -1,8 +1,10 @@
 <script>
+  import { preferences } from "../game/utils/preferences.js";
   import { createResizable } from "./interface.svelte.js";
   import { onMount } from "svelte";
 
-  let { onClose } = $props();
+  import { DEMO_LESSONS } from "../game/global/introduction-story.js";
+  let { onClose, onShowIntroduction, completedDemos = [] } = $props();
 
   const resize = createResizable();
 
@@ -13,22 +15,22 @@
   const SLIDES = [
     {
       title: "1. Welcome to AlgoBot",
-      subtitle: "An Algorithmic Farming Edutainment System",
+      subtitle: "Build blocks. Grow your farm.",
       description:
-        "Learn fundamental programming concepts by coding autonomous robots to manage, plant, water, and harvest your farm!",
+        "Tell your robot what to do with blocks. Learn to plant, water, and harvest as you play.",
       image: "/sprites/art_intro_0.png",
       fallbackText: "Introduction",
       highlights: [
         "Write JavaScript text commands or use drag-and-drop code blocks",
-        "Automate repetitive tasks across your entire farm grid",
-        "Master loops, conditions, functions, and variables",
+        "Give your robot a list of jobs",
+        "Learn one new idea at a time",
       ],
     },
     {
       title: "2. The Farming Lifecycle",
       subtitle: "Till -> Plant -> Water -> Harvest",
       description:
-        "Every crop requires care. Automate each phase with bot functions:",
+        "Help your crops grow in this order:",
       image: "/sprites/art_intro_1.png",
       fallbackText: "Farming Cycle",
       highlights: [
@@ -60,7 +62,7 @@
       image: "/sprites/art_soil_states.png",
       fallbackText: "Soil States Illustration",
       description:
-        "Land starts in an UNTILLED state (0). Use bot.till() to change it to READY (1). Use bot.water() to change READY soil into WATERED (2). Crops only absorb water and grow when planted in watered soil!",
+        "Land starts UNTILLED (0). Use bot.till() to prepare it (1), plant a seed, then use bot.water() for WATERED soil (2). Crops absorb water to grow. Without a living crop, water drains away quickly.",
     },
     {
       title: "Crop Growth & Spoilage",
@@ -145,15 +147,15 @@
   ];
 
   onMount(() => {
-    dontShowAgain = localStorage.getItem("algobot_hide_onboarding") === "true";
+    dontShowAgain = preferences.getItem("algobot_hide_onboarding") === "true";
   });
 
   function toggleDontShow() {
     dontShowAgain = !dontShowAgain;
     if (dontShowAgain) {
-      localStorage.setItem("algobot_hide_onboarding", "true");
+      preferences.setItem("algobot_hide_onboarding", "true");
     } else {
-      localStorage.removeItem("algobot_hide_onboarding");
+      preferences.removeItem("algobot_hide_onboarding");
     }
   }
 </script>
@@ -196,6 +198,14 @@
   </div>
 
   <div class="flex flex-col gap-2 overflow-hidden text-sm flex-grow">
+    {#if onShowIntroduction}
+      <button onclick={() => onShowIntroduction("basics")} class="rounded-lg border-2 border-slate-400 bg-green-200 hover:bg-green-300 p-2 font-bold text-slate-700 cursor-pointer">Watch the short introduction</button>
+      {#each ["events", "upgrades"] as lesson}
+        <button onclick={() => onShowIntroduction(lesson)} class="rounded-lg border-2 border-slate-400 bg-green-200 hover:bg-green-300 p-3 text-left font-bold text-slate-700 cursor-pointer">
+          Watch {lesson === "events" ? "Events" : "Upgrades"}<span class="block text-sm mt-1">{completedDemos.includes(lesson) ? "Reward collected · Watch again" : `Finish to earn ${DEMO_LESSONS[lesson].coins} coins + ${DEMO_LESSONS[lesson].exp} EXP`}</span>
+        </button>
+      {/each}
+    {/if}
     <!-- Tab Buttons -->
     <div class="flex flex-wrap gap-1 justify-center shrink-0">
       <button

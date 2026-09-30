@@ -45,7 +45,12 @@ python311/
 .ipynb_checkpoints/
 
 # Testing & Coverage
+# Derived participant-level research files stay local alongside original exports.
+training/prepared/
 coverage/
+test-results/
+playwright-report/
+.save-test-output.txt
 .nyc_output/
 
 # IDE & Editor Files
@@ -68,3 +73,15 @@ coverage/
 Thumbs.db
 ehthumbs.db
 desktop.ini
+
+# Collected participant datasets stay out of Git (folder placeholders are tracked)
+training/data/**/*.json
+# Explicitly labeled experimental augmentations remain separate from collected exports.
+training/synthetic/
+.save-browser-output.txt
+.save-build-output.txt
+test-results-production/
+.manual-save-review/
+upload-worker/.wrangler/
+training/raw/
+test-results-bug001/

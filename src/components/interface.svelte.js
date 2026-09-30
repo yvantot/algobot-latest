@@ -1,3 +1,4 @@
+import { onDestroy } from "svelte";
 import { backOut, cubicIn } from "svelte/easing";
 
 export function createResizable(initial_width = 400) {
@@ -6,31 +7,50 @@ export function createResizable(initial_width = 400) {
 
 	let width = $state(initial_width);
 	let is_resizing = $state(false);
+	let startX = 0, startWidth = initial_width;
+	let pointer = false;
 
 	function handleMouseMove(e) {
 		if (!is_resizing) return;
-		const new_width = window.innerWidth - e.clientX;
-		if (new_width > MIN_WIDTH && new_width < window.innerWidth * MAX_RATIO) {
-			width = new_width;
-		}
+		const new_width = startWidth + startX - e.clientX;
+		width = Math.max(MIN_WIDTH, Math.min(window.innerWidth * MAX_RATIO, new_width));
 	}
 
 	function stopResize() {
 		is_resizing = false;
 		window.removeEventListener("mousemove", handleMouseMove);
 		window.removeEventListener("mouseup", stopResize);
+		window.removeEventListener("pointermove", handleMouseMove);
+		window.removeEventListener("pointerup", stopResize);
+		window.removeEventListener("pointercancel", stopResize);
+		window.removeEventListener("blur", stopResize);
 	}
 
 	function startResize(e) {
+		if (e.button !== 0) return;
+		e.preventDefault();
+		startX = e.clientX;
+		startWidth = e.currentTarget.parentElement.getBoundingClientRect().width;
 		is_resizing = true;
-		window.addEventListener("mousemove", handleMouseMove);
-		window.addEventListener("mouseup", stopResize);
+		pointer = e.pointerId !== undefined;
+		if(pointer)e.currentTarget.setPointerCapture(e.pointerId);
+		window.addEventListener(pointer ? "pointermove" : "mousemove", handleMouseMove);
+		window.addEventListener(pointer ? "pointerup" : "mouseup", stopResize);
+		if(pointer)window.addEventListener("pointercancel", stopResize);
+		window.addEventListener("blur", stopResize);
 	}
 
+	function resizeKey(e){
+		if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight")return;
+		e.preventDefault();
+		const current=e.currentTarget.parentElement.getBoundingClientRect().width;
+		width=Math.max(MIN_WIDTH,Math.min(window.innerWidth*MAX_RATIO,current+(e.key==="ArrowLeft"?20:-20)));
+	}
+	onDestroy(stopResize);
 	return {
 		get width() { return width; },
 		get is_resizing() { return is_resizing; },
-		startResize
+		startResize, resizeKey
 	};
 }
 

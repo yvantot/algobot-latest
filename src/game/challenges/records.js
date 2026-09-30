@@ -1,0 +1,90 @@
+import { activeGameplayWindow } from "../ml/research-features.js";
+import { studyWindowStart, studyTaskTitle } from "../ml/study-protocol.js";
+import { challengeMaxScore } from "./catalog.js";
+
+// Included in the farm checkpoint so Continue cannot award a challenge twice.
+export const farmChallengeRewards = new Set();
+
+// Under the study protocol, only gameplay after the previous challenge can fill the window.
+function eligibleSnapshots(tracker, now) {
+  const start = studyWindowStart(tracker.studyProtocol, tracker.challengeAttempts ?? [], now);
+  return (tracker.collectionSnapshots ?? []).filter(s => s.timestamp_ms >= start);
+}
+
+export function challengeWindowReady(tracker, now = Date.now()) {
+  return activeGameplayWindow(eligibleSnapshots(tracker, now), now).ready;
+}
+
+export function canStartChallenge(tracker, now = Date.now()) {
+  const context=tracker.getCollectionContext?.();
+  return context?.phase === "gameplay" && context.game_speed > 0 && challengeWindowReady(tracker,now);
+}
+
+export function challengeWaitMessage(tracker, now = Date.now()) {
+  const { count, ready } = activeGameplayWindow(eligibleSnapshots(tracker, now), now);
+  const protocol = tracker.studyProtocol;
+  const opened = (tracker.challengeAttempts ?? []).map(attempt => attempt.task_id);
+  const next = protocol ? protocol.task_order.find(id => !opened.includes(id)) : "first-harvest-v1";
+  const speed = protocol ? "Keep the game at 100% speed." : "Any game speed is okay.";
+  if (ready) return next ? `Open Challenges and try "${studyTaskTitle(next)}". Run your program and wait for its score. A low score is okay!`
+    : "Challenges are ready.";
+  return `Challenges are getting ready. Close this prompt and keep farming for about ${(20 - count) * 5} more seconds. ${speed} Short breaks keep your progress.`;
+}
+
+export function challengeAccess(tracker, wasUnlocked, tutorialComplete, now = Date.now()) {
+  const ready = tutorialComplete && canStartChallenge(tracker, now);
+  return { unlocked: tutorialComplete && (wasUnlocked || ready), ready };
+}
+
+export function openChallenge(tracker, task, firstExposure, now = Date.now(), playMode = "recommended") {
+  const attempt = {
+    assessment_id: crypto.randomUUID(), student_id: tracker.participantId, session_id: tracker.sessionId,
+    task_id: task.id, rubric_version: task.rubric, assessor_id: "algobot-live-cases-5.0",
+    crop_profile: "baseline", play_mode: playMode,
+    first_exposure: firstExposure, started_at: new Date(now).toISOString(), finished_at: null,
+    purpose: "practice", status: "in_progress", assistance: "unconfirmed", score: null, max_score: challengeMaxScore(task),
+    input_window_ready: challengeWindowReady(tracker, now), submissions: [], reward_claimed: false,
+  };
+  tracker.challengeAttempts.push(attempt);
+  tracker._logRawEvent("challenge_opened", { assessment_id: attempt.assessment_id, task_id: task.id, play_mode: playMode });
+  return attempt;
+}
+
+export function submitChallenge(tracker, attempt, result, source, editor, independent = null, now = Date.now()) {
+  const firstEvaluated=attempt.assessor_id === "algobot-live-cases-5.0"
+    ? !attempt.submissions.some(s=>s.status !== "stopped") : attempt.submissions.length === 0;
+  const submission = { submitted_at: new Date(now).toISOString(), score: result.score, max_score: result.max_score,
+    passed: result.passed, source, editor, play_mode: attempt.play_mode ?? "recommended", assistance: independent === null ? "standard_in_game" : independent ? "none" : "reported_or_unconfirmed",
+    cases: result.results.map(({ checks, error, mistakes, earned, optimal_value, work_steps }) => ({ checks, error, mistakes,
+      ...(optimal_value === undefined ? {} : {earned,optimal_value,work_steps}) })) };
+  attempt.submissions.push(submission);
+  if (firstEvaluated) {
+    Object.assign(attempt, { finished_at: submission.submitted_at, status: "scored", score: result.score,
+      assistance: submission.assistance, purpose: attempt.play_mode !== "freestyle" && attempt.first_exposure && independent !== false ? "model_target" : "practice" });
+  }
+  tracker._logRawEvent("challenge_submitted", { assessment_id: attempt.assessment_id, submission: attempt.submissions.length, score: result.score });
+  return submission;
+}
+
+export function closeChallenge(tracker, attempt) {
+  if (attempt.status === "in_progress") { attempt.status = "abandoned"; attempt.finished_at = new Date().toISOString(); }
+  tracker._logRawEvent("challenge_closed", { assessment_id: attempt.assessment_id });
+}
+
+export function interruptChallenge(tracker, attempt, source, editor) {
+  attempt.submissions.push({ submitted_at: new Date().toISOString(), status: "stopped", source, editor, score: null, passed: false });
+  if (attempt.submissions.length === 1 && attempt.assessor_id !== "algobot-live-cases-5.0") {
+    attempt.status = "abandoned"; attempt.purpose = "practice";
+    attempt.finished_at = new Date().toISOString();
+  }
+  tracker._logRawEvent("challenge_program_stopped", { assessment_id: attempt.assessment_id });
+}
+
+export function claimChallengeReward(tracker, attempt, grant, rewardLedger = new Set()) {
+  if (rewardLedger.has(attempt.task_id) || !attempt.submissions.some(s => s.passed) || tracker.challengeAttempts.some(a => a.task_id === attempt.task_id && a.reward_claimed)) return false;
+  rewardLedger.add(attempt.task_id);
+  attempt.reward_claimed = true;
+  grant();
+  tracker._logRawEvent("challenge_reward", { assessment_id: attempt.assessment_id, task_id: attempt.task_id });
+  return true;
+}

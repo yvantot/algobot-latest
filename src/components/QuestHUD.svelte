@@ -1,368 +1,163 @@
 <script>
+  import BlockPlacementGuide from "./BlockPlacementGuide.svelte";
+  import { fly } from "svelte/transition";
+  import { cubicOut, cubicIn } from "svelte/easing";
+  import { onMount, tick as nextRender, untrack } from "svelte";
   import { QUEST_DATA } from "../game/global/quests.js";
-  import { QUEST_STATE, claimQuest } from "./global.svelte.js";
-
-  let { onOpenQuestMenu, onOpenBlockEditor } = $props();
-
-  let expanded = $state({});
-
-  function toggleExpand(key, e, isCurrentlyExpanded) {
-    e.stopPropagation();
-    expanded[key] = !isCurrentlyExpanded;
-  }
-
-  function getActiveQuests() {
-    return Object.entries(QUEST_DATA)
-      .filter(([key, data]) => {
-        const state = QUEST_STATE[key];
-        if (!state || state.is_completed || state.is_claimed) return false;
-        if (data.prereq && data.prereq.length > 0) {
-          for (const req of data.prereq) {
-            if (!QUEST_STATE[req] || !QUEST_STATE[req].is_claimed) return false;
-          }
-        }
-        return true;
-      })
-      .slice(0, 3);
-  }
-
-  function getCompletedQuests() {
-    return Object.entries(QUEST_DATA).filter(([key, data]) => {
-      const state = QUEST_STATE[key];
-      return state && state.is_completed && !state.is_claimed;
+  import { missionHint, recordMissionHint } from "../game/global/mission-hints.js";
+  import { currentQuest, QUEST_STATE, QUEST_FEEDBACK, TUTORIAL, ONBOARDING, robots_state, claimQuest } from "./global.svelte.js";
+  import { telemetry } from "../game/ml/telemetry.js";
+  import { INVENTORY, CONFIG } from "../game/global/global.js";
+  import { robots, chooseQuest } from "./global.svelte.js";
+  import { prepareLesson, releaseLesson, lessonTiles } from "../game/global/quest-setup.js";
+  import { addCrop } from "../game/components-kaplay/crop.js";
+  import { addBug } from "../game/components-kaplay/pest.js";
+  import { getFarmEventRuntime } from "../game/events/renderer.js";
+  import { fireSettings } from "../game/events/simulation.js";
+  import { farm_grid_index } from "../game/game.js";
+  import { k } from "../lib/kaplay.js";
+  let { onOpenQuestMenu, onOpenBlockEditor, onOpenEditor = onOpenBlockEditor, editorMode = "blocks" } = $props();
+  let key = $derived(currentQuest());
+  let mission = $derived(QUEST_DATA[key]);
+  let hintLevel = $state(0), guideRevision = $state(0);
+  let offered = $state(false);
+  let tick = $state(0);
+  let idle = 0;
+  let lastErrors = 0;
+  let lastProgress = 0;
+  let awaitingClaim = $derived(Object.keys(QUEST_DATA).find(id => !QUEST_DATA[id].optional && QUEST_STATE[id]?.is_completed && !QUEST_STATE[id]?.is_claimed));
+  let needsSeed = $derived.by(() => { const refresh = tick; return INVENTORY.crops.wheat < 1; });
+  let hintExample = $state.raw(null);
+  let setupMessage = $state("");
+  let setupAttempted = null;
+  function setupLesson(replace = false) {
+    if (robots_state.some(state => state.is_running) || robots.some(robot => !robot.is_available)) return;
+    const result = prepareLesson(key, {
+      grid: farm_grid_index, size: CONFIG.FARM, robot: robots[0], inventory: INVENTORY, replace,
+      createCrop: (x, y, state) => addCrop(farm_grid_index, "wheat", x, y, state),
+      createBug: (x, y) => addBug(farm_grid_index, { lesson: true, stationary: true, damage: 0, spawnAt: { x, y } }),
+      ignite: tile => getFarmEventRuntime(farm_grid_index).simulation.ignite(tile, {
+        ...fireSettings({ pts: 100 }), stageDuration: Infinity, damage: 0, spreadChance: 0,
+      }),
     });
+    setupMessage = result.message || "";
+    if (result.prepared) telemetry._logRawEvent("quest_setup", { quest: key, replaced: replace });
   }
+  $effect(() => {
+    const id = key;
+    untrack(() => {
+      if (farm_grid_index.lessonQuest === id && farm_grid_index.lessonActive && !QUEST_STATE[id]?.is_completed) {
+        setupAttempted = id;
+        return;
+      }
+      releaseLesson(farm_grid_index);
+      setupAttempted = null;
+      setupMessage = "";
+    });
+  });
+  $effect(() => { const id = key; hintLevel = 0; hintExample = null; offered = false; idle = 0; lastProgress = 0; lastErrors = telemetry.errorCount || 0; });
+  $effect(() => { const progress = QUEST_STATE[key]?.progress; hintExample = null; offered = false; });
+  async function showHint() {
+    const quest = key;
+    onOpenEditor?.();
+    await nextRender();
+    if (key !== quest) return;
+    const context = {};
+    window.dispatchEvent(new CustomEvent("quest-hint-context", { detail: context }));
+    const robot = robots[context.robotIndex ?? 0];
+    const tile = farm_grid_index.get(robot?.grid_y + "-" + robot?.grid_x);
+    const crop = tile?.crop;
+    const state = robots_state[context.robotIndex ?? 0];
+    Object.assign(context, {
+      code: editorMode === "text" ? state?.text_code : context.code || state?.block_code,
+      seeds: INVENTORY.crops, x: robot?.grid_x, columns: CONFIG.FARM.columns,
+      tile: tile ? { planted: !!crop, tilled: tile.soil?.soil_state !== 0 } : null,
+      lastError: robot?.lastError || "",
+    });
+    const example = missionHint(quest,hintLevel,QUEST_STATE.tut_2.actions || [],crop?.crop_state === "_harvestable", context);
+    recordMissionHint(telemetry,quest,editorMode,hintLevel,example);
+    hintLevel = Math.min(3, hintLevel + 1); offered = false;
+    hintExample = example; guideRevision++;
+    if (editorMode === "blocks") window.dispatchEvent(new CustomEvent("quest-hint-focus", { detail: example }));
+  }
+  function getInstruction(missionKey = key) {
+    const refresh = tick;
+    if (missionKey !== "tut_2") return QUEST_DATA[missionKey]?.description;
+    const actions = QUEST_STATE.tut_2.actions || [];
+    if (!actions.includes("till")) return "Clear the previous blocks. Open Farm, add Prepare soil, then press Start.";
+    if (!actions.includes("plant")) return "Replace Prepare soil with Plant wheat. Press Start on the same tile.";
+    if (!actions.includes("water")) return "Replace the planting block with Water soil and press Start.";
+    const crop = [...farm_grid_index.values()].find(tile => tile.crop?.crop_type === "wheat")?.crop;
+    if (crop && crop.crop_state !== "_harvestable") return crop.absorbing_water ? "Your wheat is growing. Watch the water soak in." : "Water again when the soil dries. Wheat needs two watering cycles.";
+    return "Your wheat is ready. Replace the water block with Harvest crop and press Start.";
+  }
+  onMount(() => {
+    const resetIdle = () => { idle = 0; };
+    window.addEventListener("pointerdown", resetIdle);
+    window.addEventListener("keydown", resetIdle);
+    const timer = setInterval(() => {
+      tick++;
+      if (setupAttempted !== key && mission?.setup && !ONBOARDING.isModalOpen &&
+        !robots_state.some(state => state.is_running) && robots[0]?.is_available) {
+        setupAttempted = key; setupLesson();
+      }
+      if (ONBOARDING.isModalOpen || document.hidden || k.debug.timeScale <= 0 || robots_state.some(state => state.is_running)) return;
+      const growing = key === "tut_2" && QUEST_STATE.tut_2.actions?.includes("water") && [...farm_grid_index.values()].some(tile => tile.crop?.absorbing_water);
+      if (growing) return;
+      const progress = QUEST_STATE[key]?.progress || 0;
+      if (progress !== lastProgress) { idle = 0; lastProgress = progress; offered = false; }
+      const errors = telemetry.errorCount || 0;
+      idle++;
+      if (idle >= 35 || errors - lastErrors >= 2) { offered = true; lastErrors = errors; }
+    }, 1000);
+    return () => { clearInterval(timer); window.removeEventListener("pointerdown", resetIdle); window.removeEventListener("keydown", resetIdle); };
+  });
 </script>
 
-<div class="flex flex-col gap-2 w-[300px]">
-  <!-- Completed Quests Popup List -->
-  {#each getCompletedQuests() as [key, data], index (key)}
-    {@const isExpanded = expanded[key] ?? index === 0}
-    <div
-      role="button"
-      tabindex="0"
-      class="completed-card animate-bounce-short relative overflow-hidden cursor-pointer"
-      onclick={() => onOpenQuestMenu?.()}
-      onkeydown={(e) => e.key === "Enter" && onOpenQuestMenu?.()}
-    >
-      <div
-        class="absolute inset-0 bg-amber-200 opacity-25 pulse-bg pointer-events-none"
-      ></div>
-
-      <div class="flex justify-between items-center mb-1">
-        <h4 class="font-bold text-amber-900 text-sm uppercase tracking-wide">
-          Quest Completed
-        </h4>
-        <button
-          type="button"
-          class="toggle-btn"
-          onclick={(e) => toggleExpand(key, e, isExpanded)}
-        >
-          {isExpanded ? "▲" : "▼"}
-        </button>
-      </div>
-
-      <p class="text-sm text-slate-800 font-bold mb-2 font-mono">
-        {data.title}
-      </p>
-
-      {#if isExpanded}
-        <p
-          class="text-sm text-slate-700 mb-2 italic border-t border-amber-300 pt-1"
-        >
-          {data.description}
-        </p>
-      {/if}
-
-      <!-- Reward Badges -->
-      <div class="flex flex-wrap gap-1 mb-2">
-        {#if data.rewards?.exp}
-          <span
-            class="reward-badge bg-emerald-200 text-emerald-950 border border-emerald-500"
-            >+{data.rewards.exp} EXP</span
-          >
-        {/if}
-        {#if data.rewards?.coins}
-          <span
-            class="reward-badge bg-amber-200 text-amber-950 border border-amber-500"
-            >+{data.rewards.coins} Coins</span
-          >
-        {/if}
-        {#if data.rewards?.unlocks}
-          {#each data.rewards.unlocks as unlock}
-            <span
-              class="reward-badge bg-indigo-200 text-indigo-950 border border-indigo-500 font-mono"
-              >{unlock}</span
-            >
-          {/each}
-        {/if}
-      </div>
-
-      <button
-        type="button"
-        class="claim-btn"
-        onclick={(e) => {
-          e.stopPropagation();
-          claimQuest(key, e);
-        }}
-      >
-        Claim Reward
-      </button>
-    </div>
-  {/each}
-
-  <!-- Active Quests HUD -->
-  <div
-    role="button"
-    tabindex="0"
-    class="quests-panel focus-glow cursor-pointer"
-    onclick={() => onOpenQuestMenu?.()}
-    onkeydown={(e) => e.key === "Enter" && onOpenQuestMenu?.()}
-  >
-    <div
-      class="flex justify-between items-center border-b-2 border-emerald-600/40 pb-1.5 mb-2"
-    >
-      <div>
-        <h3
-          class="text-sm font-black uppercase text-emerald-900 tracking-wider"
-        >
-          Active Quests
-        </h3>
-        <p class="text-sm text-emerald-700 font-medium">Primary Goal Focus</p>
-      </div>
-      <span
-        class="text-sm text-slate-500 font-semibold bg-white/80 px-2 py-0.5 rounded border border-slate-300"
-        >View All</span
-      >
-    </div>
-
-    <div class="flex flex-col gap-3">
-      {#each getActiveQuests() as [key, data], index}
-        {@const state = QUEST_STATE[key]}
-        {@const isExpanded = expanded[key] ?? index === 0}
-        <div
-          class="text-sm flex flex-col gap-1.5 border-b-2 border-slate-200 pb-2 last:border-0 last:pb-0"
-        >
-          <div class="flex justify-between items-center">
-            <span class="font-bold text-slate-900 flex-1 font-mono text-sm"
-              >{data.title}</span
-            >
-            <div class="flex items-center gap-1">
-              <span class="text-[11px] text-emerald-800 font-black"
-                >{state ? state.progress : 0}/{data.goal}</span
-              >
-              <button
-                type="button"
-                class="toggle-btn"
-                onclick={(e) => toggleExpand(key, e, isExpanded)}
-              >
-                {isExpanded ? "▲" : "▼"}
-              </button>
-            </div>
-          </div>
-
-          {#if isExpanded}
-            <p class="text-sm text-slate-600 leading-snug">
-              {data.description}
-            </p>
-            {#if data.tip}
-              <div
-                class="bg-amber-100/90 border-2 border-amber-400 rounded-lg p-2 text-sm text-amber-950 my-0.5 flex flex-col gap-0.5"
-              >
-                <span class="font-bold text-sm uppercase text-amber-800"
-                  >Tip</span
-                >
-                <span class="leading-tight">{data.tip}</span>
-              </div>
-            {/if}
-            <div class="flex flex-wrap gap-1 mt-0.5 text-sm">
-              {#if data.rewards?.exp}
-                <span
-                  class="reward-badge bg-emerald-200 text-emerald-950 border border-emerald-400 mb-1"
-                  >+{data.rewards.exp} EXP</span
-                >
-              {/if}
-              {#if data.rewards?.coins}
-                <span
-                  class="reward-badge bg-amber-200 text-amber-950 border border-amber-400 mb-1"
-                  >+{data.rewards.coins} Coins</span
-                >
-              {/if}
-              {#if data.rewards?.unlocks}
-                <div class="w-full flex flex-wrap gap-1 items-center mt-1">
-                  <span class="font-bold text-sm text-slate-600 uppercase"
-                    >Unlocks</span
-                  >
-                  {#each data.rewards.unlocks as unlock}
-                    <span
-                      class="reward-badge bg-indigo-200 text-indigo-950 border border-indigo-400 font-mono text-sm mb-1"
-                      >{unlock}</span
-                    >
-                  {/each}
-                </div>
-              {/if}
-            </div>
-          {/if}
-
-          <!-- Progress Bar -->
-          <div
-            class="w-full bg-slate-300 rounded-full h-2 overflow-hidden border border-slate-400/50"
-          >
-            <div
-              class="bg-gradient-to-r from-emerald-500 to-green-400 h-2 rounded-full transition-all duration-300"
-              style="width: {state
-                ? Math.min((state.progress / data.goal) * 100, 100)
-                : 0}%"
-            ></div>
-          </div>
-        </div>
-      {:else}
-        <p class="text-sm text-slate-500 italic text-center py-2">
-          No active quests.
-        </p>
-      {/each}
-    </div>
-
-    <!-- Open Block Command Editor Button -->
-    <button
-      type="button"
-      class="editor-btn mt-2"
-      onclick={(e) => {
-        e.stopPropagation();
-        onOpenBlockEditor?.();
-      }}
-    >
-      Open Block Command Editor
-    </button>
+<aside aria-label="Current mission" class="mission">
+  <div class="heading"><img src="/sprites/icon_quest.png" alt="" /><span>{TUTORIAL.active ? "PRACTICE" : "YOUR NEXT MISSION"}</span><button onclick={onOpenQuestMenu}>Mission path</button></div>
+  <div class="mission-stage">
+  {#each [key] as missionKey (missionKey)}
+  {@const mission = QUEST_DATA[missionKey]}
+  <div class="mission-content" in:fly|global={{y:45,duration:650,delay:450,easing:cubicOut}} out:fly|global={{y:-40,duration:450,easing:cubicIn}}>
+  {#if awaitingClaim}
+    <h2>{QUEST_DATA[awaitingClaim].title}</h2><p>Complete! Collect your reward to continue.</p>
+    <button class="primary" onclick={() => claimQuest(awaitingClaim)}>Collect reward</button>
+  {:else if mission}
+    <h2>{mission.title}</h2>
+    <p aria-live="polite">{getInstruction(missionKey)}</p>
+    <progress value={QUEST_STATE[missionKey]?.progress || 0} max={mission.goal}></progress>
+    <p class="count">{QUEST_STATE[missionKey]?.progress || 0} / {mission.goal} done</p>
+    {#if mission.optional}<button onclick={() => chooseQuest()}>Return to main path</button>{/if}
+    {#if mission.setup}
+      <p class="hint">{setupMessage || "Prepare practice tiles for this lesson."}</p>
+      <button disabled={robots_state.some(state => state.is_running) || robots.some(robot => !robot.is_available)}
+        onclick={() => setupLesson(true)}>Reset lesson tiles</button>
+      <p class="count">Replaces crops on {lessonTiles(missionKey, CONFIG.FARM).length} practice tiles. Keeps your program.</p>
+    {/if}
+    <button class="primary" onclick={onOpenEditor}>Open {editorMode === "text" ? "code" : "blocks"}</button>
+    <button class="show-step" class:offered onclick={showHint}>Need help?</button>
+    {#if offered && hintLevel === 0}<p class="hint">Stuck? That's normal here. Want a small hint?</p>{/if}
+    {#if hintExample}
+      {#if hintExample.diagnostic}<p class="hint" role="status">{hintExample.diagnostic}</p>{/if}
+      <p class="hint">{hintExample.message}</p>
+      {#if editorMode === "blocks" && hintExample.block}{#key key + guideRevision}<BlockPlacementGuide mission={key} example={hintExample}/>{/key}
+      {:else if editorMode === "text"}<pre class="hint code-hint"><code>{#each hintExample.code.split("\n") as line, i}<span class:change-line={i + 1 === hintExample.changeLine}>{line}{"\n"}</span>{/each}</code></pre>{/if}
+      {#if hintExample.why}<p>{hintExample.why}</p>{/if}
+    {/if}
+    {#if key === "tut_2" && needsSeed}<button onclick={() => { if (INVENTORY.crops.wheat < 1) INVENTORY.changeCrops("wheat", 1); }}>Replace a used practice seed</button>{/if}
+  {:else}<h2>All missions complete</h2><p>Keep experimenting with your farm programs.</p>{/if}
   </div>
-</div>
-
+  {/each}
+  </div>
+</aside>
 <style>
-  .quests-panel {
-    background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
-    border: 3px solid #10b981;
-    border-radius: 0.85rem;
-    padding: 0.85rem;
-    box-shadow:
-      0 10px 25px -5px rgba(16, 185, 129, 0.25),
-      0 8px 10px -6px rgba(0, 0, 0, 0.1);
-    color: #1e293b;
-    transition:
-      transform 0.2s,
-      box-shadow 0.2s;
-  }
-
-  .focus-glow {
-    animation: eye-catch-pulse 2.5s infinite ease-in-out;
-  }
-
-  @keyframes eye-catch-pulse {
-    0%,
-    100% {
-      box-shadow:
-        0 0 0 0 rgba(16, 185, 129, 0.6),
-        0 10px 25px -5px rgba(16, 185, 129, 0.25);
-    }
-    50% {
-      box-shadow:
-        0 0 0 8px rgba(16, 185, 129, 0),
-        0 12px 30px -3px rgba(16, 185, 129, 0.45);
-    }
-  }
-
-  .completed-card {
-    background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
-    border: 3px solid #ca8a04;
-    border-radius: 0.85rem;
-    padding: 0.85rem;
-    box-shadow: 0 10px 20px -3px rgba(202, 138, 4, 0.3);
-    color: #1e293b;
-  }
-
-  .reward-badge {
-    padding: 2px 7px;
-    border-radius: 0.375rem;
-    font-weight: 800;
-    font-size: 10px;
-  }
-
-  .claim-btn {
-    width: 100%;
-    background-color: #16a34a;
-    color: white;
-    font-weight: 800;
-    padding: 6px 10px;
-    border-radius: 0.5rem;
-    font-size: 0.75rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-    cursor: pointer;
-    transition: background-color 0.15s;
-    border: none;
-    text-transform: uppercase;
-    letter-spacing: 0.025em;
-  }
-  .claim-btn:hover {
-    background-color: #15803d;
-  }
-
-  .editor-btn {
-    width: 100%;
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-    color: white;
-    font-weight: 800;
-    padding: 5px 8px;
-    border-radius: 0.5rem;
-    font-size: 0.7rem;
-    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
-    cursor: pointer;
-    transition: all 0.15s ease-in-out;
-    border: none;
-    text-align: center;
-  }
-  .editor-btn:hover {
-    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-    transform: translateY(-1px);
-  }
-
-  .toggle-btn {
-    color: #475569;
-    font-size: 10px;
-    padding: 0 4px;
-    font-weight: 800;
-    background: none;
-    border: none;
-    cursor: pointer;
-    transition: color 0.15s;
-  }
-  .toggle-btn:hover {
-    color: #0f172a;
-  }
-
-  @keyframes bounce-short {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-4px);
-    }
-  }
-  .animate-bounce-short {
-    animation: bounce-short 0.6s ease-in-out;
-  }
-
-  @keyframes pulse {
-    0% {
-      opacity: 0.15;
-    }
-    50% {
-      opacity: 0.35;
-    }
-    100% {
-      opacity: 0.15;
-    }
-  }
-  .pulse-bg {
-    animation: pulse 2s infinite;
-  }
+  .change-line{background:#fef3c7;color:#713f12}button:disabled{opacity:.65;cursor:default}
+  .code-hint{white-space:pre-wrap;overflow-wrap:anywhere;font-family:"Courier Prime",monospace;font-size:15px;text-align:left}
+  .show-step{background:#fef3c7;border:2px solid #a16207;font-weight:800}.show-step.offered{animation:hint-pulse 1s ease-in-out 3}@keyframes hint-pulse{50%{transform:scale(1.04);box-shadow:0 0 0 4px #fde68a}}
+  @media(prefers-reduced-motion:reduce){.show-step.offered{animation:none}}
+  .mission{box-sizing:border-box;width:100%;background:#f3f4f6;color:#334155;border:4px solid #64748b;border-radius:12px;box-shadow:0 6px 14px #0003;overflow:hidden}
+  .heading{display:flex;align-items:center;gap:7px;padding:9px 10px;background:#dcfce7;border-bottom:2px solid #94a3b8}.heading img{width:28px;height:28px;object-fit:contain;image-rendering:pixelated}.heading span{font-size:13px;font-weight:800;flex:1;letter-spacing:.04em}.heading button{font-size:13px;background:#e5e7eb;white-space:nowrap}
+  .mission-stage{display:grid;overflow:hidden}.mission-content{grid-area:1/1;padding:12px}h2{font-size:19px;line-height:1.2;font-weight:800;margin:0 0 10px}p{font-size:13px;line-height:1.45;margin:8px 0}button{font-size:14px;padding:7px 8px;border:1px solid #94a3b8;border-radius:6px;cursor:pointer;background:#e5e7eb;color:#334155;margin:3px 3px 3px 0;transition:background .15s,transform .15s}button:hover{background:#d1d5db;transform:translateY(-1px)}.primary{background:#bbf7d0;font-weight:bold}.primary:hover{background:#86efac}progress{width:100%;accent-color:#22c55e;height:14px}.count{font-size:13px;color:#475569}.hint{background:#fff;border:2px solid #cbd5e1;padding:9px;border-radius:7px}button:focus-visible{outline:3px solid #16a34a;outline-offset:2px}
+  @media(prefers-reduced-motion:reduce){.mission-content{animation:none!important}button{transition:none}}
 </style>

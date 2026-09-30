@@ -1,0 +1,190 @@
+{
+  "model_id": "first-task-lstm-bf8a374a4b03-seed-42-epochs-1",
+  "status": "provisional",
+  "deployment_ready": false,
+  "deployment_intent": "Explicitly requested experimental replacement; not validated for reliable proficiency assessment.",
+  "target": "independent_scored_task",
+  "task_id": "first-harvest-v1",
+  "rubric_version": "first-harvest-1.0",
+  "feature_schema": "recent-12f-v1",
+  "input_shape": [
+    20,
+    12
+  ],
+  "output": "Predicted first-harvest task score / maximum, not general programming proficiency",
+  "dataset_sha256": "bf8a374a4b03041a005fe75b7f3f51055652701cfa0b19439d223fd9d4a2ed6e",
+  "pilot_report_sha256": "391b01f0a62f97169ee4a2d3b49834112664bf16e86a282a8a7417494e25bb68",
+  "training_samples": 5,
+  "training_participants": 5,
+  "seed": 42,
+  "epochs": 1,
+  "epoch_selection": "Median validation-selected LSTM epoch across pilot folds; no selection by test performance",
+  "training_loss": [
+    0.12170952558517456
+  ],
+  "reload_max_absolute_error": 0,
+  "files": {
+    "model.json": "2ce4b9b54b235330be9e84c4468622050e8a253794692822db0dea0af72ebf90",
+    "weights.bin": "7983f5ba3d300e90ade298194010f1bc62aedf1550d9284f4da7db49eae98497",
+    "scaler_params.json": "a2d59bfce563db445beba750ddc914e8632ce586dac6f1a039d2da2eae987273"
+  },
+  "tensorflowjs": "4.22.0",
+  "node": "v24.19.0",
+  "backend": "cpu",
+  "final_refit_independently_evaluated": false,
+  "pilot_cross_validation": {
+    "mean": {
+      "n": 5,
+      "rmse": 0.32960882164869615,
+      "mae": 0.3111111111111111,
+      "r2": -0.2222222222222221,
+      "participant_macro_rmse": 0.3111111111111111,
+      "accuracy": 0.4,
+      "confusion_matrix": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          2
+        ],
+        [
+          0,
+          1,
+          2
+        ]
+      ],
+      "per_class": [
+        {
+          "support": 0,
+          "precision": null,
+          "recall": null,
+          "f1": null
+        },
+        {
+          "support": 2,
+          "precision": 0,
+          "recall": 0,
+          "f1": 0
+        },
+        {
+          "support": 3,
+          "precision": 0.5,
+          "recall": 0.6666666666666666,
+          "f1": 0.5714285714285714
+        }
+      ],
+      "macro_f1": 0.19047619047619047,
+      "missing_reference_classes": [
+        0
+      ]
+    },
+    "lstm": {
+      "n": 5,
+      "rmse": 0.3899193214113657,
+      "mae": 0.3548183381557465,
+      "r2": -0.7104171186113741,
+      "participant_macro_rmse": 0.3548183381557465,
+      "accuracy": 0.2,
+      "confusion_matrix": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          3,
+          0
+        ]
+      ],
+      "per_class": [
+        {
+          "support": 0,
+          "precision": null,
+          "recall": null,
+          "f1": null
+        },
+        {
+          "support": 2,
+          "precision": 0.25,
+          "recall": 0.5,
+          "f1": 0.3333333333333333
+        },
+        {
+          "support": 3,
+          "precision": 0,
+          "recall": 0,
+          "f1": 0
+        }
+      ],
+      "macro_f1": 0.1111111111111111,
+      "missing_reference_classes": [
+        0
+      ]
+    },
+    "mlp": {
+      "n": 5,
+      "rmse": 0.33671484329790746,
+      "mae": 0.28797858556111655,
+      "r2": -0.2754899640927615,
+      "participant_macro_rmse": 0.28797858556111655,
+      "accuracy": 0.6,
+      "confusion_matrix": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          0
+        ],
+        [
+          0,
+          2,
+          1
+        ]
+      ],
+      "per_class": [
+        {
+          "support": 0,
+          "precision": null,
+          "recall": null,
+          "f1": null
+        },
+        {
+          "support": 2,
+          "precision": 0.5,
+          "recall": 1,
+          "f1": 0.6666666666666666
+        },
+        {
+          "support": 3,
+          "precision": 1,
+          "recall": 0.3333333333333333,
+          "f1": 0.5
+        }
+      ],
+      "macro_f1": 0.38888888888888884,
+      "missing_reference_classes": [
+        0
+      ]
+    }
+  },
+  "limitations": [
+    "Exploratory cross-validation, not an untouched final test set.",
+    "Tiny cohorts and single-participant validation give unstable estimates.",
+    "Missing score categories cannot establish performance on those categories.",
+    "Task-score prediction does not establish learning improvement or DDA effectiveness."
+  ]
+}

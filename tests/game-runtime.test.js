@@ -1,0 +1,256 @@
+import { activeQuest, movementQuest, createMovementTracker, INTRO_QUESTS } from "../src/game/global/tutorial.js";
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import vm from "node:vm";
+import { createCodeRunner } from "../src/game/global/code-runner.js";
+import { createCommandAPI } from "../src/game/global/command-api.js";
+import { createInterpreterInit } from "../src/game/global/interpreter-bindings.js";
+import { isPurchaseAmount, expansionTiles, waterRainTiles } from "../src/game/global/farm-rules.js";
+import { SoilStates, CropStates } from "../src/game/global/enum.js";
+import { preferences } from "../src/game/utils/preferences.js";
+import { PROGRAM_QUESTS } from "../src/game/global/quest-program.js";
+
+const context = vm.createContext({ console, setTimeout, clearTimeout });
+vm.runInContext(fs.readFileSync(new URL("../public/js-interpreter.js", import.meta.url), "utf8"), context);
+const InterpreterClass = context.Interpreter;
+
+function harness(code, init = () => {}) {
+  const records = { runs: [], resets: 0, errors: [], branches: [], loops: [], cancelled: 0, quests: [] };
+  const telemetry = {
+    errorCount: 0,
+    recordCodeRun(success) { records.runs.push(success); },
+    recordCodeReset() { records.resets++; },
+    recordError(message) { this.errorCount++; records.errors.push(message); },
+    recordIfCondition(value) { records.branches.push(value); },
+    recordLoopExecution(type) { records.loops.push(type); },
+  };
+  const states = [{ robot: { is_available: true, sayText() {} }, onQuestEvent(key) { records.quests.push(key); } }];
+  const runner = createCodeRunner({ states, InterpreterClass, telemetry, prepare: () => code, init: () => init, schedule: () => 1, unschedule: () => records.cancelled++ });
+  function complete() {
+    for (let n = 0; states[0].interpreter && n < 110000; n++) runner.step(0);
+    assert.equal(states[0].interpreter, null, "run must terminate within its step limit");
+  }
+  return { runner, states, records, complete };
+}
+
+test("movement credit identifies an executed loop and the executing block, not an empty loop", () => {
+  const moves = [];
+  const robot = { grid_x: 0, grid_y: 0, botJump(x, y, cb) { this.grid_x = x; this.grid_y = y; cb(true); } };
+  const api = createCommandAPI({ robot, onQuestEvent(key, amount, context) { if (key === "tut_1") moves.push(context); } });
+  const h = harness('for(var i=0;i<2;i++){} highlightBlock("outside"); bot.right(); for(var j=0;j<2;j++){ highlightBlock("inside"); bot.down(); }', createInterpreterInit(api));
+  h.states[0].robot = robot;
+  h.runner.start(0); h.complete();
+  assert.deepEqual(moves.map(({ direction, runId, fromX, fromY, ...move }) => move), [
+    { inLoop: false, blockId: "outside", x: 1, y: 0 },
+    { inLoop: true, blockId: "inside", x: 1, y: 1 },
+    { inLoop: true, blockId: "inside", x: 1, y: 2 },
+  ]);
+  assert.deepEqual(moves.map(move => move.direction), ["right", "down", "down"]);
+  assert.ok(moves.every(move => move.runId === h.states[0].researchRunId));
+  assert.equal(robot.executingLoop, false);
+});
+
+test("normal completion is one success, not a reset, and releases its interval", () => {
+  const h = harness("var a = 1 + 2;");
+  h.runner.start(0);
+  assert.deepEqual(h.records.runs, [], "Start does not assume success");
+  h.complete();
+  assert.deepEqual(h.records.runs, [true]);
+  assert.equal(h.records.resets, 0);
+  assert.equal(h.records.cancelled, 1);
+});
+
+test("syntax and runtime errors are visible failures with no uncaught exception", () => {
+  for (const source of ["var = ;", "missingFunction();"]) {
+    const h = harness(source);
+    h.runner.start(0);
+    h.complete();
+    assert.equal(h.records.errors.length, 1);
+    assert.deepEqual(h.records.runs, [false]);
+    assert.equal(h.records.resets, 0);
+  }
+});
+
+test("condition telemetry records real true/false results once per evaluation", () => {
+  const h = harness("var x = 0; if (false) x = 1; else x = 2; if (true) x = 3; if (false) x = 4;");
+  h.runner.start(0); h.complete();
+  assert.deepEqual(h.records.branches, [false, true, false]);
+  assert.equal(h.records.quests.filter(key => key === "cs_if_0").length, 0);
+});
+
+test("planting mission requires a successful plant on the tile checked empty in an if condition", () => {
+  const cases = [
+    ['if (!bot.is_planted()) { bot.till(); bot.plant("wheat"); }', false, true, 1],
+    ['if (bot.is_planted()) {} else { bot.till(); bot.plant("wheat"); }', false, true, 1],
+    ['if (!bot.is_planted()) { bot.plant("wheat"); }', true, true, 0],
+    ['if (!bot.is_planted()) { bot.plant("wheat"); }', false, false, 0],
+    ['bot.is_planted(); bot.plant("wheat");', false, true, 0],
+    ['if (true) { bot.is_planted(); bot.plant("wheat"); }', false, true, 0],
+    ['if (!bot.is_planted()) { bot.right(); bot.plant("wheat"); }', false, true, 0],
+    ['if (!bot.is_planted()) {} bot.plant("wheat");', false, true, 0],
+  ];
+  for (const [code, planted, success, expected] of cases) {
+    const awards = [];
+    const robot = { grid_x:0, grid_y:0, sayText() {}, checkPlanted: cb => cb(planted),
+      botTill: cb => cb(true), botPlant: (_type, cb) => cb(success),
+      botJump(x, y, cb) { this.grid_x=x; this.grid_y=y; cb(true); } };
+    const api = createCommandAPI({ robot, onQuestEvent:key => awards.push(key) });
+    const h = harness(code, createInterpreterInit(api)); h.states[0].robot = robot;
+    h.runner.start(0); h.complete();
+    assert.equal(awards.filter(key => key === "cs_if_0").length, expected, code);
+  }
+});
+
+test("loop telemetry counts executed iterations, including zero-iteration and nested branches", () => {
+  const h = harness("for (var i = 0; i < 3; i++) { if (i === 1) continue; } for (var j = 0; j < 0; j++) {} while (j < 2) j++; do { j++; } while (false);");
+  h.runner.start(0); h.complete();
+  assert.deepEqual(h.records.loops, ["for", "for", "for", "while", "while", "while"]);
+  assert.deepEqual(h.records.branches, [false, true, false]);
+});
+
+test("async actions yield until their callback and do not recurse or finish early", () => {
+  let resume;
+  const h = harness("wait(); var done = true;", (interpreter, globalObject) => {
+    interpreter.setProperty(globalObject, "wait", interpreter.createAsyncFunction((callback) => { resume = callback; }));
+  });
+  h.runner.start(0);
+  while (!resume) h.runner.step(0);
+  for (let n = 0; n < 20; n++) h.runner.step(0);
+  assert.deepEqual(h.records.runs, []);
+  assert.equal(h.states[0].is_running, true);
+  resume(); h.complete();
+  assert.deepEqual(h.records.runs, [true]);
+});
+
+test("Stop does not construct a second run; explicit Reset alone increments reset telemetry", () => {
+  const h = harness("var a = 2;");
+  h.runner.start(0); h.runner.start(0);
+  assert.deepEqual(h.records.runs, [false]);
+  assert.equal(h.records.resets, 0);
+  h.runner.reset(0);
+  assert.equal(h.records.resets, 1);
+  assert.deepEqual(h.records.runs, [false]);
+});
+
+test("one robot's rejected action cannot mark another robot's clean run as failed", () => {
+  const results = [];
+  const states = [0, 1].map(() => ({ robot: { is_available: true, executionErrorCount: 0, sayText() {} } }));
+  const telemetry = {
+    errorCount: 0,
+    recordCodeRun(value) { results.push(value); },
+    recordError() { this.errorCount++; },
+    recordCodeReset() {}, recordIfCondition() {}, recordLoopExecution() {},
+  };
+  const runner = createCodeRunner({ states, InterpreterClass, telemetry,
+    prepare: index => index === 0 ? "var clean = 1;" : "rejectAction();",
+    init: index => (interpreter, globalObject) => {
+      interpreter.setProperty(globalObject, "rejectAction", interpreter.createNativeFunction(() => {
+        states[index].robot.executionErrorCount++;
+        telemetry.recordError();
+      }));
+    }, schedule: () => 1, unschedule() {},
+  });
+  runner.start(0); runner.start(1);
+  while (states[1].interpreter) runner.step(1);
+  while (states[0].interpreter) runner.step(0);
+  assert.deepEqual(results, [false, true]);
+});
+
+test("pure infinite loops fail within the budget and leave the editor stoppable", () => {
+  const h = harness("while (true) {}");
+  h.runner.start(0); h.complete();
+  assert.deepEqual(h.records.runs, [false]);
+  assert.match(h.records.errors[0], /loop condition/);
+  assert.equal(h.states[0].is_running, false);
+});
+
+test("purchases reject negative, fractional, nonnumeric and unsafe quantities", () => {
+  for (const value of [-1, 0, 0.5, NaN, Infinity, "2", Number.MAX_SAFE_INTEGER + 1]) assert.equal(isPurchaseAmount(value), false);
+  assert.equal(isPurchaseAmount(2), true);
+});
+
+test("buying multiple rows or columns creates every new grid position", () => {
+  assert.deepEqual(expansionTiles(2, 2, "row", 2), [{ x: 0, y: 2 }, { x: 1, y: 2 }, { x: 0, y: 3 }, { x: 1, y: 3 }]);
+  assert.deepEqual(expansionTiles(2, 2, "column", 2), [{ x: 2, y: 0 }, { x: 2, y: 1 }, { x: 3, y: 0 }, { x: 3, y: 1 }]);
+});
+
+test("rain waters prepared growing tiles without watering untilled or dead crops", () => {
+  const tile = (state, cropState) => ({ soil: { soil_state: state, setSoilState(next) { this.soil_state = next; } }, crop: cropState ? { crop_state: cropState } : null });
+  const farm = new Map([
+    ["0", tile(SoilStates.READY)],
+    ["1", tile(SoilStates.READY, CropStates.YOUNG)],
+    ["2", tile(SoilStates.INITIAL)],
+    ["3", tile(SoilStates.READY, CropStates.DEAD)],
+    ["4", tile(SoilStates.READY, CropStates.HARVESTABLE)],
+  ]);
+  assert.equal(waterRainTiles(farm), 2);
+  assert.equal(farm.get("1").soil.soil_state, SoilStates.WATERED);
+  assert.equal(farm.get("2").soil.soil_state, SoilStates.INITIAL);
+  assert.equal(farm.get("3").soil.soil_state, SoilStates.READY);
+  assert.equal(waterRainTiles(farm), 0);
+});
+
+test("documented inventory and pest checks work in the actual interpreter bindings", () => {
+  const output = [];
+  const checks = [];
+  const robot = { sayText(value) { output.push(value); }, isBug(cb) { checks.push("bug"); cb(true); } };
+  const api = createCommandAPI({ robot, inventory: { crops: { wheat: 5 }, coins: 50 } });
+  const interpreter = new InterpreterClass('bot.say(inventory.seed("wheat")); bot.say(inventory.coin()); bot.say(inventory.seeds("wheat")); bot.say(bot.is_bug()); console.log("ready");', createInterpreterInit(api));
+  while (interpreter.step()) { /* all fixture callbacks complete synchronously */ }
+  assert.deepEqual(output, [5, 50, 5, true, "ready"]);
+  assert.deepEqual(checks, ["bug"]);
+});
+
+test("farming tutorial cannot be completed by repeating the same action", () => {
+  const completions = [];
+  const questContext = vm.createContext({
+    $state: value => value, activeQuest, movementQuest, createMovementTracker, INTRO_QUESTS, PROGRAM_QUESTS, tutorialPolicy: { protected: false },
+    AvatarTypes: { FARMER: "farmer" }, ModalTypes: {},
+    QUEST_DATA: { tut_2: { goal: 4, prereq: [] } },
+    PLAYER_DATA: {}, INVENTORY: {}, DOCUMENT_DATA: {}, SHOP_DATA: {}, CROP_DATA: {},
+    CS1_STAGES: { SEQUENTIAL: 1, CONDITIONAL: 2, LOOPING: 3 },
+    telemetry: { currentStage: 1, setStage() {}, recordQuestStart() {}, recordQuestComplete(key) { completions.push(key); return true; } },
+    mlAgent: { updateAndPredict: async () => {}, addQuestCompletionReward() {} },
+  });
+  const source = fs.readFileSync(new URL("../src/components/global.svelte.js", import.meta.url), "utf8")
+    .replace(/^import .*;\r?\n/gm, "").replaceAll("export ", "");
+  vm.runInContext(source, questContext);
+  for (let n = 0; n < 5; n++) questContext.trackQuest("tut_2", 1, "till");
+  assert.deepEqual(completions, []);
+  for (const action of ["plant", "water", "harvest"]) questContext.trackQuest("tut_2", 1, action);
+  assert.deepEqual(completions, ["tut_2"]);
+  questContext.trackQuest("tut_2", 1, "harvest");
+  assert.deepEqual(completions, ["tut_2"]);
+});
+
+test("every main-farm tip is deferred behind blocking scenes without consuming its first appearance",()=>{
+  const source=fs.readFileSync(new URL('../src/components/global.svelte.js',import.meta.url),'utf8');
+  const tipSource=source.slice(source.indexOf('export const DID_YOU_KNOW_TIPS'),source.indexOf('export const EVENT_BANNER_STATE')).replaceAll('export ','');
+  const context=vm.createContext({$state:value=>value,TUTORIAL:{active:false},ONBOARDING:{isModalOpen:true}});
+  vm.runInContext(tipSource+'\nglobalThis.tips=DID_YOU_KNOW_TIPS;globalThis.state=DID_YOU_KNOW_STATE;',context);
+  for(const id of Object.keys(context.tips)){
+    context.ONBOARDING.isModalOpen=true;
+    context.triggerDidYouKnow(id);
+    assert.equal(context.state.activeTip,null,id);
+    assert.equal(context.state.shown[id],undefined,id);
+    context.ONBOARDING.isModalOpen=false;
+    context.triggerDidYouKnow(id);
+    assert.equal(context.state.activeTip,context.tips[id],id);
+    assert.equal(context.state.shown[id],true,id);
+    context.state.activeTip=null;
+  }
+});
+
+test("optional preferences tolerate inaccessible browser storage", () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, get() { throw new Error("Storage blocked"); } });
+  try {
+    assert.equal(preferences.getItem("setting"), null);
+    assert.equal(preferences.setItem("setting", "value"), false);
+    assert.equal(preferences.removeItem("setting"), false);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, "localStorage", descriptor);
+    else delete globalThis.localStorage;
+  }
+});

@@ -1,0 +1,725 @@
+import assert from "node:assert/strict";
+import { test, beforeEach } from "node:test";
+import { registerHooks } from "node:module";
+import * as tf from "@tensorflow/tfjs";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { execFileSync } from "node:child_process";
+import { startCollection } from "../src/game/ml/collection.js";
+import { CHALLENGES, challengeRules, challengeMaxScore } from "../src/game/challenges/catalog.js";
+import { openChallenge, submitChallenge, interruptChallenge } from "../src/game/challenges/records.js";
+import { challengeSamples } from "../src/game/ml/challenge-quality.js";
+import { makePlan } from "../scripts/training-core.js";
+
+globalThis.__mlTestFarm = new Map();
+globalThis.__mlTestRainApplied = false;
+const hook = registerHooks({
+  load(url, context, nextLoad) {
+    if (url.endsWith("/src/lib/kaplay.js")) return { format: "module", source: "export const k = {};", shortCircuit: true };
+    if (url.endsWith("/src/game/game.js")) return { format: "module", source: "export const farm_grid_index = globalThis.__mlTestFarm;", shortCircuit: true };
+    if (url.endsWith("/src/game/event.js")) return {
+      format: "module", shortCircuit: true,
+      source: "export const spawnBugEvent = () => ({type:'bug'}); export const spawnRainEvent = () => ({type:'rain',applied:globalThis.__mlTestRainApplied}); export const spawnFireEvent = () => ({applied:false}); export const canStartFireEvent = () => false;",
+    };
+    return nextLoad(url, context);
+  },
+});
+const { TelemetryTracker, telemetry } = await import("../src/game/ml/telemetry.js");
+const { MLDiffAgent, mlAgent } = await import("../src/game/ml/agent.js");
+const { DataLogger, normalizeStoredSession } = await import("../src/game/ml/data-logger.js");
+const { FEATURE_NAMES, normalizeSequence } = await import("../src/game/ml/model-input.js");
+const { dda, DDA_ACTIONS } = await import("../src/game/ml/dda.js");
+const { recentPolicyState, StableDifficultyPolicy } = await import("../src/game/ml/recent-policy.js");
+const { EventScheduler } = await import("../src/game/ml/event-scheduler.js");
+const { CropStates } = await import("../src/game/global/enum.js");
+const { CONFIG, CROP_DATA } = await import("../src/game/global/global.js");
+hook.deregister();
+
+const scaler = { feature_min: Array(10).fill(0), feature_range: [1, 0.05, 1, 0.6, 1, 1, 0.3, 1, 1, 1], feature_names: FEATURE_NAMES };
+const approvedPolicy = { deployment_ready: true, observed_action_counts: { 0: 3, 1: 3, 2: 3, 3: 3, 4: 3 } };
+function fakeModel(input, output, values) {
+  return {
+    inputs: [{ shape: [null, ...input] }], outputs: [{ shape: [null, output] }],
+    predict: () => tf.tensor2d([values], [1, output]), dispose() {},
+  };
+}
+function makeAgent({ proficiency = 0.2, policy = approvedPolicy, modelOverrides = {}, scalerValue = scaler } = {}) {
+  const lstm = fakeModel([20, 10], 1, [proficiency]);
+  const dqn = fakeModel([4], 5, [0, 1, 3, 2, 0]);
+  Object.assign(lstm, modelOverrides.lstm);
+  Object.assign(dqn, modelOverrides.dqn);
+  const agent = new MLDiffAgent({
+    loadModel: async path => path.includes("lstm") ? lstm : dqn,
+    loadScaler: async () => scalerValue,
+    loadPolicyMetadata: async () => policy,
+  });
+  return { agent, lstm, dqn };
+}
+
+beforeEach(() => {
+  const saved = new Map();
+  globalThis.localStorage = {
+    getItem: key => saved.get(key) ?? null,
+    setItem: (key, value) => saved.set(key, String(value)),
+    removeItem: key => saved.delete(key),
+  };
+  telemetry.resetSession();
+  mlAgent.replayBuffer = [];
+  mlAgent.resetSession();
+  __mlTestFarm.clear();
+  globalThis.__mlTestRainApplied = false;
+});
+
+test("upload keeps the captured identity when telemetry resets during sealing", async () => {
+  const logger = new DataLogger();
+  telemetry.setParticipantId("upload-before");
+  const originalId = telemetry.sessionId;
+  let sent;
+  const pending = logger.uploadAllSessionsJSON({ config: { url: "https://fixture.test/upload", token: "fixture" },
+    fetchImpl: async (_url, init) => {
+      const json = await new Response(new Blob([init.body]).stream().pipeThrough(new DecompressionStream("gzip"))).json();
+      sent = { headers: init.headers, json };
+      return Response.json({ ok: true, key: "fixture-key" });
+    } });
+  telemetry.resetSession();
+  telemetry.setParticipantId("upload-after");
+  await pending;
+  assert.equal(sent.headers["X-Participant"], "upload-before");
+  assert.equal(sent.headers["X-Session"], originalId);
+  assert.equal(sent.json.sessions[0].session_id, originalId);
+  assert.equal(sent.json.sessions[0].student_id, "upload-before");
+});
+
+test("recording, autosave, canonical download and preparation CLI preserve six fixture participants",async()=>{
+  // These fabricated sessions test transport and validation, not model accuracy.
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'algobot-roundtrip-'));
+  const originalNow=Date.now;
+  let clock=Date.parse('2026-09-25T00:00:00Z'),stop;
+  Date.now=()=>clock;
+  try {
+    const logger=new DataLogger(),task=CHALLENGES.find(t=>t.id==='careful-steps-v1');
+    for(let student=0;student<6;student++){
+      telemetry.resetSession();mlAgent.resetSession();
+      telemetry.setParticipantId(`fixture-participant-${student}`);
+      let tick,phase='gameplay';
+      const speed=[.3,.7,1,2,4][student%5];
+      stop=startCollection({tracker:telemetry,getContext:()=>({phase,game_speed:speed,robot_count:1}),schedule:fn=>{tick=fn;return 1;},cancel(){}});
+      for(let interval=0;interval<20;interval++){clock+=5000;telemetry.recordCodeEdit();tick();}
+      clock+=1000;
+      const attempt=openChallenge(telemetry,task,true);
+      assert.equal(attempt.input_window_ready,true);
+      phase='challenge';tick();
+      interruptChallenge(telemetry,attempt,'fixture stopped program','text');
+      assert.equal(attempt.status,'in_progress');
+      const keys=challengeRules(task).map(rule=>rule.key),points=[0,1,3][student%3];
+      const results=task.cases.map(()=>({checks:Object.fromEntries(keys.map((key,i)=>[key,i<points])),error:null,mistakes:0}));
+      clock+=10000;
+      submitChallenge(telemetry,attempt,{score:points*task.cases.length,max_score:challengeMaxScore(task),passed:points===3,results},'fixture program','text');
+      assert.equal(telemetry.collectionSnapshots.length,21);
+      const browserCheck=challengeSamples([logger.buildSessionExport()],task.id);
+      assert.equal(browserCheck.samples.length,1,JSON.stringify(browserCheck.excluded));
+      assert.equal(browserCheck.samples[0].x[0][1],12);
+      assert.equal(browserCheck.samples[0].x[0][12],speed);
+      assert.equal(browserCheck.samples[0].stopped_runs_before_score,1);
+      telemetry.endCollection();stop();stop=null;
+      assert.equal(logger.saveSessionLight(),true);
+      clock+=10000;
+    }
+    let exported;
+    logger._downloadFile=content=>{exported=JSON.parse(content);};
+    await logger.exportAllSessionsJSON();
+    assert.equal(exported.session_count,6);
+    assert.equal(exported.participant_count,6);
+    assert.equal(exported.integrity.sessions.length,6);
+    const raw=path.join(directory,'collection.json'),output=path.join(directory,'samples.json');
+    fs.writeFileSync(raw,JSON.stringify(exported));
+    execFileSync(process.execPath,['scripts/prepare-challenges.js',raw,output,task.id]);
+    const prepared=JSON.parse(fs.readFileSync(output));
+    assert.equal(prepared.samples.length,6,JSON.stringify(prepared.excluded));
+    assert.equal(prepared.excluded.length,0);
+    assert.deepEqual(prepared.samples.map(s=>s.y).sort(),[0,0,1/3,1/3,1,1].sort());
+    const plan=makePlan(prepared);
+    assert.equal(new Set(Object.values(plan.split).flat()).size,6);
+    assert.equal(plan.assessor_id,'algobot-live-cases-5.0');
+    assert.deepEqual(challengeSamples(exported.sessions,task.id).samples,prepared.samples);
+  } finally {stop?.();Date.now=originalNow;fs.rmSync(directory,{recursive:true,force:true});}
+});
+
+test("normalization matches training, validates order, and does not clip extrapolation", () => {
+  const sequence = Array.from({ length: 20 }, () => [0, 0.1, 0, 0.3, 0, 0, 0.6, 1, 0, 0]);
+  const normalized = normalizeSequence(sequence, scaler);
+  assert.equal(normalized[0][1], 2);
+  assert.equal(normalized[0][3], 0.5);
+  assert.equal(normalized[0][6], 2);
+  assert.throws(() => normalizeSequence(sequence, { ...scaler, feature_names: [...FEATURE_NAMES].reverse() }), /feature order/);
+  assert.throws(() => normalizeSequence(sequence, { ...scaler, feature_range: Array(10).fill(0) }), /positive/);
+});
+
+test("full timestamped feature history remains intact beyond the 20-frame inference window", () => {
+  const tracker = new TelemetryTracker();
+  for (let i = 0; i < 25; i++) {
+    if (i === 21) tracker.setStage(2);
+    tracker.recordInterpreterStep();
+    tracker.sampleHistory();
+  }
+  const snapshots = tracker.getFeatureSnapshots();
+  assert.equal(snapshots.length, 25);
+  assert.equal(tracker.getLSTMInputTensor().length, 20);
+  assert.equal(snapshots[0].stage, 1);
+  assert.equal(snapshots[24].stage, 2);
+  assert.ok(snapshots.every(snapshot => Number.isFinite(snapshot.timestamp_ms)));
+  snapshots[0].vector[0] = 99;
+  assert.notEqual(tracker.getFeatureSnapshots()[0].vector[0], 99);
+  assert.equal(tracker.getRawEvents().filter(event => event.event === "interpreter_step").length, 25);
+});
+
+test("quest attribution can return to an existing active quest and completion is idempotent", () => {
+  const tracker = new TelemetryTracker();
+  tracker.recordQuestStart("first");
+  tracker.setStage(2);
+  tracker.recordQuestStart("second");
+  tracker.recordQuestStart("first");
+  tracker.recordError("failure");
+  assert.equal(tracker.questAttempts.first.errors, 1);
+  assert.equal(tracker.questAttempts.second.errors, 0);
+  assert.equal(tracker.recordQuestComplete("first"), true);
+  assert.equal(tracker.recordQuestComplete("first"), false);
+  assert.equal(tracker.questAttempts.first.stage, 1);
+  assert.equal(tracker.questsCompleted, 1);
+  tracker.recordError("after completion");
+  assert.equal(tracker.questAttempts.first.errors, 1);
+});
+
+test("session saves preserve raw events and numeric zero labels without duplicate exports", () => {
+  const logger = new DataLogger();
+  telemetry.setParticipantId('student,"one"');
+  telemetry.recordQuestStart("quest");
+  telemetry.recordQuestComplete("quest");
+  telemetry.questAttempts.quest.proficiencyLabel = 0;
+  telemetry.sampleHistory();
+  assert.equal(logger.saveSessionLight(), true);
+  assert.equal(logger.saveSessionLight(), true);
+  const dataset = logger.buildDatasetExport();
+  assert.equal(dataset.session_count, 1);
+  assert.equal(dataset.sessions[0].quest_attempts[0].proficiency_label, 0);
+  assert.ok(dataset.sessions[0].raw_events.length > 0);
+  assert.equal(dataset.sessions[0].feature_timeseries.length, 1);
+  assert.match(logger.buildQuestCSV(), /"student,""one"""/);
+});
+
+test("legacy stored records keep known mode and explicitly mark missing raw data", () => {
+  const legacy = normalizeStoredSession({ summary: { sessionId: "old", participantId: "p1" }, agentState: { mode: "ml" },
+    questAttempts: { q: { proficiencyLabel: 0, completed: true } }, rawEventCount: 123 });
+  assert.equal(legacy.dda_mode, "ml");
+  assert.equal(legacy.quest_attempts[0].proficiency_label, 0);
+  assert.equal(legacy.data_quality.raw_events_available, false);
+  assert.equal(legacy.data_quality.recorded_raw_event_count, 123);
+  assert.equal(normalizeStoredSession({ summary: {} }).dda_mode, "unknown");
+});
+
+test("collection exports preserve unfinished observation time without assigning a failure label", () => {
+  telemetry.recordQuestStart("unfinished");
+  telemetry.questAttempts.unfinished.startTime -= 10000;
+  const logger = new DataLogger();
+  let session = logger.buildSessionExport();
+  assert.equal(session.quest_attempts[0].observation_status, "in_progress");
+  assert.ok(session.quest_attempts[0].observed_duration_seconds >= 10);
+  assert.equal(session.quest_attempts[0].proficiency_label, null);
+  telemetry.endCollection();
+  session = logger.buildSessionExport();
+  assert.equal(session.quest_attempts[0].observation_status, "censored_at_session_end");
+  assert.equal(session.quest_attempts[0].completed, false);
+  assert.ok(session.end_time);
+  assert.ok(session.data_quality.collection_audit);
+});
+
+test("cleared current sessions cannot silently return through autosave or export", () => {
+  const logger = new DataLogger();
+  localStorage.setItem("algobot_participant_id", "P001");
+  localStorage.setItem("algobot_participant_id_source", "researcher_assigned_code");
+  localStorage.setItem("algobot_challenge_exposure_v1", "{}");
+  telemetry.recordQuestStart("q");
+  logger.saveSessionLight();
+  logger.clearAllData();
+  assert.equal(localStorage.getItem("algobot_participant_id"), null);
+  assert.equal(localStorage.getItem("algobot_participant_id_source"), null);
+  assert.equal(localStorage.getItem("algobot_challenge_exposure_v1"), null);
+  logger.saveSessionLight();
+  assert.equal(logger.buildDatasetExport().sessions.length, 0);
+  assert.equal(logger.getSessionCount(), 0);
+  telemetry.resetSession();
+  logger.saveSessionLight();
+  assert.equal(logger.buildDatasetExport().sessions.length, 1);
+});
+
+test("persistent Clear Data removes replay storage and memory while retaining exposure history", async () => {
+  const logger = new DataLogger();
+  let cleared = false;
+  logger.persistence = { clear: async () => { cleared = true; }, sessions: () => [] };
+  localStorage.setItem("algobot_replay_buffer", '[{"student_id":"old"}]');
+  localStorage.setItem("algobot_challenge_exposure_v1", '{"[\\"old\\",\\"task\\"]":true}');
+  mlAgent.replayBuffer = [{ sessionId: "old" }]; mlAgent.prevState = [1]; mlAgent.prevAction = 1; mlAgent.pendingCompletionReward = 7;
+  await logger.clearAllData();
+  assert.equal(cleared, true); assert.equal(localStorage.getItem("algobot_replay_buffer"), null);
+  assert.deepEqual(mlAgent.replayBuffer, []); assert.equal(mlAgent.prevState, null); assert.equal(mlAgent.prevAction, null);
+  assert.equal(mlAgent.pendingCompletionReward, 0);
+  assert.ok(localStorage.getItem("algobot_challenge_exposure_v1"));
+  assert.equal(logger.buildDatasetExport().session_count, 0);
+});
+
+test("persistent Clear Data includes unsaved and pending sessions without clearing a later session", async () => {
+  const logger = new DataLogger(), currentId = telemetry.sessionId;
+  logger.pendingSessions.set("pending-old", { session_id: "pending-old" });
+  let requested, complete;
+  logger.persistence = { clear: ids => { requested = ids; return new Promise(resolve => { complete = resolve; }); }, sessions: () => [] };
+  const clearing = logger.clearAllData();
+  assert.deepEqual(new Set(requested), new Set([currentId, "pending-old"]));
+  telemetry.resetSession();
+  const nextId = telemetry.sessionId;
+  logger.pendingSessions.set(nextId, { session_id: nextId });
+  complete(); await clearing;
+  assert.equal(logger.clearedSessionIds.has(currentId), true);
+  assert.equal(logger.clearedSessionIds.has("pending-old"), true);
+  assert.equal(logger.clearedSessionIds.has(nextId), false);
+  assert.equal(logger.pendingSessions.has(nextId), true);
+  assert.equal(logger.pendingSessions.has("pending-old"), false);
+});
+
+test("challenge records and developer-test provenance survive the canonical export", () => {
+  telemetry.challengeAttempts.push({assessment_id:"a",status:"abandoned",score:null,submissions:[]});
+  const logger=new DataLogger();
+  let exported=logger.buildSessionExport();
+  assert.equal(exported.challenge_attempts[0].score,null);
+  exported.challenge_attempts[0].status="edited";
+  assert.equal(telemetry.challengeAttempts[0].status,"abandoned");
+  telemetry.researchExclusionReasons.push("developer_action");
+  exported=logger.buildSessionExport();
+  assert.equal(exported.source_type,"developer_test");
+  assert.deepEqual(exported.research_exclusion_reasons,["developer_action"]);
+});
+
+test("recent-schema model waits for real history then receives shared training features", async () => {
+  const { recentSequence, scaleResearchSequence, RESEARCH_SCHEMA, RESEARCH_FEATURES } = await import("../src/game/ml/research-features.js");
+  const recentScaler = { type: "standard", feature_schema: RESEARCH_SCHEMA, feature_names: RESEARCH_FEATURES, mean: Array(12).fill(0), scale: Array(12).fill(1) };
+  let observed;
+  const agent = new MLDiffAgent({ loadScaler: async () => recentScaler, loadModel: async () => ({
+    ...fakeModel([20, 12], 1, [.4]), predict(input) { observed = input.arraySync()[0]; return tf.tensor2d([[.4]]); } }) });
+  telemetry.collectionEnabled = true;
+  let result = await agent.updateAndPredict();
+  assert.equal(result.proficiency, null);
+  assert.equal(agent.predictedProficiency, null);
+  assert.equal(agent.getAgentState().proficiencySource, "unknown");
+  const now = Date.now();
+  telemetry.collectionSnapshots = Array.from({ length: 21 }, (_, i) => ({ timestamp_ms: now - (20-i)*5000,
+    stage: 1, context: {phase:"gameplay",game_speed:1,robot_count:1},
+    counters: {errors:i,edits:0,completed_runs:0,failed_runs:i,stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0} }));
+  result = await agent.updateAndPredict();
+  assert.ok(Math.abs(result.proficiency - .4) < 1e-6);
+  assert.deepEqual(observed, scaleResearchSequence(recentSequence(telemetry.collectionSnapshots), recentScaler).map(row => row.map(Math.fround)));
+  assert.equal(agent.getAgentState().predictionTarget, "independent_scored_task");
+});
+
+test("formal candidate bundle preserves model and task provenance in runtime decisions", async () => {
+  const { RESEARCH_SCHEMA, RESEARCH_FEATURES, recentSequence } = await import("../src/game/ml/research-features.js");
+  const { trainWorkflow, evaluateWorkflow, bundleWorkflow } = await import("../scripts/model-workflow.js");
+  const { loadDeployedModel } = await import("../scripts/model-artifacts.js");
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-candidate-runtime-"));
+  let agent;
+  try {
+    const now = Date.now();
+    const snapshots = Array.from({ length: 21 }, (_, i) => ({ timestamp_ms: now - (20-i)*5000,
+      stage: 1, context: {phase:"gameplay",game_speed:1,robot_count:1},
+      counters: {errors:0,edits:i,completed_runs:0,failed_runs:0,stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0} }));
+    const data = { feature_schema: RESEARCH_SCHEMA, feature_names: RESEARCH_FEATURES,
+      samples: Array.from({ length: 6 }, (_, i) => ({ source_type:"recorded", label_source:"independent_scored_task",
+        student_id:`fixture-p${i}`, session_id:`fixture-s${i}`, assessment_id:`fixture-a${i}`,
+        rubric_version:"fixture", task_id:"fixture-task", assessor_id:"fixture-assessor",
+        input_start_ms:now-100000, input_end_ms:now, assessment_start_ms:now+1000,
+        x:recentSequence(snapshots), y:i/5 })) };
+    const input = path.join(directory,"samples.json"), planFile = path.join(directory,"plan.json");
+    const run = path.join(directory,"run"), bundle = path.join(directory,"bundle");
+    fs.writeFileSync(input,JSON.stringify(data));
+    fs.writeFileSync(planFile,JSON.stringify(makePlan(data,{epochs:1})));
+    await trainWorkflow(input,planFile,run);
+    await evaluateWorkflow(input,run);
+    bundleWorkflow(run,bundle);
+    const scaler = JSON.parse(fs.readFileSync(path.join(bundle,"scaler_params.json")));
+    const card = JSON.parse(fs.readFileSync(path.join(bundle,"model-card.json")));
+    let requested;
+    agent = new MLDiffAgent({loadScaler:async()=>scaler,loadModel:async url=>{
+      requested=url; return loadDeployedModel(path.join(bundle,"model.json"));
+    }});
+    telemetry.collectionEnabled=true;
+    telemetry.collectionSnapshots=snapshots;
+    assert.equal((await agent.updateAndPredict()).mode,"hybrid");
+    assert.equal(requested,`/models/lstm/model.json?v=${encodeURIComponent(card.model_id)}`);
+    for (const record of [agent.getAgentState(),telemetry.ddaActionsLog.at(-1)]) {
+      assert.equal(record.modelId,card.model_id);
+      assert.equal(record.modelStatus,"candidate");
+      assert.equal(record.predictionTask,card.task_id);
+      assert.equal(record.predictionTarget,card.target);
+    }
+    assert.equal(card.deployment_ready,false);
+  } finally { agent?.lstmModel?.dispose(); fs.rmSync(directory,{recursive:true,force:true}); }
+});
+
+test("installed provisional model runs on gameplay history and records its identity", async () => {
+  const { loadDeployedModel } = await import("../scripts/model-artifacts.js");
+  const deployedScaler = JSON.parse(fs.readFileSync("public/models/lstm/scaler_params.json", "utf8"));
+  let requested;
+  const agent = new MLDiffAgent({ loadScaler: async () => deployedScaler, loadModel: async url => {
+    requested = url;
+    return loadDeployedModel("public/models/lstm/model.json");
+  } });
+  try {
+    telemetry.collectionEnabled = true;
+    assert.equal((await agent.updateAndPredict()).proficiency, null);
+    const now = Date.now();
+    telemetry.collectionSnapshots = Array.from({ length: 21 }, (_, i) => ({ timestamp_ms: now - (20-i)*5000,
+      stage: 1, context: {phase:"gameplay",game_speed:1,robot_count:1},
+      counters: {errors:0,edits:i,completed_runs:0,failed_runs:0,stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0} }));
+    const result = await agent.updateAndPredict();
+    assert.equal(result.mode, "hybrid");
+    assert.ok(Number.isFinite(result.proficiency) && result.proficiency >= 0 && result.proficiency <= 1);
+    assert.equal(requested, `/models/lstm/model.json?v=${encodeURIComponent(deployedScaler.model_id)}`);
+    assert.equal(agent.getAgentState().modelStatus, "provisional");
+    assert.equal(telemetry.ddaActionsLog.at(-1).modelId, deployedScaler.model_id);
+    assert.equal(telemetry.ddaActionsLog.at(-1).predictionTask, "first-harvest-v1");
+  } finally { agent.lstmModel?.dispose(); }
+});
+
+test("speed-aware runtime receives the same 14 features as offline preparation",async()=>{
+  const {COLLECTION_SCHEMA,COLLECTION_FEATURES,activeGameplayWindow}=await import("../src/game/ml/research-features.js");
+  const scalerValue={type:"standard",feature_schema:COLLECTION_SCHEMA,feature_names:COLLECTION_FEATURES,mean:Array(14).fill(0),scale:Array(14).fill(1)};
+  let observed;
+  const agent=new MLDiffAgent({loadScaler:async()=>scalerValue,loadModel:async()=>({
+    ...fakeModel([20,14],1,[.4]),predict(input){observed=input.arraySync()[0];return tf.tensor2d([[.4]]);}})});
+  const originalNow=Date.now,now=originalNow();
+  try {
+    Date.now=()=>now;
+    telemetry.collectionEnabled=true;
+    telemetry.getCollectionContext=()=>({phase:"gameplay",game_speed:2});
+    telemetry.collectionSnapshots=Array.from({length:21},(_,i)=>({timestamp_ms:now-101000+i*5000,gameplay_segment:1,
+      stage:1,context:{phase:"gameplay",game_speed:2,robot_count:1},counters:{errors:0,edits:i,completed_runs:0,failed_runs:0,
+        stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0}}));
+    assert.ok((await agent.updateAndPredict()).proficiency>0);
+    assert.deepEqual(observed,activeGameplayWindow(telemetry.collectionSnapshots,now).x.map(row=>row.map(Math.fround)));
+    assert.equal(agent.getAgentState().predictionTarget,"independent_scored_task");
+  } finally {Date.now=originalNow;}
+});
+
+test("malformed persisted research data is not silently overwritten", () => {
+  const logger = new DataLogger();
+  localStorage.setItem("algobot_sessions", "{broken");
+  assert.equal(logger.saveSessionLight(), false);
+  assert.equal(localStorage.getItem("algobot_sessions"), "{broken");
+  assert.ok(logger.lastPersistenceError);
+});
+
+test("loaded LSTM receives scaled current observation before action inference", async () => {
+  let observed;
+  const { agent } = makeAgent({ modelOverrides: { lstm: { predict(input) {
+    observed = input.arraySync();
+    return tf.tensor2d([[0.2]]);
+  } } } });
+  telemetry.totalInterpreterSteps = 2;
+  const result = await agent.updateAndPredict(1);
+  assert.equal(result.mode, "hybrid");
+  assert.equal(result.action, DDA_ACTIONS.SCAFFOLD);
+  assert.ok(observed[0][19][1] > 0);
+  assert.equal(observed[0][19][1], Math.fround(telemetry.getFeatureSnapshots()[0].vector[1] / 0.05));
+  assert.equal(telemetry.getFeatureSnapshots().length, 1);
+});
+
+test("LSTM uses rules regardless of legacy policy metadata", async () => {
+  const { agent, dqn } = makeAgent({ policy: { deployment_ready: false, observed_action_counts: { 0: 40 }, reason: "only Normal observed" } });
+  dqn.predict = () => { throw new Error("Unsupported DQN must not run"); };
+  const result = await agent.updateAndPredict(1);
+  assert.equal(result.mode, "hybrid");
+  assert.equal(result.action, DDA_ACTIONS.SCAFFOLD);
+  assert.equal(result.proficiencySource, "lstm");
+  assert.equal(agent.getAgentState().policySource, "rules");
+  assert.equal(telemetry.ddaActionsLog[0].mode, "hybrid");
+  assert.equal(agent.fallbackReason, null);
+});
+
+test("legacy deployment metadata cannot enable a removed DQN", async () => {
+  const { agent } = makeAgent({ policy: { deployment_ready: true, observed_action_counts: { 0: 40 } } });
+  await agent.init();
+  assert.equal(agent.mode, "hybrid");
+  assert.equal(agent.dqnModel, undefined);
+});
+
+test("missing scaler falls back to deterministic rules", async () => {
+  const { agent } = makeAgent({ scalerValue: null });
+  const result = await agent.updateAndPredict();
+  assert.equal(result.mode, "bootstrap");
+  assert.equal(result.proficiency, null);
+  assert.equal(agent.lastAction, DDA_ACTIONS.NORMAL);
+});
+
+test("async inference failure disposes tensors and applies an actual fallback action", async () => {
+  const { agent } = makeAgent({ modelOverrides: { lstm: { predict() {
+    const tensor = tf.tensor2d([[0.2]]);
+    tensor.data = async () => { throw new Error("backend read failed"); };
+    return tensor;
+  } } } });
+  await agent.init();
+  const before = tf.memory().numTensors;
+  dda.applyAction(DDA_ACTIONS.CHALLENGE);
+  const result = await agent.updateAndPredict(1);
+  assert.equal(result.mode, "bootstrap");
+  assert.equal(dda.currentAction, result.action);
+  assert.equal(dda.currentAction, DDA_ACTIONS.NORMAL);
+  assert.equal(tf.memory().numTensors, before);
+});
+
+test("concurrent prediction requests coalesce and session end cancels in-flight decisions", async () => {
+  let release;
+  const blocked = new Promise(resolve => { release = resolve; });
+  const { agent } = makeAgent({ modelOverrides: { lstm: { predict() {
+    const tensor = tf.tensor2d([[0.2]]);
+    tensor.data = async () => { await blocked; return new Float32Array([0.2]); };
+    return tensor;
+  } } } });
+  await agent.init();
+  const first = agent.updateAndPredict(1);
+  const second = agent.updateAndPredict(1);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(telemetry.getFeatureSnapshots().length, 1);
+  agent.endSession();
+  release();
+  assert.equal(await first, null);
+  assert.equal(await second, null);
+  assert.equal(telemetry.ddaActionsLog.length, 0);
+});
+
+test("inference finishing after a challenge opens cannot change main-farm difficulty",async()=>{
+  let release,phase="gameplay";
+  const blocked=new Promise(resolve=>{release=resolve;});
+  const {agent}=makeAgent({modelOverrides:{lstm:{predict(){
+    const tensor=tf.tensor2d([[.2]]);
+    tensor.data=async()=>{await blocked;return new Float32Array([.2]);};return tensor;
+  }}}});
+  const previous=telemetry.getCollectionContext;
+  telemetry.getCollectionContext=()=>({phase,game_speed:1});
+  try {
+    await agent.init();
+    const pending=agent.updateAndPredict(1);
+    await new Promise(resolve=>setImmediate(resolve));
+    phase="challenge";release();
+    assert.equal(await pending,null);
+    assert.equal(telemetry.ddaActionsLog.length,0);
+  } finally {release();agent.endSession();telemetry.getCollectionContext=previous;}
+});
+
+test("replay assigns completion to the pending action, marks terminal, and isolates sessions", () => {
+  const { agent } = makeAgent();
+  agent.mode = "hybrid";
+  agent._recordExperience([0.4, 0.2, 0, 0.5], 1, 1);
+  agent.addQuestCompletionReward();
+  agent._recordExperience([0.4, 0.4, 0, 0.5], 0, 2);
+  assert.equal(agent.replayBuffer[0].reward, 1);
+  assert.equal(agent.replayBuffer[0].stage, 1);
+  assert.equal(agent.replayBuffer[0].action, 1);
+  agent.endSession();
+  agent.endSession();
+  assert.equal(agent.replayBuffer.length, 2);
+  assert.equal(agent.replayBuffer[1].done, true);
+  const oldSessionId = agent.sessionId;
+  telemetry.resetSession();
+  agent.resetSession();
+  agent._recordExperience([0.5, 0.2, 0, 0.5], 0, 1);
+  assert.equal(agent.replayBuffer.length, 2);
+  assert.notEqual(agent.sessionId, oldSessionId);
+  assert.equal(agent.getReplayBuffer({ sessionOnly: true }).length, 0);
+});
+
+test("invalid action IDs restore all crop defaults and expose Normal consistently", () => {
+  dda.applyAction(DDA_ACTIONS.SCAFFOLD);
+  dda.applyAction(-1);
+  assert.equal(dda.currentAction, DDA_ACTIONS.NORMAL);
+  for (const [key, base] of Object.entries(dda.baseCropStats)) {
+    assert.equal(CROP_DATA[key].duration, base.duration);
+    assert.equal(CROP_DATA[key].spoilage_time, base.spoilage_time);
+  }
+});
+
+test("scaffolding rain can help an unripe farm and forceCheck returns actual event result", () => {
+  const scheduler = new EventScheduler();
+  mlAgent.mode = "hybrid";
+  mlAgent.lastAction = DDA_ACTIONS.SCAFFOLD;
+  assert.equal(scheduler.forceCheck().reason, "no_waterable_tiles");
+  globalThis.__mlTestRainApplied = true;
+  const result = scheduler.forceCheck();
+  assert.equal(result.triggered, true);
+  assert.equal(result.reason, "rain");
+  assert.equal(scheduler.forceCheck().reason, "cooldown");
+  assert.equal(scheduler.eventsTriggered, 1);
+  assert.equal(telemetry.rawEvents.at(-1).event, "scheduled_event");
+});
+
+test("pest precondition is strictly greater than one third of the farm", () => {
+  const scheduler = new EventScheduler();
+  const rows = CONFIG.FARM.rows;
+  const columns = CONFIG.FARM.columns;
+  try {
+    CONFIG.FARM.rows = 3;
+    CONFIG.FARM.columns = 3;
+    for (let i = 0; i < 3; i++) __mlTestFarm.set(i, { crop: { crop_state: CropStates.HARVESTABLE } });
+    assert.equal(scheduler.checkPrecondition(), false);
+    __mlTestFarm.set(3, { crop: { crop_state: CropStates.HARVESTABLE } });
+    assert.equal(scheduler.checkPrecondition(), true);
+  } finally {
+    CONFIG.FARM.rows = rows;
+    CONFIG.FARM.columns = columns;
+  }
+});
+
+test("current-session export survives corrupt or inaccessible storage and discloses partial archive", () => {
+  const logger = new DataLogger();
+  localStorage.setItem("algobot_sessions", "{broken");
+  const recovered = logger.buildDatasetExport();
+  assert.equal(recovered.session_count, 1);
+  assert.equal(recovered.data_quality.stored_sessions_fully_readable, false);
+  assert.equal(recovered.unparsed_stored_sessions_backup, "{broken");
+  assert.equal(localStorage.getItem("algobot_sessions"), "{broken");
+  globalThis.localStorage.getItem = () => { throw new Error("Access denied"); };
+  const restricted = logger.buildDatasetExport();
+  assert.equal(restricted.session_count, 1);
+  assert.match(restricted.data_quality.storage_read_errors[0], /Access denied/);
+});
+
+test("untracked quest completion cannot fabricate a perfect proficiency label", () => {
+  const tracker = new TelemetryTracker();
+  tracker.recordQuestComplete("missed-start");
+  assert.equal(tracker.questAttempts["missed-start"].startTimeInferred, true);
+  assert.equal(tracker.questAttempts["missed-start"].proficiencyLabel, null);
+});
+
+test("unavailable model artifacts still initialize a functioning deterministic controller", async () => {
+  const agent = new MLDiffAgent({
+    loadModel: async () => { throw new Error("404 unavailable"); },
+    loadScaler: async () => scaler,
+    loadPolicyMetadata: async () => { throw new Error("metadata unavailable"); },
+  });
+  for(let i=0;i<7;i++) telemetry.recordError("test");
+  for(let i=0;i<4;i++) telemetry.recordCodeReset();
+  const result = await agent.updateAndPredict();
+  assert.equal(agent.isInitialized, true);
+  assert.equal(result.mode, "bootstrap");
+  assert.equal(result.action, DDA_ACTIONS.SCAFFOLD);
+  assert.match(agent.fallbackReason, /404 unavailable/);
+});
+
+test("policy metadata is no longer fetched", async () => {
+  const { agent } = makeAgent();
+  agent._loadPolicyMetadata = async () => { throw new Error("metadata missing"); };
+  const result = await agent.updateAndPredict();
+  assert.equal(result.mode, "hybrid");
+  assert.equal(agent.dqnModel, undefined);
+  assert.equal(agent.fallbackReason, null);
+});
+
+test("scheduled events respect the gameplay pause predicate while explicit developer force remains available", () => {
+  const scheduler = new EventScheduler();
+  mlAgent.mode = "hybrid";
+  mlAgent.lastAction = DDA_ACTIONS.SCAFFOLD;
+  globalThis.__mlTestRainApplied = true;
+  scheduler.start({ shouldRun: () => false });
+  try {
+    assert.equal(scheduler._check().reason, "gameplay_paused");
+    assert.equal(scheduler.eventsTriggered, 0);
+    assert.equal(scheduler.forceCheck().triggered, true);
+  } finally {
+    scheduler.stop();
+  }
+});
+
+test("a failed save survives telemetry reset and is exported and retried with the next session", () => {
+  const logger = new DataLogger();
+  const realSetItem = localStorage.setItem;
+  localStorage.setItem = () => { throw new Error("Storage quota exceeded"); };
+  telemetry.setParticipantId("student-a");
+  telemetry.recordError("retain this raw event");
+  const sessionA = telemetry.getSessionId();
+  assert.equal(logger.saveSessionLight(), false);
+  telemetry.resetSession();
+  mlAgent.resetSession();
+  telemetry.setParticipantId("student-b");
+  const dataset = logger.buildDatasetExport();
+  assert.equal(dataset.session_count, 2);
+  const prior = dataset.sessions.find(session => session.session_id === sessionA);
+  assert.equal(prior.student_id, "student-a");
+  assert.equal(prior.raw_events[0].message, "retain this raw event");
+  assert.equal(dataset.data_quality.pending_unpersisted_session_count, 1);
+  assert.equal(logger.getSessionCount(), 1);
+  localStorage.setItem = realSetItem;
+  assert.equal(logger.saveSessionLight(), true);
+  assert.equal(logger.pendingSessions.size, 0);
+  assert.equal(JSON.parse(localStorage.getItem("algobot_sessions")).length, 2);
+  assert.equal(logger.buildDatasetExport().session_count, 2);
+});
+
+test("pending sessions are retained alongside corrupt storage recovery without overwriting original bytes", () => {
+  const logger = new DataLogger();
+  localStorage.setItem("algobot_sessions", "{broken");
+  const sessionA = telemetry.getSessionId();
+  assert.equal(logger.saveSessionLight(), false);
+  telemetry.resetSession();
+  mlAgent.resetSession();
+  const exportData = logger.buildDatasetExport();
+  assert.equal(exportData.session_count, 2);
+  assert.ok(exportData.sessions.some(session => session.session_id === sessionA));
+  assert.equal(exportData.unparsed_stored_sessions_backup, "{broken");
+  assert.equal(localStorage.getItem("algobot_sessions"), "{broken");
+});
+
+test("rule window forgets old mistakes without changing LSTM features", () => {
+  const events = [...Array.from({length:7},()=>({t:0,event:'error'})),...Array.from({length:4},()=>({t:0,event:'code_reset'}))];
+  assert.ok(recentPolicyState(events,1000).frustrationScore>.5);
+  assert.equal(recentPolicyState(events,181000).frustrationScore,0);
+});
+
+test("IndexedDB logger adapter retries earlier sessions after a failed asynchronous write", async () => {
+  const logger = new DataLogger(), stored = new Map();
+  let fail = true;
+  logger.persistence = { sessions: () => [...stored.values()], save: async session => {
+    if (fail) throw Error("aborted transaction");
+    stored.set(session.session_id, structuredClone(session));
+  } };
+  const settle = () => new Promise(resolve => setImmediate(resolve));
+  const first = telemetry.getSessionId();
+  logger.saveSessionLight(); await settle();
+  assert.equal(logger.pendingSessions.size, 1);
+  assert.equal(logger.lastPersistenceError, "aborted transaction");
+  telemetry.resetSession(); mlAgent.resetSession();
+  const second = telemetry.getSessionId(); fail = false;
+  logger.saveSessionLight(); await settle();
+  assert.ok(stored.has(first)); assert.ok(stored.has(second));
+  assert.equal(logger.pendingSessions.size, 0);
+  assert.equal(logger.lastPersistenceError, null);
+});
+
+test("difficulty recovers after confirmed improvement and does not immediately escalate", () => {
+  const policy=new StableDifficultyPolicy();
+  const struggling={errorCount:7,resetCount:4,frustrationScore:.6,flowScore:.2,successfulRuns:0};
+  const recovered={errorCount:0,resetCount:0,frustrationScore:0,flowScore:.5,successfulRuns:1};
+  assert.equal(policy.decide(struggling,1,.5,0),DDA_ACTIONS.SCAFFOLD);
+  assert.equal(policy.decide(recovered,1,.5,10000),DDA_ACTIONS.SCAFFOLD);
+  assert.equal(policy.decide(recovered,1,.5,61000),DDA_ACTIONS.NORMAL);
+  const strong={...recovered,flowScore:1,successfulRuns:3};
+  assert.equal(policy.decide(strong,1,.9,70000),DDA_ACTIONS.NORMAL);
+  assert.equal(policy.decide(strong,1,.9,122000),DDA_ACTIONS.CHALLENGE);
+});
+
+test("agent fetches only LSTM and scaler, with no DQN or policy metadata",async()=>{
+  const paths=[];
+  const agent=new MLDiffAgent({loadModel:async p=>{paths.push(p);return fakeModel([20,10],1,[.8]);},loadScaler:async()=>scaler,
+    loadPolicyMetadata:async()=>{throw Error('Must not fetch legacy metadata');}});
+  await agent.init();
+  assert.deepEqual(paths,['/models/lstm/model.json']);
+  assert.equal(agent.mode,'hybrid');
+  assert.equal(agent.fallbackReason,null);
+});

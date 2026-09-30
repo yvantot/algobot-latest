@@ -4,17 +4,44 @@
   import "blockly/blocks";
   import { javascriptGenerator } from "blockly/javascript";
   import { CONFIG, DOCUMENT_DATA } from "../game/global/global";
-  import { robots, robots_state, UNLOCK_VERSION, ONBOARDING } from "./global.svelte.js";
-  import { trackQuest } from "./global.svelte.js";
+  import { robots, robots_state, UNLOCK_VERSION, ONBOARDING, TUTORIAL, currentQuest, PLAYTHROUGH_UI } from "./global.svelte.js";
+  import { INTRO_QUESTS } from "../game/global/tutorial.js";
+  import { trackQuest, beginActiveQuest } from "./global.svelte.js";
   import { createResizable } from "./interface.svelte.js";
   import { createInit } from "../game/global/interpreter.js";
   import { telemetry } from "../game/ml/telemetry.js";
+  import { isBlocklyProgramEdit } from "../game/ml/editor-events.js";
+  import { registerInspectionBlocks, inspectionToolbox } from "../game/global/inspection-blocks.js";
+  import { registerMessageBlocks, messageToolbox } from "../game/global/message-blocks.js";
+
+  import { createCodeRunner } from "../game/global/code-runner.js";
+  import { k } from "../lib/kaplay.js";
 
   const resize = createResizable();
 
-  let blocklyDiv;
+  let blocklyDiv = $state();
+  let hasFirstBlock = $state(false);
   let workspace;
-  let selected_robot = $state(0);
+  let workspaceReady = $state(false);
+  let previousPracticeQuest;
+  let placementWarning = $state("");
+  export function targetName() { return `Bot ${selected_robot}`; }
+  export function insertExample(state) {
+    if (!workspace || robots_state[selected_robot]?.is_running) throw new Error("Stop this bot's program before inserting.");
+    const y=workspace.getTopBlocks(false).reduce((max,b)=>Math.max(max,b.getRelativeToSurfaceXY().y+b.getHeightWidth().height),0)+40;
+    Blockly.Events.setGroup(true);
+    try { Blockly.serialization.blocks.append({...structuredClone(state),x:30,y},workspace,{recordUndo:true}); }
+    finally { Blockly.Events.setGroup(false); }
+    workspace.scrollCenter();
+  }
+  let tutorialCategory = $derived(currentQuest() === "tut_2" ? "Farm" : currentQuest() === "intro_loop" ? "Loops" : "Bot");
+  function focusTutorialBlocks() {
+    const toolbox = workspace?.getToolbox();
+    const category = toolbox?.getToolboxItems().find(item => item.getName?.().includes(tutorialCategory));
+    if (category) toolbox.setSelectedItem(category);
+  }
+  let selected_robot = $state(PLAYTHROUGH_UI.blockBot);
+  $effect(() => { PLAYTHROUGH_UI.blockBot = selected_robot; });
   let is_command_ready = $state(false);
   let startBtnRef = $state(null);
   let spotlightRect = $state(null);
@@ -89,7 +116,7 @@
     // === BOT ACTIONS ===
     Blockly.Blocks["bot_say"] = {
       init() {
-        this.appendValueInput("TEXT").setCheck(null).appendField("bot.say");
+        this.appendValueInput("TEXT").setCheck(null).appendField("Say");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#6366f1");
@@ -97,8 +124,8 @@
     };
     Blockly.Blocks["bot_jump"] = {
       init() {
-        this.appendValueInput("X").setCheck(null).appendField("bot.jump x");
-        this.appendValueInput("Y").setCheck(null).appendField("y");
+        this.appendValueInput("X").setCheck(null).appendField("Jump to column");
+        this.appendValueInput("Y").setCheck(null).appendField("row");
         this.setInputsInline(true);
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
@@ -107,7 +134,7 @@
     };
     Blockly.Blocks["bot_up"] = {
       init() {
-        this.appendDummyInput().appendField("bot.up");
+        this.appendDummyInput().appendField("Move up");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#6366f1");
@@ -115,7 +142,7 @@
     };
     Blockly.Blocks["bot_down"] = {
       init() {
-        this.appendDummyInput().appendField("bot.down");
+        this.appendDummyInput().appendField("Move down");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#6366f1");
@@ -123,7 +150,7 @@
     };
     Blockly.Blocks["bot_left"] = {
       init() {
-        this.appendDummyInput().appendField("bot.left");
+        this.appendDummyInput().appendField("Move left");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#6366f1");
@@ -131,7 +158,7 @@
     };
     Blockly.Blocks["bot_right"] = {
       init() {
-        this.appendDummyInput().appendField("bot.right");
+        this.appendDummyInput().appendField("Move right");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#6366f1");
@@ -141,7 +168,7 @@
       init() {
         this.appendValueInput("AMOUNT")
           .setCheck("Number")
-          .appendField("bot.wait");
+          .appendField("Wait seconds");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#6366f1");
@@ -151,7 +178,7 @@
     // === FARM ACTIONS ===
     Blockly.Blocks["bot_till"] = {
       init() {
-        this.appendDummyInput().appendField("bot.till");
+        this.appendDummyInput().appendField("Prepare soil");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#854d0e");
@@ -159,7 +186,7 @@
     };
     Blockly.Blocks["bot_water"] = {
       init() {
-        this.appendDummyInput().appendField("bot.water");
+        this.appendDummyInput().appendField("Water soil");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#0369a1");
@@ -167,7 +194,7 @@
     };
     Blockly.Blocks["bot_harvest"] = {
       init() {
-        this.appendDummyInput().appendField("bot.harvest");
+        this.appendDummyInput().appendField("Harvest crop");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#15803d");
@@ -176,16 +203,25 @@
     Blockly.Blocks["bot_plant"] = {
       init() {
         this.appendDummyInput()
-          .appendField("bot.plant")
+          .appendField("Plant")
           .appendField(new Blockly.FieldDropdown(cropDropdown), "TYPE");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#15803d");
       },
     };
+    Blockly.Blocks["bot_plant_value"] = {
+      init() {
+        this.appendValueInput("CROP").setCheck("String").appendField("Plant crop");
+        this.setPreviousStatement(true);
+        this.setNextStatement(true);
+        this.setColour("#15803d");
+        this.setTooltip("Plant the crop name stored in text, a variable, or a list.");
+      },
+    };
     Blockly.Blocks["bot_destroy"] = {
       init() {
-        this.appendDummyInput().appendField("bot.destroy");
+        this.appendDummyInput().appendField("Remove crop");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#b91c1c");
@@ -193,7 +229,7 @@
     };
     Blockly.Blocks["bot_kill_bug"] = {
       init() {
-        this.appendDummyInput().appendField("bot.kill_bug");
+        this.appendDummyInput().appendField("Remove pest");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#b91c1c");
@@ -201,7 +237,7 @@
     };
     Blockly.Blocks["bot_extinguish"] = {
       init() {
-        this.appendDummyInput().appendField("bot.extinguish");
+        this.appendDummyInput().appendField("Put out fire");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#0369a1");
@@ -211,49 +247,49 @@
     // === CHECKS ===
     Blockly.Blocks["bot_check_tilled"] = {
       init() {
-        this.appendDummyInput().appendField("bot.is_tilled");
+        this.appendDummyInput().appendField("Is the soil prepared?");
         this.setOutput(true, "Boolean");
         this.setColour("#854d0e");
       },
     };
     Blockly.Blocks["bot_check_watered"] = {
       init() {
-        this.appendDummyInput().appendField("bot.is_watered");
+        this.appendDummyInput().appendField("Is the soil wet?");
         this.setOutput(true, "Boolean");
         this.setColour("#0369a1");
       },
     };
     Blockly.Blocks["bot_check_planted"] = {
       init() {
-        this.appendDummyInput().appendField("bot.is_planted");
+        this.appendDummyInput().appendField("Is there a crop?");
         this.setOutput(true, "Boolean");
         this.setColour("#15803d");
       },
     };
     Blockly.Blocks["bot_is_harvestable"] = {
       init() {
-        this.appendDummyInput().appendField("bot.is_harvestable");
+        this.appendDummyInput().appendField("Is the crop ready?");
         this.setOutput(true, "Boolean");
         this.setColour("#15803d");
       },
     };
     Blockly.Blocks["bot_is_bug"] = {
       init() {
-        this.appendDummyInput().appendField("bot.is_bug");
+        this.appendDummyInput().appendField("Is there a pest?");
         this.setOutput(true, "Boolean");
         this.setColour("#b91c1c");
       },
     };
     Blockly.Blocks["bot_is_fire"] = {
       init() {
-        this.appendDummyInput().appendField("bot.is_fire");
+        this.appendDummyInput().appendField("Is there a fire?");
         this.setOutput(true, "Boolean");
         this.setColour("#b91c1c");
       },
     };
     Blockly.Blocks["bot_is_dead"] = {
       init() {
-        this.appendDummyInput().appendField("bot.is_dead");
+        this.appendDummyInput().appendField("Is the crop spoiled?");
         this.setOutput(true, "Boolean");
         this.setColour("#333333");
       },
@@ -263,9 +299,9 @@
     Blockly.Blocks["math_randint"] = {
       init() {
         this.appendDummyInput()
-          .appendField("randint lower")
+          .appendField("Random whole number from")
           .appendField(new Blockly.FieldNumber(0), "LOWER")
-          .appendField("upper")
+          .appendField("to")
           .appendField(new Blockly.FieldNumber(10), "UPPER");
         this.setOutput(true, "Number");
         this.setColour("#5C68A6");
@@ -274,9 +310,9 @@
     Blockly.Blocks["math_randfloat"] = {
       init() {
         this.appendDummyInput()
-          .appendField("randfloat lower")
+          .appendField("Random decimal from")
           .appendField(new Blockly.FieldNumber(0), "LOWER")
-          .appendField("upper")
+          .appendField("to")
           .appendField(new Blockly.FieldNumber(1), "UPPER");
         this.setOutput(true, "Number");
         this.setColour("#5C68A6");
@@ -284,14 +320,14 @@
     };
     Blockly.Blocks["global_rows"] = {
       init() {
-        this.appendDummyInput().appendField("rows");
+        this.appendDummyInput().appendField("Number of rows");
         this.setOutput(true, "Number");
         this.setColour("#5C68A6");
       },
     };
     Blockly.Blocks["global_columns"] = {
       init() {
-        this.appendDummyInput().appendField("columns");
+        this.appendDummyInput().appendField("Number of columns");
         this.setOutput(true, "Number");
         this.setColour("#5C68A6");
       },
@@ -301,7 +337,7 @@
     Blockly.Blocks["inventory_seeds"] = {
       init() {
         this.appendDummyInput()
-          .appendField("inventory.seeds")
+          .appendField("Seeds available")
           .appendField(new Blockly.FieldDropdown(cropDropdown), "TYPE");
         this.setOutput(true, "Number");
         this.setColour("#745CA6");
@@ -309,7 +345,7 @@
     };
     Blockly.Blocks["inventory_coins"] = {
       init() {
-        this.appendDummyInput().appendField("inventory.coins");
+        this.appendDummyInput().appendField("Coins available");
         this.setOutput(true, "Number");
         this.setColour("#745CA6");
       },
@@ -320,7 +356,7 @@
       init() {
         this.appendValueInput("AMOUNT")
           .setCheck("Number")
-          .appendField("shop.buy_seed")
+          .appendField("Buy seeds")
           .appendField(new Blockly.FieldDropdown(cropDropdown), "TYPE")
           .appendField("amount");
         this.setPreviousStatement(true, null);
@@ -330,7 +366,7 @@
     };
     Blockly.Blocks["shop_buy_row"] = {
       init() {
-        this.appendDummyInput().appendField("shop.buy_row");
+        this.appendDummyInput().appendField("Add a row");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#A65C81");
@@ -338,7 +374,7 @@
     };
     Blockly.Blocks["shop_buy_column"] = {
       init() {
-        this.appendDummyInput().appendField("shop.buy_column");
+        this.appendDummyInput().appendField("Add a column");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
         this.setColour("#A65C81");
@@ -347,7 +383,7 @@
     Blockly.Blocks["shop_upgrade_bot_action"] = {
       init() {
         this.appendDummyInput()
-          .appendField("shop.upgrade_bot_action")
+          .appendField("Speed up actions for Bot")
           .appendField(new Blockly.FieldNumber(0, 0), "BOT");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
@@ -357,7 +393,7 @@
     Blockly.Blocks["shop_upgrade_bot_check"] = {
       init() {
         this.appendDummyInput()
-          .appendField("shop.upgrade_bot_check")
+          .appendField("Speed up checks for Bot")
           .appendField(new Blockly.FieldNumber(0, 0), "BOT");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
@@ -367,7 +403,7 @@
     Blockly.Blocks["shop_upgrade_bot_move"] = {
       init() {
         this.appendDummyInput()
-          .appendField("shop.upgrade_bot_move")
+          .appendField("Speed up movement for Bot")
           .appendField(new Blockly.FieldNumber(0, 0), "BOT");
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);
@@ -404,6 +440,8 @@
     javascriptGenerator.forBlock["bot_harvest"] = () => `bot.harvest();\n`;
     javascriptGenerator.forBlock["bot_plant"] = (b) =>
       `bot.plant("${b.getFieldValue("TYPE")}");\n`;
+    javascriptGenerator.forBlock["bot_plant_value"] = (b) =>
+      'bot.plant(' + (javascriptGenerator.valueToCode(b, "CROP", ON) || '\"\"') + ');\n';
     javascriptGenerator.forBlock["bot_destroy"] = () => `bot.destroy();\n`;
     javascriptGenerator.forBlock["bot_kill_bug"] = () => `bot.kill_bug();\n`;
     javascriptGenerator.forBlock["bot_extinguish"] = () =>
@@ -545,9 +583,11 @@
           { kind: "block", type: "bot_water" },
           { kind: "block", type: "bot_harvest" },
           { kind: "block", type: "bot_plant" },
+          { kind: "block", type: "bot_plant_value", inputs: { CROP: { shadow: { type: "text", fields: { TEXT: "wheat" } } } } },
           { kind: "block", type: "bot_destroy" },
           { kind: "block", type: "bot_kill_bug" },
           { kind: "block", type: "bot_extinguish" },
+          ...messageToolbox(),
         ],
       },
       {
@@ -562,6 +602,7 @@
           { kind: "block", type: "bot_is_bug" },
           { kind: "block", type: "bot_is_fire" },
           { kind: "block", type: "bot_is_dead" },
+          ...inspectionToolbox(),
         ],
       },
       {
@@ -613,7 +654,7 @@
             kind: "block",
             type: "controls_repeat_ext",
             inputs: {
-              TIMES: { shadow: { type: "math_number", fields: { NUM: 10 } } },
+              TIMES: { shadow: { type: "math_number", fields: { NUM: 2 } } },
             },
           },
           { kind: "block", type: "controls_whileUntil" },
@@ -622,7 +663,7 @@
             type: "controls_for",
             inputs: {
               FROM: { shadow: { type: "math_number", fields: { NUM: 1 } } },
-              TO: { shadow: { type: "math_number", fields: { NUM: 10 } } },
+              TO: { shadow: { type: "math_number", fields: { NUM: TUTORIAL.active ? 2 : 10 } } },
               BY: { shadow: { type: "math_number", fields: { NUM: 1 } } },
             },
           },
@@ -695,15 +736,18 @@
     const finalCategories = [];
 
     for (const cat of rawCategories) {
-      const filteredContents = cat.contents.filter((item) =>
-        isBlockUnlocked(item.type),
-      );
+      const mission = currentQuest();
+      const allowed = mission === "intro_run" ? ["bot_right"] : mission === "intro_say" ? ["bot_say", "text"] : mission === "intro_build" || mission === "intro_sequence"
+        ? ["bot_left", "bot_right", "bot_up", "bot_down"]
+        : mission === "tut_2" ? ["bot_left", "bot_right", "bot_up", "bot_down", "bot_till", "bot_plant", "bot_water", "bot_harvest"]
+        : mission === "intro_loop" ? ["bot_left", "bot_right", "bot_up", "bot_down", "controls_repeat_ext", "math_number"] : null;
+      const filteredContents = cat.contents.filter(item => isBlockUnlocked(item.type) && (!allowed || allowed.includes(item.type) || (mission !== "intro_run" && ["bot_wait", "math_number"].includes(item.type))));
       if (filteredContents.length > 0) {
         finalCategories.push({ ...cat, contents: filteredContents });
       }
     }
 
-    if (DOCUMENT_DATA.syntax.var?.is_unlocked) {
+    if (!TUTORIAL.active && DOCUMENT_DATA.syntax.var?.is_unlocked) {
       finalCategories.push({
         kind: "category",
         name: "📦  Variables",
@@ -712,7 +756,7 @@
       });
     }
 
-    if (DOCUMENT_DATA.syntax["function"]?.is_unlocked) {
+    if (!TUTORIAL.active && DOCUMENT_DATA.syntax["function"]?.is_unlocked) {
       finalCategories.push({
         kind: "category",
         name: "⚙️  Functions",
@@ -727,15 +771,7 @@
     };
   }
 
-  const START_XML = `<xml>
-    <block type="bot_say">
-      <value name="TEXT">
-        <shadow type="text">
-          <field name="TEXT">Hello World!</field>
-        </shadow>
-      </value>
-    </block>
-  </xml>`;
+  const START_XML = `<xml></xml>`;
 
   $effect(() => {
     robots.forEach((bot, index) => {
@@ -759,43 +795,7 @@
   });
 
   // JS-Interpreter execution loop logic
-  function isLine(stack) {
-    var state = stack[stack.length - 1];
-    var node = state.node;
-    var type = node.type;
 
-    if (type !== "VariableDeclaration" && type.substr(-9) !== "Statement") {
-      return false;
-    }
-
-    if (type === "BlockStatement") {
-      return false;
-    }
-
-    if (
-      type === "VariableDeclaration" &&
-      stack[stack.length - 2].node.type === "ForStatement"
-    ) {
-      return false;
-    }
-
-    if (isLine.oldStack_[isLine.oldStack_.length - 1] === state) {
-      return false;
-    }
-
-    if (
-      isLine.oldStack_.indexOf(state) !== -1 &&
-      type !== "ForStatement" &&
-      type !== "WhileStatement" &&
-      type !== "DoWhileStatement"
-    ) {
-      return false;
-    }
-
-    isLine.oldStack_ = stack.slice();
-    return true;
-  }
-  isLine.oldStack_ = [];
 
   function handleResetAll() {
     robots_state.forEach((_, index) => {
@@ -819,88 +819,37 @@
     });
   }
 
-  function handleStep(index) {
-    if (!robots_state[index].interpreter) {
-      if (index === selected_robot && workspace) {
-        robots_state[index].block_code =
-          javascriptGenerator.workspaceToCode(workspace);
+  const runner = createCodeRunner({
+    states: robots_state,
+    InterpreterClass: globalThis.Interpreter,
+    telemetry,
+    canStep: () => k.debug.timeScale > 0 && !ONBOARDING.isModalOpen && !document.hidden,
+    prepare(index) {
+      robots_state[index].onQuestEvent = trackQuest;
+      beginActiveQuest();
+      if (index === selected_robot && workspace) robots_state[index].block_code = javascriptGenerator.workspaceToCode(workspace);
+      else {
+        const savedWorkspace = new Blockly.Workspace();
+        try {
+          Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(robots_state[index].blockly_xml || "<xml></xml>"), savedWorkspace);
+          robots_state[index].block_code = javascriptGenerator.workspaceToCode(savedWorkspace);
+        } finally { savedWorkspace.dispose(); }
       }
-      robots_state[index].interpreter = new Interpreter(
-        robots_state[index].block_code,
-        createInit(
-          robots_state[index].robot,
-          index === selected_robot ? workspace : null,
-          trackQuest,
-        ),
-      );
-    }
+      return robots_state[index].block_code;
+    },
+    init: (index) => createInit(robots_state[index].robot, index === selected_robot ? workspace : null, trackQuest),
+    highlight(index, node) {
+      if (!node && index === selected_robot && workspace) workspace.highlightBlock(null);
+    },
+  });
 
-    var stack = robots_state[index].interpreter.getStateStack();
-    var step_again = !isLine(stack);
-
-    if (stack.length > 0) {
-      const node = stack[stack.length - 1].node;
-      if (node && node.type === "ForStatement") { trackQuest("cs_loop_0", 1); telemetry.recordLoopExecution("for"); }
-      if (node && (node.type === "WhileStatement" || node.type === "DoWhileStatement")) { trackQuest("cs_loop_0", 1); telemetry.recordLoopExecution("while"); }
-      if (node && node.type === "IfStatement") { trackQuest("cs_if_0", 1); telemetry.recordIfCondition(true); }
-    }
-
-    try {
-      var ok = robots_state[index].interpreter.step();
-    } finally {
-      if (!ok) {
-        handleReset(index);
-        step_again = false;
-      }
-    }
-
-    if (step_again) {
-      try {
-        handleStep(index);
-      } catch (error) {
-        null;
-      }
-    }
-  }
-
+  function handleStep(index) { runner.step(index); }
   function handleStart(index) {
     ONBOARDING.startClicked = true;
-    if (index === selected_robot && workspace) {
-      robots_state[index].block_code =
-        javascriptGenerator.workspaceToCode(workspace);
-    }
-    robots_state[index].interpreter = new Interpreter(
-      robots_state[index].block_code,
-      createInit(
-        robots_state[index].robot,
-        index === selected_robot ? workspace : null,
-        trackQuest,
-      ),
-    );
-    robots_state[index].is_running = !robots_state[index].is_running;
-    telemetry.recordCodeRun(true); // Record code execution attempt
-
-    clearInterval(robots_state[index].interval);
-
-    if (robots_state[index].is_running) {
-      robots_state[index].interval = setInterval(() => {
-        if (robots_state[index].is_running) {
-          handleStep(index);
-        }
-      }, 0);
-    }
+    spotlightRect = null;
+    runner.start(index);
   }
-
-  function handleReset(index) {
-    robots_state[index].interpreter = null;
-    robots_state[index].is_running = false;
-    clearInterval(robots_state[index].interval);
-    telemetry.recordCodeReset();
-    if (index === selected_robot && workspace) {
-      workspace.highlightBlock(null);
-    }
-  }
-
+  function handleReset(index) { runner.reset(index); }
   function handleClear(index) {
     handleReset(index);
     if (index === selected_robot && workspace) {
@@ -916,6 +865,15 @@
     });
   }
 
+  function restoreWorkspace(xml) {
+    const recordUndo = Blockly.Events.getRecordUndo();
+    Blockly.Events.setRecordUndo(false);
+    try {
+      workspace.clear();
+      Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(xml), workspace);
+    } finally { Blockly.Events.setRecordUndo(recordUndo); }
+  }
+
   function selectRobot(index) {
     if (workspace && robots_state[selected_robot]) {
       const dom = Blockly.Xml.workspaceToDom(workspace);
@@ -927,11 +885,7 @@
     selected_robot = index;
 
     if (workspace && robots_state[selected_robot]) {
-      workspace.clear();
-      Blockly.Xml.domToWorkspace(
-        Blockly.utils.xml.textToDom(robots_state[selected_robot].blockly_xml),
-        workspace,
-      );
+      restoreWorkspace(robots_state[selected_robot].blockly_xml);
     }
   }
 
@@ -939,6 +893,8 @@
     setTimeout(() => (is_command_ready = true), 2000);
     registerBlocks();
     registerGenerators();
+    registerInspectionBlocks(Blockly, javascriptGenerator);
+    registerMessageBlocks(Blockly, javascriptGenerator);
 
     workspace = Blockly.inject(blocklyDiv, {
       toolbox: buildToolbox(),
@@ -957,9 +913,51 @@
       renderer: "zelos",
       scrollbars: true,
     });
+    const observer = new ResizeObserver(() => { if (workspace && blocklyDiv.clientWidth) Blockly.svgResize(workspace); });
+    observer.observe(blocklyDiv);
+    function hintContext(event) {
+      Object.assign(event.detail, {
+        robotIndex: selected_robot,
+        code: javascriptGenerator.workspaceToCode(workspace),
+        blocks: workspace.getAllBlocks(false).map(block => ({
+          type: block.type, parent: block.getParent()?.id,
+          hasBody: !!block.getInputTargetBlock(block.type === "controls_if" ? "DO0" : "DO"),
+        })),
+      });
+    }
+    function hintFocus(event) {
+      const { category: name, blockType, level } = event.detail;
+      const toolbox = workspace.getToolbox();
+      const category = toolbox?.getToolboxItems().find(item => item.getName?.().includes(name));
+      if (!category) return;
+      toolbox.setSelectedItem(category);
+      const element = category.getDiv?.();
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) element?.animate(
+        [{ backgroundColor: "#fef3c7" }, { backgroundColor: "transparent" }], { duration: 700, iterations: 2 });
+      if (level === 1) {
+        const flyout = workspace.getFlyout()?.getWorkspace();
+        const block = flyout?.getAllBlocks(false).find(block => block.type === blockType);
+        if (block) flyout.highlightBlock(block.id);
+      }
+    }
+    window.addEventListener("quest-hint-context", hintContext);
+    window.addEventListener("quest-hint-focus", hintFocus);
 
-    workspace.addChangeListener(() => {
+    workspace.addChangeListener((event) => {
+      if (isBlocklyProgramEdit(event)) telemetry.recordCodeEdit();
+      if (["intro_run", "intro_build"].includes(currentQuest()) && event.type === Blockly.Events.BLOCK_CREATE && event.recordUndo) {
+        const created = (event.ids || []).some(id => ["bot_left", "bot_right", "bot_up", "bot_down"].includes(workspace.getBlockById(id)?.type));
+        if (created) TUTORIAL.authoredBlocks.push(...(event.ids || []));
+      }
+      const movement = ["bot_left", "bot_right", "bot_up", "bot_down"];
+      const blocks = workspace.getAllBlocks(false);
+      const emptyContainer = blocks.find(block => ["controls_repeat_ext", "controls_for", "controls_whileUntil", "controls_if"].includes(block.type) && !block.getInputTargetBlock(block.type === "controls_if" ? "DO0" : "DO"));
+      placementWarning = emptyContainer ? "Put action blocks INSIDE the open space of repeat or if. Blocks above or below run separately." : "";
+      hasFirstBlock = blocks.some(block => block.type === "bot_right" && TUTORIAL.authoredBlocks.includes(block.id));
+      TUTORIAL.sequenceBlocks = blocks.filter(block => movement.includes(block.type) &&
+        (movement.includes(block.getNextBlock()?.type) || movement.includes(block.getPreviousBlock()?.type))).map(block => block.id);
       if (robots_state[selected_robot]) {
+        robots_state[selected_robot].blockly_xml = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(workspace));
         robots_state[selected_robot].block_code =
           javascriptGenerator.workspaceToCode(workspace);
       }
@@ -969,21 +967,42 @@
       robots_state[selected_robot] &&
       robots_state[selected_robot].blockly_xml
     ) {
-      Blockly.Xml.domToWorkspace(
-        Blockly.utils.xml.textToDom(robots_state[selected_robot].blockly_xml),
-        workspace,
-      );
+      restoreWorkspace(robots_state[selected_robot].blockly_xml);
     } else {
-      Blockly.Xml.domToWorkspace(
-        Blockly.utils.xml.textToDom(START_XML),
-        workspace,
-      );
+      restoreWorkspace(START_XML);
     }
+    previousPracticeQuest = currentQuest();
+    workspaceReady = true;
+    return () => {
+      workspaceReady = false; observer.disconnect();
+      window.removeEventListener("quest-hint-context", hintContext);
+      window.removeEventListener("quest-hint-focus", hintFocus);
+    };
+  });
+
+  $effect(() => {
+    const mission = currentQuest();
+    const ready = workspaceReady;
+    const running = robots_state.some(state => state.is_running);
+    if (!ready || running || previousPracticeQuest === mission) return;
+    if (INTRO_QUESTS.includes(previousPracticeQuest)) {
+      restoreWorkspace(START_XML);
+      if (robots_state[selected_robot]) {
+        robots_state[selected_robot].blockly_xml = START_XML;
+        robots_state[selected_robot].block_code = "";
+      }
+      workspace.clearUndo();
+      TUTORIAL.authoredBlocks = [];
+      TUTORIAL.sequenceBlocks = [];
+    }
+    previousPracticeQuest = mission;
   });
 
   // Dynamically update toolbox whenever unlock version changes
   $effect(() => {
     const _ = UNLOCK_VERSION.count;
+    const mission = currentQuest();
+    const practice = TUTORIAL.active;
     if (workspace) {
       workspace.updateToolbox(buildToolbox());
     }
@@ -1002,13 +1021,15 @@
     if (
       startBtnRef &&
       is_command_ready &&
+      currentQuest() === "intro_run" &&
       !ONBOARDING.startClicked &&
       !ONBOARDING.isModalOpen
     ) {
-      const _ = resize.width; // reposition on panel resize
+      const _ = resize.width;
+      const target = hasFirstBlock ? startBtnRef : blocklyDiv;
       const updatePosition = () => {
-        if (!startBtnRef) return;
-        const rect = startBtnRef.getBoundingClientRect();
+        if (!target) return;
+        const rect = target.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return;
         spotlightRect = {
           left: rect.left - 8,
@@ -1021,8 +1042,8 @@
       };
 
       updatePosition();
-      const timer = setTimeout(updatePosition, 100);
-      return () => clearTimeout(timer);
+      const timer = setInterval(updatePosition, 150);
+      return () => clearInterval(timer);
     } else {
       spotlightRect = null;
     }
@@ -1033,19 +1054,16 @@
       const dom = Blockly.Xml.workspaceToDom(workspace);
       robots_state[selected_robot].blockly_xml = Blockly.Xml.domToText(dom);
     }
-    workspace?.dispose();
+    runner.dispose(); workspace?.dispose(); workspace = null;
   });
 </script>
 
 <div
   style="width: {resize.width}px;"
-  class="text-slate-700 h-[95vh] bottom-4 flex flex-col w-[30vw] bg-gray-100 border-4 border-slate-500 rounded-xl shadow-xl overflow-hidden text-sm z-50"
+  class="command-panel relative text-slate-700 h-[95vh] flex flex-col w-[30vw] bg-gray-100 border-4 border-slate-500 rounded-xl shadow-xl overflow-hidden text-sm"
 >
-  <div
-    role="separator"
-    class="resize-handle {resize.is_resizing ? 'resizing-active' : ''}"
-    onmousedown={resize.startResize}
-  ></div>
+  <button type="button" class="command-resize" class:resizing-active={resize.is_resizing}
+    aria-label="Resize Bot Command" onpointerdown={resize.startResize} onkeydown={resize.resizeKey}></button>
   <div class="py-2 border-b-2 border-slate-400">
     <h1 class="text-center font-bold text-base">Bot Command</h1>
   </div>
@@ -1065,6 +1083,13 @@
     </div>
   </div>
 
+  {#if TUTORIAL.active && currentQuest() !== "intro_run"}
+    <div class="px-3 py-2 bg-amber-100 text-slate-800 text-sm flex items-center justify-between gap-2">
+      <span>{currentQuest() === "intro_loop" ? "Put movement inside repeat." : "Drag a block here, then press Start."}</span>
+      <button class="underline font-bold cursor-pointer" onclick={focusTutorialBlocks}>Open {tutorialCategory} blocks</button>
+    </div>
+  {/if}
+  {#if placementWarning}<p class="px-3 py-2 bg-amber-100 text-slate-800 text-sm" role="status">{placementWarning}</p>{/if}
   <div class="flex-1 bg-white min-h-0 overflow-hidden relative">
     <div class="absolute inset-0 w-full h-full" bind:this={blocklyDiv}></div>
   </div>
@@ -1131,16 +1156,21 @@
 </div>
 
 {#if spotlightRect}
+  <div class="tutorial-blocker" style="inset:0 0 auto 0;height:{Math.max(0,spotlightRect.top)}px"></div>
+  <div class="tutorial-blocker" style="top:{spotlightRect.top+spotlightRect.height}px;inset-inline:0;bottom:0"></div>
+  <div class="tutorial-blocker" style="left:0;top:{spotlightRect.top}px;width:{Math.max(0,spotlightRect.left)}px;height:{spotlightRect.height}px"></div>
+  <div class="tutorial-blocker" style="left:{spotlightRect.left+spotlightRect.width}px;right:0;top:{spotlightRect.top}px;height:{spotlightRect.height}px"></div>
   <div class="spotlight-hole" style="left: {spotlightRect.left}px; top: {spotlightRect.top}px; width: {spotlightRect.width}px; height: {spotlightRect.height}px;"></div>
   <div class="spotlight-label" style="left: {spotlightRect.labelLeft}px; top: {spotlightRect.labelTop}px;">
     <div class="spotlight-bounce-wrapper">
-      <div class="spotlight-label-bubble">👆 Click <strong>▶ Start</strong> to run your code!</div>
+      <div class="spotlight-label-bubble">{hasFirstBlock ? "Press Start to move your robot." : "Open Bot. Drag Move right into the work area."}</div>
       <div class="spotlight-label-arrow"></div>
     </div>
   </div>
 {/if}
 
 <style>
+  .tutorial-blocker{position:fixed;z-index:9989;pointer-events:auto;touch-action:none}
   :global(.blocklyMainBackground) {
     fill: #ffffff !important;
   }
@@ -1160,7 +1190,7 @@
   }
   :global(.blocklyTreeLabel) {
     font-family: ui-sans-serif, system-ui, sans-serif !important;
-    font-size: 12.5px !important;
+    font-size: 14px !important;
     font-weight: 600 !important;
     color: #334155 !important;
   }
@@ -1179,4 +1209,6 @@
   :global(.blocklyFlyoutScrollbar) {
     display: none !important;
   }
+
+.command-resize{position:absolute;left:0;top:44px;bottom:0;width:12px;z-index:100;padding:0;border:0;border-radius:0;background:transparent;cursor:ew-resize;touch-action:none}.command-resize:hover,.command-resize.resizing-active,.command-resize:focus-visible{background:#94a3b880}.command-resize:focus-visible{outline:2px solid #16a34a;outline-offset:-2px}
 </style>

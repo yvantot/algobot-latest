@@ -1,0 +1,213 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { RESEARCH_SCHEMA, RESEARCH_FEATURES, COLLECTION_SCHEMA, COLLECTION_FEATURES, recentSequence, scaleResearchSequence } from "../src/game/ml/research-features.js";
+import { sealDataset } from "../src/game/ml/export-integrity.js";
+import { readCollection, assessmentSamples } from "../scripts/collection-dataset.js";
+import { digest, makePlan, makePilotPlan, partitions, fitStandardScaler, regressionMetrics } from "../scripts/training-core.js";
+import { trainWorkflow, evaluateWorkflow, bundleWorkflow, pilotWorkflow, refitPilotWorkflow } from "../scripts/model-workflow.js";
+import { loadDeployedModel } from "../scripts/model-artifacts.js";
+import * as tf from "@tensorflow/tfjs";
+
+function snapshots() {
+  return Array.from({ length: 21 }, (_, i) => ({ timestamp_ms: 1700000000000 + i * 5000, stage: 2,
+    context: { phase: "gameplay", game_speed: 1, robot_count: 2 }, vector: Array(10).fill(0),
+    counters: { errors: 20 + i, edits: i, completed_runs: i, failed_runs: 0, stopped_runs: i,
+      requested_hints: 0, harvested: i, spoiled: 0, for_loops: i, while_loops: 0, conditions: i } }));
+}
+// Fabricated fixtures exercise code only; they are never research results.
+function dataset() {
+  return { feature_schema: RESEARCH_SCHEMA, feature_names: RESEARCH_FEATURES,
+    samples: Array.from({ length: 12 }, (_, i) => ({ source_type: "recorded", label_source: "independent_scored_task",
+      student_id: `fixture-p${Math.floor(i / 2)}`, session_id: `fixture-s${i}`, assessment_id: `fixture-a${i}`,
+      rubric_version: "test-fixture", task_id: "fixture-task", assessor_id: "fixture-assessor",
+      input_start_ms: 0, input_end_ms: 100000, assessment_start_ms: 105000,
+      x: recentSequence(snapshots()).map(row => row.map(v => v * (i + 1) / 12)), y: (i % 3) / 2 })) };
+}
+
+test("recent features capture recovery after cumulative counters saturate and reject gaps", () => {
+  const s = snapshots();
+  assert.equal(recentSequence(s)[0][0], 12);
+  s.at(-1).counters.errors = s.at(-2).counters.errors;
+  assert.equal(recentSequence(s).at(-1)[0], 0);
+  s[5].timestamp_ms += 10000;
+  assert.throws(() => recentSequence(s), /contiguous/);
+});
+
+test("sealed export checksums detect edited records and divergent overlapping histories", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-integrity-"));
+  try {
+    const session = { session_id: "fixture-s", student_id: "fixture-p", feature_timeseries: snapshots(), raw_events: [] };
+    const sealed = await sealDataset({ dataset_version: "v4", sessions: [session] });
+    const file = path.join(dir, "dataset.json");
+    fs.writeFileSync(file, JSON.stringify(sealed));
+    assert.equal(readCollection(file).sessions.length, 1);
+    sealed.sessions[0].student_id = "edited";
+    fs.writeFileSync(file, JSON.stringify(sealed));
+    assert.throws(() => readCollection(file), /checksum mismatch/);
+    fs.writeFileSync(file, JSON.stringify(await sealDataset({ dataset_version: "v4", sessions: [session] })));
+    const edited = structuredClone(session); edited.feature_timeseries[0].vector[0] = 1;
+    fs.writeFileSync(path.join(dir, "second.json"), JSON.stringify(await sealDataset({ dataset_version: "v4", sessions: [edited] })));
+    assert.throws(() => readCollection(dir), /Conflicting/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("new assessment preparation produces the same recent features used at runtime", () => {
+  const s = snapshots();
+  const session = { session_id: "fixture-s", student_id: "fixture-p", source_type: "recorded",
+    collection: { independent_of_inference: true }, feature_names: ["error_rate", "execution_speed", "iteration_usage", "condition_reactivity",
+      "greedy_efficiency", "yield_quality", "frustration", "code_success_rate", "hint_consumption_rate", "normalized_completion_time"], feature_timeseries: s };
+  const assessment = { assessment_id: "fixture-a", session_id: session.session_id, student_id: session.student_id,
+    purpose: "model_target", status: "scored", assistance: "none", rubric_version: "fixture", task_id: "fixture", assessor_id: "fixture",
+    score: 0, max_score: 10, started_at: new Date(s.at(-1).timestamp_ms + 1000).toISOString(), finished_at: new Date(s.at(-1).timestamp_ms + 30000).toISOString() };
+  const prepared = assessmentSamples([session], [assessment], { schema: RESEARCH_SCHEMA });
+  assert.deepEqual(prepared.samples[0].x, recentSequence(s));
+  assert.equal(prepared.samples[0].y, 0);
+});
+
+test("frozen participant splits, train-only scaling and missing-class metrics", () => {
+  const data = dataset(), plan = makePlan(data), parts = partitions(data, plan);
+  assert.deepEqual(plan, makePlan(data));
+  assert.equal(new Set(Object.values(plan.split).flat()).size, 6);
+  const scaler = fitStandardScaler(parts.train);
+  const expected = parts.train.flatMap(s => s.x).reduce((sum, row) => sum + row[0], 0) / (parts.train.length * 20);
+  assert.equal(scaler.mean[0], expected);
+  assert.ok(scaleResearchSequence(parts.test[0].x, scaler).flat().every(Number.isFinite));
+  data.samples[0].y += .01;
+  assert.throws(() => partitions(data, plan), /changed/);
+  const m = regressionMetrics([{ student_id: "a", y: 1 }], [1], [.3, .6]);
+  assert.deepEqual(m.missing_reference_classes, [0, 1]);
+  assert.equal(m.per_class[0].recall, null);
+  assert.equal(m.r2, null);
+});
+
+test("training cannot pool different tasks or assessor protocols under the same rubric",()=>{
+  const data=dataset(),plan=makePlan(data);
+  assert.equal(plan.task_id,"fixture-task");
+  assert.equal(plan.assessor_id,"fixture-assessor");
+  data.samples[0].task_id="different-task";
+  assert.throws(()=>makePlan(data),/one task/);
+  data.samples[0].task_id="fixture-task";
+  data.samples[0].assessor_id="different-protocol";
+  assert.throws(()=>makePlan(data),/one assessor protocol/);
+});
+
+test("local train/evaluate/bundle pipeline runs and blocks reevaluation and modified artifacts", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-workflow-fixture-"));
+  try {
+    const data = dataset(), plan = makePlan(data, { epochs: 2 });
+    const input = path.join(dir, "samples.json"), planFile = path.join(dir, "plan.json"), run = path.join(dir, "run");
+    fs.writeFileSync(input, JSON.stringify(data)); fs.writeFileSync(planFile, JSON.stringify(plan));
+    const development = await trainWorkflow(input, planFile, run);
+    assert.equal(development.test_evaluated, false);
+    assert.equal(development.candidates.length, 4);
+    assert.equal(fs.existsSync(path.join(run, "evaluation.json")), false);
+    const evaluation = await evaluateWorkflow(input, run);
+    assert.equal(evaluation.results.lstm.n, 4);
+    assert.equal(evaluation.deployment_ready, false);
+    await assert.rejects(() => evaluateWorkflow(input, run), /already been evaluated/);
+    const bundle = path.join(dir, "bundle"); bundleWorkflow(run, bundle);
+    const card = JSON.parse(fs.readFileSync(path.join(bundle, "model-card.json")));
+    for(const report of [development,evaluation,card]){
+      assert.equal(report.task_id,"fixture-task");
+      assert.equal(report.rubric_version,"test-fixture");
+      assert.equal(report.assessor_id,"fixture-assessor");
+    }
+    assert.equal(card.files["weights.bin"], digest(fs.readFileSync(path.join(bundle, "weights.bin"))));
+    const model = await loadDeployedModel(path.join(bundle, "model.json"));
+    const scaler = JSON.parse(fs.readFileSync(path.join(bundle, "scaler_params.json")));
+    const selected = development.candidates.find(c => c.name === development.selected.lstm);
+    assert.equal(new Set(development.candidates.map(c => c.model_id)).size, 4);
+    const repeated = await trainWorkflow(input, planFile, path.join(dir, "repeat-run"));
+    assert.deepEqual(repeated.candidates.map(c => c.model_id), development.candidates.map(c => c.model_id));
+    assert.equal(card.model_id, selected.model_id);
+    assert.equal(scaler.model_id, card.model_id);
+    assert.equal(scaler.model_status, "candidate");
+    assert.equal(card.status, "candidate");
+    assert.equal(scaler.task_id, card.task_id);
+    assert.equal(scaler.prediction_target, card.target);
+    for (const [file, hash] of Object.entries(selected.files)) {
+      assert.equal(digest(fs.readFileSync(path.join(bundle, file))), hash);
+      assert.deepEqual(fs.readFileSync(path.join(bundle, file)), fs.readFileSync(path.join(run, selected.name, file)));
+    }
+    const x = tf.tensor3d([scaleResearchSequence(data.samples[0].x, scaler)]);
+    let y;
+    try { y = model.predict(x); assert.ok(Array.from(await y.data()).every(v => v >= 0 && v <= 1)); }
+    finally { tf.dispose([x, y]); model.dispose(); }
+    fs.appendFileSync(path.join(run, development.selected.lstm, "weights.bin"), "changed");
+    assert.throws(() => bundleWorkflow(run, path.join(dir, "bad-bundle")), /artifacts changed/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("14-feature speed-aware workflow trains both baselines and loads the bundled LSTM", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-active-workflow-fixture-"));
+  try {
+    const data = dataset(); data.feature_schema = COLLECTION_SCHEMA; data.feature_names = COLLECTION_FEATURES;
+    for (const [i,sample] of data.samples.entries()) sample.x = sample.x.map((row,j)=>[...row,[.3,.7,1,2,4][i%5],(20-j)*5]);
+    const plan = makePlan(data,{epochs:1});
+    const input=path.join(dir,"samples.json"),planFile=path.join(dir,"plan.json"),run=path.join(dir,"run"),bundle=path.join(dir,"bundle");
+    fs.writeFileSync(input,JSON.stringify(data));fs.writeFileSync(planFile,JSON.stringify(plan));
+    const result=await trainWorkflow(input,planFile,run);
+    assert.equal(result.feature_schema,COLLECTION_SCHEMA);
+    const evaluation=await evaluateWorkflow(input,run);
+    assert.deepEqual(Object.keys(evaluation.results),["mean","lstm","mlp"]);
+    bundleWorkflow(run,bundle);
+    const scaler=JSON.parse(fs.readFileSync(path.join(bundle,"scaler_params.json")));
+    const {model_id,model_status,task_id,prediction_target,...scaling} = scaler;
+    assert.deepEqual(scaling,fitStandardScaler(partitions(data,plan).train,COLLECTION_SCHEMA));
+    assert.equal(model_status,"candidate");
+    assert.equal(task_id,"fixture-task");
+    assert.equal(prediction_target,"independent_scored_task");
+    assert.ok(model_id.startsWith("scored-task-lstm-"));
+    const model=await loadDeployedModel(path.join(bundle,"model.json"));
+    const x=tf.tensor3d([scaleResearchSequence(data.samples[0].x,scaler)]);
+    const prediction=model.predict(x);
+    try {
+      assert.deepEqual(model.inputs[0].shape,[null,20,14]);
+      assert.ok(Number.isFinite((await prediction.data())[0]));
+    } finally {tf.dispose([x,prediction]);model.dispose();}
+  } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+});
+
+test("pilot keeps entire participants separate and preserves the formal holdout minimum", async () => {
+  const data = dataset(); data.samples = data.samples.slice(0, 8);
+  assert.throws(() => makePlan(data), /at least 6/);
+  const plan = makePilotPlan(data, { epochs: 1 });
+  assert.deepEqual(plan, makePilotPlan(data, { epochs: 1 }));
+  assert.equal(new Set(plan.folds.flatMap(f => f.test)).size, 4);
+  for (const split of plan.folds) {
+    assert.equal(new Set(Object.values(split).flat()).size, 4);
+    assert.equal(split.train.length, 2);
+  }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "algobot-pilot-fixture-"));
+  try {
+    const input = path.join(dir, "samples.json"), output = path.join(dir, "pilot");
+    fs.writeFileSync(input, JSON.stringify(data));
+    const result = await pilotWorkflow(input, output, { epochs: 1 });
+    assert.equal(result.deployment_ready, false);
+    for (const predictions of Object.values(result.predictions)) {
+      assert.equal(predictions.length, 8);
+      assert.equal(new Set(predictions.map(p => p.assessment_id)).size, 8);
+    }
+    for (const fold of result.folds) {
+      const train = data.samples.filter(s => fold.split.train.includes(s.student_id));
+      const scaler = JSON.parse(fs.readFileSync(path.join(output, `fold-${fold.index + 1}-lstm/scaler_params.json`)));
+      assert.deepEqual(scaler, fitStandardScaler(train));
+      for (const model of Object.values(fold.models)) assert.ok(model.reload_max_absolute_error <= 1e-6);
+    }
+    await assert.rejects(() => pilotWorkflow(input, output), /already exists/);
+    assert.throws(() => bundleWorkflow(output, path.join(dir, "bundle")), /ENOENT/);
+    const refit = await refitPilotWorkflow(input, output, path.join(dir, "refit"));
+    assert.equal(refit.training_participants, 4);
+    assert.equal(refit.epochs, 1);
+    assert.equal(refit.deployment_ready, false);
+    assert.equal(refit.final_refit_independently_evaluated, false);
+    assert.equal(refit.reload_max_absolute_error, 0);
+    assert.ok(!JSON.stringify(refit).includes("fixture-p"));
+    data.samples[0].y = .123;
+    fs.writeFileSync(input, JSON.stringify(data));
+    await assert.rejects(() => refitPilotWorkflow(input, output, path.join(dir, "bad-refit")), /changed/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

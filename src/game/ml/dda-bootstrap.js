@@ -1,6 +1,6 @@
 // Bootstrap DDA Controller
 // Deterministic adaptive difficulty mechanism used during the data collection phase.
-// Produces the same 5-action output interface as the DQN, using handcrafted thresholds
+// Selects five difficulty actions using explicit thresholds
 // derived from telemetry scores. This is an intentional research phase — not a replacement
 // for ML — that generates representative gameplay data before models are trained.
 
@@ -12,7 +12,7 @@ import { DDA_ACTIONS } from "./dda.js";
  * @param {number} stage - Current CS1 curriculum stage (1-5)
  * @returns {number} DDA action ID (0-4)
  */
-export function computeBootstrapAction(telemetryState, stage) {
+export function computeBootstrapAction(telemetryState, stage, proficiency = null) {
   const {
     frustrationScore,
     flowScore,
@@ -24,13 +24,17 @@ export function computeBootstrapAction(telemetryState, stage) {
 
   // Logic Wall Detection: student is struggling — provide scaffolding
   // High frustration OR excessive errors combined with multiple resets
-  if (frustrationScore > 0.5 || (errorCount > 5 && resetCount > 2)) {
+  if (frustrationScore > 0.5 || (errorCount > 5 && resetCount > 2) ||
+      (Number.isFinite(proficiency) && proficiency < 0.3)) {
     return DDA_ACTIONS.SCAFFOLD;
   }
 
   // High Proficiency Detection: student is breezing through — increase challenge
   // High flow, low frustration, very few errors
-  if (flowScore > 0.75 && frustrationScore < 0.15 && errorCount <= 1) {
+  const readyForChallenge = Number.isFinite(proficiency)
+    ? proficiency > 0.7 && flowScore > 0.6
+    : flowScore > 0.75;
+  if (readyForChallenge && frustrationScore < 0.15 && errorCount <= 1) {
     return DDA_ACTIONS.CHALLENGE;
   }
 

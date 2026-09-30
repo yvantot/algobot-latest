@@ -1,0 +1,129 @@
+> Round 2 (version 1.3.9, adviser-approved 26 September 2026): every student does Your first harvest, then Two careful steps, under fixed study conditions (100% speed, Normal difficulty, fixed task order). Each task is a separate target. Round 2 cannot be pooled with the September 26 pilot. The collection-day procedure is [COLLECTION_DAY_CHECKLIST.md](COLLECTION_DAY_CHECKLIST.md); where this document disagrees, the checklist wins.
+
+# Local model workflow
+
+For collection day, use [the short operational checklist](COLLECTION_DAY_CHECKLIST.md). Dev Console now provides a read-only **Check Collection** button showing the current observation-window readiness and per-task usable labels using the same validator as the preparation CLI.
+
+This is the recommended workflow for the next collection. It replaces the legacy experiment command for new data. The model target is the first fully evaluated submission's score on a fixed Challenge Farm task, divided by its maximum. The game scores actual behavior on predefined test rows and includes the score in the dataset automatically. The old gameplay completion formula is retained only as historical/proxy telemetry, not as the target for this workflow.
+
+The September 26 collection contains usable pilot samples: five for Your first harvest and one for Two careful steps. Neither task currently meets the holdout workflow's six-participant software minimum, which is not a claim of adequate study size. See [the collection audit](COLLECTION_AUDIT_2026-09-26.md). Version 1.3.3 explicitly installed a provisional full-data LSTM refit; its statistical limitations remain.
+
+## One collection export
+
+In Dev Console, open the research controls and use **Download Dataset JSON**. That one v4 file contains participant/session identities, timestamps, gameplay snapshots, uncapped counters, quest attempts including unfinished attempts, challenge attempts and submitted programs, raw events, hints, DDA decisions and event severity. It includes build provenance, collection-quality checks, an export ID, and SHA-256 checksums for each session.
+
+The separate Quest CSV and replay-buffer download buttons were removed. DQN replay is not needed for the new supervised target. New sessions omit the replay-buffer payload; DDA decision logs remain. Old stored records are preserved as originally recorded. The developer diagnostics download is for debugging the game, not another training dataset.
+
+Checksums detect accidental modification; they are not signatures or proof that a record represents a real student. The importer verifies the manifest, rejects unreadable-storage recovery exports for training, and detects conflicting overlapping histories. It deduplicates repeated session downloads without making extra students or samples.
+
+Browser persistence remains localStorage with 30-second checkpoints. This release does not add a backend or make browser storage unlimited. Download after each participant and check storage warnings. Keep original JSON files unchanged. **Clear Stored Data** prevents the current in-memory session from returning through autosave or export, removes the saved participant ID and removes `study_participant` from the current URL. Reload to generate a fresh ID, or open a URL with the next researcher's assigned participant code. Ordinary reloads without clearing retain the participant ID for repeat sessions.
+
+For spreadsheet analysis, derive a summary from the JSON later:
+
+```powershell
+node scripts/export-quest-csv.js training/data/raw NEW-quests.csv
+```
+
+The CSV is a summary, not the input for training. Keep the JSON.
+
+## Collect observations and independent scores
+
+Follow [the collection protocol](DATA_COLLECTION_PROTOCOL.md) for participant codes, task administration and the draft rubric. Have the adviser review the task and rubric before the main collection. Use the same build and procedure; mark deviations. Restart the development server after a code change so its build provenance reflects the new version. Version 1.3.8 accepts all regular player speed settings; round 2 study sessions (1.3.9) fix speed at 100%.
+
+New collection uses **20 observed gameplay intervals** from the preceding 15 minutes, normally about two minutes of play after the tutorial. Menus, pauses, hidden tabs, demonstrations and challenge activity do not supply intervals. Phase and speed changes create segment boundaries; counter differences never bridge those boundaries. Earlier valid intervals survive short interruptions. A long interruption can age observations out of the 15-minute window. Challenge navigation stays visible once unlocked; entry checks readiness before recording exposure. The opening timestamp freezes the input cutoff. Challenge editing, execution and rewards never enter that pre-task input window. Do not invent scores for unfinished work.
+
+The ten rate features are errors, edits, completed runs, failed runs, stopped runs, requested hints, harvests, spoiled crops, loop iterations and condition evaluations per real minute. Stage, robot count, game speed and observation age in seconds at the prediction/assessment cutoff provide context. The schema is `active-14f-v2`. Speed is explicit: human editing and help rates are not blindly divided by game speed. Observation age exposes gaps and stale history to the next model. Each interval must contain 2.5 to 7.5 seconds of observed gameplay at one supported speed, with finite monotonic counters. No synthetic intervals or missing-time interpolation are used.
+
+These features are an engineering hypothesis to test, not a validated measurement of skill or emotion. A completed program is not necessarily a correct solution; a stopped loop is not necessarily an error. Automatic DDA hints remain in raw records but do not count as student-requested hints. Features, task validity and opportunity to practice still affect model quality.
+
+The legacy ten-feature vector is still exported for traceability. Both research schemas use shared preparation/runtime code. The installed provisional 12-feature LSTM retains its original contiguous 100%-speed requirements and uses rules when those inputs are unavailable. It has not been retrained on the new speed-aware observations. Runtime and local training support 14-feature candidates when enough new data is available. Prepared samples retain source build/model metadata without using it as a feature or label. Folder audits identify build and model cohorts; changing collection policy can change gameplay distributions.
+
+## Prepare the dataset
+
+Place new downloads in a separate round folder under `training/data/` (round 2: `training/data/round2-2026-09/`), never in `training/data/raw`, which holds the pilot. No manual score sheet is needed for Challenge Farm. Prepare each task separately. Retired task data can still be prepared separately. Do not pool different tasks just because their scores are normalized. A score of zero is valid; null means unscored. Pre/post tests are separate from the model-target importer.
+
+From the repository root:
+
+```powershell
+npm run audit:collection -- training/data/round2-2026-09
+node scripts/prepare-challenges.js training/data/round2-2026-09 training/round2-first-harvest.json first-harvest-v1
+node scripts/prepare-challenges.js training/data/round2-2026-09 training/round2-careful-steps.json careful-steps-v1
+```
+
+Read the exclusion report and participation counts in `samples-v1.json`. The importer retains one first-exposure, first-evaluated-submission score per participant for the chosen task, accepts standard_in_game conditions from the live assessor, excludes reported/unconfirmed assistance, and never substitutes a better retry. Closing before submitting is unfinished, not zero. Browser exposure history prevents a reload from becoming another first exposure; the importer also checks across exported sessions. Keep the same participant code across devices and record any prior exposure that browser storage cannot detect. Preparation does not certify task validity. New output files must not already exist.
+
+Keep new collection rounds separate from the old 12-feature pilot. Preparation defaults to `active-14f-v2` when new-format exports are present; records without the required segment history cannot be reconstructed into it. For a mixed archive, supply `recent-12f-v1` or `active-14f-v2` as the optional fourth argument to `prepare-challenges.js` and inspect exclusions. Do not pool schemas in one experiment or rewrite old exports. Previously eligible 12-feature records remain usable with the original preparation path.
+
+The older `prepare-assessments.js` and manual template remain available only for a separately administered, reviewed task protocol. They are not required for the built-in challenges.
+
+### Study conditions (round 2)
+
+Sessions opened with a researcher-assigned code record `collection.study_protocol` (`fixed-conditions-v1`): 100% speed, difficulty fixed at Normal with the model's proposed action logged, no scheduled hazards, and the task order Your first harvest then Two careful steps. Each prepared sample carries `collection_protocol`. The importer excludes a Two careful steps attempt made before Your first harvest (`study_task_order_not_followed`) and builds its input window only from gameplay after the previous challenge ended. `validateDataset` refuses to mix protocols, so round 2 cannot be silently pooled with earlier free-speed, adaptive-difficulty sessions.
+
+Planning target: at least 30 usable first scores per task. This is a rule of thumb agreed with the adviser, not a power calculation.
+
+### Known input limitation and a possible second feature version
+
+The 20 intervals cover roughly 100 seconds of play right after the tutorial or previous challenge. In the pilot, stopped-run, loop and condition rates were always zero and robot count was always one. Round 2 accepts this and reports it as a limitation. Exports keep the full snapshot history and raw events, so a second feature version (for example a longer window or tutorial-performance summaries) can be computed from the same files later. If you do that, define and version the new schema **before** looking at model results, keep `active-14f-v2` results as the primary pre-planned analysis, and report both.
+
+## Freeze a participant split
+
+```powershell
+npm run model -- plan training/round2-first-harvest.json training/plan-round2-first-harvest.json
+```
+
+Repeat with the Two careful steps file for its own plan. The examples below use `samples-v1.json` and `plan-v1.json` as placeholders for either task.
+
+The seeded split keeps every observation from a participant in one partition. Approximately 60% of participant IDs train, 20% validate and 20% test, with at least two IDs in each. Six IDs are the software minimum, not an adequate sample-size recommendation. Decide recruitment and an evaluation cohort with your adviser before collecting the full study. More windows from the same people do not replace more participants.
+
+The plan binds the exact prepared dataset by hash. It records the target, rubric, feature schema, split, seeds, training limit and category cutoffs. Defaults are seed 42, two initializations, 60 maximum epochs, and provisional 0.3/0.6 category cutoffs. Review settings before training. Freeze cutoffs based on the assessment rubric, not on whichever values maximize accuracy. Do not regenerate splits until you get favorable results. If the dataset changes, use a new version and document why.
+
+## Train locally
+
+The active game model was explicitly replaced with a provisional full-data refit in version 1.3.3. See [deployment details and rollback](MODEL_DEPLOYMENT_2026-09-26.md). This experimental installation does not change the formal evaluation requirements below.
+
+For a small exploratory cohort, `npm run model -- pilot <samples.json> <NEW-pilot-dir>` runs participant-separated cross-validation with a fixed seed, train-only scaling, separate validation early stopping, and mean/MLP comparisons. It requires at least four participants for the same task and protocol. Its results are pilot-only, cannot be bundled for deployment, and do not replace the formal holdout workflow below. See [the September 26 pilot](PILOT_RESULTS_2026-09-26.md) for the first recorded run and its limitations. Do not tune against its held-out predictions.
+
+```powershell
+npm run model -- train training/samples-v1.json training/plan-v1.json training/runs/run-v1
+```
+
+This uses installed Node and TensorFlow.js on the CPU. It does not require Python, Colab, a GPU or a server. Dependencies come from the repository lockfile. CPU speed is suitable for the deliberately small candidates; do not assume GPU-like speed for much larger datasets.
+
+The workflow compares a training-mean predictor, an 8-unit LSTM, and an 8-unit dense model using the mean of each sequence's features. The dense model tests whether recurrence adds value over a simpler summary. Two fixed initializations are tried for each learned model. Training-only standardization, L2 regularization and validation early stopping limit avoidable overfitting. Each model family selects its seed by participant-macro validation RMSE, so people with more assessment windows do not dominate selection. Training loss itself remains sample-weighted; record uneven assessment counts and keep a consistent protocol.
+
+`development.json` records architecture results, training curves, selected epochs, runtime versions, file hashes and baseline comparisons. Test metrics are not produced during training. The saved candidates are the validation-selected checkpoints, not models silently refitted on the full dataset. The recommended LSTM output stays within 0..1 using a sigmoid, but that is a score estimate, not a calibrated probability.
+
+## Evaluate once after development decisions
+
+```powershell
+npm run model -- evaluate training/samples-v1.json training/runs/run-v1
+```
+
+This evaluates the fixed LSTM and dense-model choices and the mean baseline on the held-out participants. It writes `evaluation.json` and a readable `evaluation.md`: RMSE, MAE, R-squared, participant-level errors, accuracy, precision, recall, F1 and the confusion matrix. Undefined class metrics are null; absent classes contribute zero to the reported three-class macro F1 and are listed explicitly. Regression metrics remain necessary even when scores are categorized.
+
+The command refuses repeated evaluation of the same run and records when test access began. This is a workflow guard, not a guarantee against researchers inspecting test data manually or creating new runs after seeing the results. Do not tune against this cohort after opening it. Use a new untouched cohort for a later confirmatory evaluation.
+
+If evaluation crashes, preserve `evaluation-started.json` and the error log. Investigate the technical failure before retrying. The marker must be deliberately removed to retry; do not remove a successful evaluation to tune again. Incomplete training runs must use a new output directory. Nothing silently overwrites old evidence.
+
+## Package a candidate, then review deployment
+
+```powershell
+npm run model -- bundle training/runs/run-v1 training/bundles/candidate-v1
+```
+
+The bundle contains browser-compatible `model.json`, weights, the matching scaler, and a model card with hashes and evaluation provenance. It never writes to `public/models`. `deployment_ready` remains false because running the commands does not establish that the model is suitable.
+
+From 1.3.11, formal candidate scalers contain a stable model ID, `candidate` status, task and target before their hashes are recorded. Bundling preserves those files byte-for-byte and checks the runtime metadata. Older formal runs without this metadata must be retrained into a new run directory before bundling; do not patch their scaler after evaluation. The installed provisional pilot model is unchanged.
+
+Before installation, review whether the LSTM improves on both baselines, whether the held-out scores cover the intended categories, whether task forms and scoring are defensible, and whether the cohort is large enough to support the claims. Poor results should be reported and investigated, not concealed by new cutoffs. A successful model prediction also does not prove that DDA improves learning.
+
+The browser understands the legacy ten-feature, recent twelve-feature and active fourteen-feature schemas. Each model waits for observations matching its own schema and uses rules while inputs are unavailable. The same feature and scaling functions are used in training and runtime. Model and scaler must be installed together in a separate reviewed Git change. Difficulty thresholds and score interpretation must be reviewed with that change; a programming-task score is a different target from the old gameplay formula.
+
+No backend was added. Paired pre/post learning outcomes remain separate from model development and require their own analysis.
+
+References: [TensorFlow.js model save/load](https://www.tensorflow.org/js/guide/save_load), [scikit-learn data-leakage guidance](https://scikit-learn.org/stable/common_pitfalls.html#data-leakage), and [grouped cross-validation](https://scikit-learn.org/stable/modules/cross_validation.html#cross-validation-iterators-for-grouped-data).
+
+## Assessment protocol 5
+
+New attempts use `algobot-live-cases-5.0`. Stopped runs remain recorded within the same attempt; the first fully evaluated submission supplies the target, whether it passes or fails. Later scored retries remain practice. The pre-opening gameplay cutoff does not move, and prepared samples include `stopped_runs_before_score` as metadata, not an input feature. This measures task performance with editing and stopped-run feedback allowed, not untouched first-try ability. Older protocols retain their original handling and cannot be mixed with protocol 5 in one training experiment. Closing without a score remains unfinished, never zero.

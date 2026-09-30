@@ -1,4 +1,7 @@
 <script>
+  import { preferences } from "../game/utils/preferences.js";
+  import { fade, fly } from "svelte/transition";
+  import { dialogFocus } from "./dialog-focus.js";
   import { onMount } from "svelte";
 
   let { isOpen = $bindable(false), onClose } = $props();
@@ -9,48 +12,48 @@
   const SLIDES = [
     {
       title: "Welcome to AlgoBot!",
-      subtitle: "An Algorithmic Farming Edutainment System",
+      subtitle: "Build blocks. Grow your farm.",
       description:
-        "Learn fundamental programming concepts by coding autonomous robots to manage, plant, water, and harvest your farm!",
+        "Tell your robot what to do with blocks. Learn to plant, water, and harvest as you play.",
       image: "/sprites/art_intro_0.png",
       fallbackText: "Introduction",
       highlights: [
         "Write real code (or use drag-and-drop blocks)",
-        "Automate tasks across your entire farm grid",
-        "Master loops, conditions, and variables",
+        "Give your robot a list of jobs",
+        "Learn one new idea at a time",
       ],
     },
     {
-      title: "The Farming Lifecycle",
+      title: "Grow your first crop",
       subtitle: "Till -> Plant -> Water -> Harvest",
       description:
-        "Every crop needs proper care to grow successfully. Follow the essential farming steps:",
+        "Help your crops grow in this order:",
       image: "/sprites/art_intro_1.png",
       fallbackText: "Farming Cycle",
       highlights: [
         "Till soil first using bot.till()",
         'Plant seeds with bot.plant("wheat")',
         "Water soil with bot.water() to start growth",
-        "Harvest mature crops with bot.harvest() for Coins & EXP",
+        "Harvest ready crops with bot.harvest() for coins and EXP",
       ],
     },
     {
-      title: "Quests & Algorithmic Automation",
-      subtitle: "Complete Quests to Unlock Power-Ups",
+      title: "Learn through missions",
+      subtitle: "Finish missions to unlock more",
       description:
-        "Expand your programming toolkit as you complete quest milestones and build an automated farming empire!",
+        "Each mission teaches a small step. Try it, watch your robot, then try the next one.",
       image: "/sprites/art_intro_2.png",
       fallbackText: "Automation & Quests",
       highlights: [
-        "Unlock loops (for, while) to automate repetitive rows",
-        "Use conditional statements (if, else) to react to crop states",
-        "Unlock higher-tier crops & extra helper robots in the Shop",
+        "Use loops to repeat a job",
+        "Use if to check before doing a job",
+        "Unlock new crops and more robot helpers",
       ],
     },
   ];
 
   onMount(() => {
-    const hidden = localStorage.getItem("algobot_hide_onboarding") === "true";
+    const hidden = preferences.getItem("algobot_hide_onboarding") === "true";
     dontShowAgain = hidden;
   });
 
@@ -70,9 +73,9 @@
 
   function handleClose() {
     if (dontShowAgain) {
-      localStorage.setItem("algobot_hide_onboarding", "true");
+      preferences.setItem("algobot_hide_onboarding", "true");
     } else {
-      localStorage.removeItem("algobot_hide_onboarding");
+      preferences.removeItem("algobot_hide_onboarding");
     }
     isOpen = false;
     if (onClose) onClose();
@@ -81,10 +84,12 @@
 
 {#if isOpen}
   <div
+    use:dialogFocus role="dialog" aria-modal="true" aria-label="Tutorial and onboarding" transition:fade={{duration:300}}
     class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
   >
     <div
-      class="relative w-full max-w-2xl bg-gray-100 text-slate-700 border-4 border-slate-500 rounded-xl shadow-2xl overflow-hidden flex flex-col"
+      in:fly={{y:24,duration:350}}
+      class="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-gray-100 text-slate-700 border-4 border-slate-500 rounded-xl shadow-2xl overflow-hidden flex flex-col"
     >
       <!-- Header -->
       <div
@@ -96,7 +101,7 @@
         <button
           onclick={handleClose}
           class="text-slate-500 hover:text-slate-800 text-lg font-bold px-2 py-0.5 rounded cursor-pointer"
-          >✕</button
+          aria-label="Close onboarding">✕</button
         >
       </div>
 
@@ -211,7 +216,7 @@
                 onclick={handleClose}
                 class="px-5 py-1.5 bg-gray-300 hover:bg-gray-400 text-slate-800 font-bold rounded-lg text-sm border border-slate-400 cursor-pointer transition-colors"
               >
-                Start Farming
+                Meet your farm
               </button>
             {/if}
           </div>

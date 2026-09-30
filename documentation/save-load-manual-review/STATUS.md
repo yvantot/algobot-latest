@@ -1,0 +1,409 @@
+# Manual save/load campaign — in progress
+
+Operator: Codex. Chromium `153.0.8010.12` (headless, rendered UI, persistent
+profiles). Production origin: `http://127.0.0.1:4175`. Initial tested source:
+`56c74ba`, app `1.3.13`. Browser interactions use Playwright as an input tool;
+quest progress is earned through the editors and the game's controls.
+
+## Current progress
+
+- Campaign A completed and claimed all 44 quests through Blockly, including
+  every optional quest. Each has a real reload/Continue check. The per-quest record is
+  [quest-matrix.csv](quest-matrix.csv).
+- Campaign B also completed all 44 quests on production build `c6ff644`: five
+  required onboarding quests in Blockly, then 39 quests using text programs or
+  shop controls. All 39 reachable completed-unclaimed states survived reload;
+  each subsequent claim paid the exact coin and EXP reward. The five automatic
+  onboarding awards were tested immediately after claiming.
+- Campaign C completed all 44 quests on `c6ff644`, mixing Blockly and text,
+  switching bots, interleaving optional crops, and playing at desktop and phone
+  viewport sizes. Post-claim checks passed across 15 reloads, 15 tab reopens,
+  and 14 persistent-browser restarts. All three campaign quest matrices are
+  complete (132 quest continuity checks); the targeted minimums remain separate.
+- Campaign C found UI-003: enlarging a phone-sized viewport leaves the game
+  canvas at its initial dimensions. Reload restores the layout. This P2 UI
+  defect remains open; no new save/load defect was found in Campaign C.
+- During the first farming quest, till, plant, and water progress survived
+  separate reloads. Continued watering grew the same wheat to harvestable.
+- Reloading the introduction restored onboarding and the unchanged main farm.
+- The first harvest exposed BUG-001. Fix `ba7709b` passed three independent UI
+  harvest/reload/Continue retests on production build `ef8d250`.
+- Starting normal farming immediately exposed BUG-002: the introduction exit
+  assigns a wall-clock timestamp to the active-time scheduler, blocking saves.
+- BUG-002 is fixed in `c6ff644`; three production UI/save/Continue retests passed.
+- One of five complete M01 Water-the-row repetitions passed: reset, water and
+  reload, remove/replant and water again, complete, reload, claim, next quest.
+  Crops absorbed water and grew under protection. Completion cleared lesson
+  ownership; spoilage counted down and the former lesson crop died normally
+  after Continue. An ordinary tile at (1,1) also absorbed water and grew. This
+  supplementary control used the text editor; all 44 Campaign A quest completions used
+  Blockly. Evidence includes the lifecycle and ordinary-tile snapshots.
+- Three M04 cases passed: the earlier dual-source edit/Continue check, a saved
+  unfinished text program repaired and executed after Continue, and separate
+  programs on two bots with selected-bot persistence and independent execution.
+  Nine more minimum reload cases and the other M04 scenario requirements remain.
+- One M02 sugarcane regrowth reload passed: three dry, previously harvested
+  plants retained their IDs and exact growth progress. Rewatering the restored
+  plants produced three more harvests and exactly 12 coins. Other lifecycle
+  states and the remaining 23 minimum reload cases are outstanding.
+- One M06 browser-closure case passed after 588 seconds of real elapsed time.
+  The entire stored payload stayed identical at the menu; Continue restored it
+  and a subsequent harvest saved successfully. This case had no live hazards.
+- M08 has one confirmed replacement and two cancellations (Cancel and Escape).
+  An unfinished Move right block marked the old farm; cancellation retained it,
+  while replacement reset the program, quests, economy and playthrough ID.
+- The remaining targeted minimums and endurance batches remain outstanding.
+  None of the previously automated checks count toward those manual totals.
+
+Authoritative case records: [journal.jsonl](journal.jsonl). Large evidence and
+persistent profiles are local under `.manual-save-review/` (ignored and outside
+Playwright output cleanup). The original production bundle is preserved in
+`build-56c74ba/` there.
+
+## BUG-001 — Harvesting a dry restored crop blocks saving
+
+Severity: P1. Status: fixed in `ba7709b`; three manual retests passed.
+
+Real-play sequence: complete introduction quests, till, reload/Continue, plant
+wheat, reload/Continue, water, reload/Continue, water again until ripe, then run
+Harvest crop. All commands were authored with Blockly drag-and-drop.
+
+Observed: the crop disappears and coins reach 143, but repeated saves report
+`Water belongs to a missing crop.` The last committed checkpoint stays at
+110 coins, the ripe crop, and tutorial progress 3/4 (revision 274). Thus later
+progress is unsaved. An isolated copy of that checkpoint reproduces the failure
+by Continue followed by Start on the saved Harvest program.
+
+Cause: `releaseUnusedWater()` returned immediately when the dose was zero,
+leaving `water_crop` pointing to a crop subsequently removed by harvest. Capture
+serialized the missing crop owner, so schema validation rejected the checkpoint.
+
+Fix: clear crop ownership for an exhausted dose. Keep empty-tile drainage and
+the requirement to freshly water replanted crops. Add component cases covering
+harvest, removal, raw destruction, death, and replanting, plus a real-browser
+save/Continue regression after a naturally grown crop is harvested.
+
+Recovered evidence: `BUG-001-root.json`, `BUG-001-localStorage.json`, and
+`BUG-001-ui.txt` under the local evidence directory. Screenshots were observed
+and the failure reproduced, but their disk copies were lost in TOOLING-001.
+Earlier journal paths into `test-results/manual-review/` are historical and must
+not be treated as available evidence unless explicitly recovered below.
+
+## TOOLING-001 — Automated runner cleared disposable campaign artifacts
+
+The first added browser regression used Playwright's default `test-results`
+output. Its startup cleanup removed the nested manual profiles/screenshots.
+The runner was stopped. The Node review session still held the exact failing
+IndexedDB root and localStorage snapshot, which were recovered outside that
+directory. The watering before/after checkpoint snapshots were also recovered.
+User profiles were never involved. Subsequent manual artifacts live in ignored
+`.manual-save-review/`; automated checks use their own separate output directory.
+Profile A must be reconstructed from its preserved checkpoint; that laboratory
+recovery is recorded separately and is not counted as a player-driven reload.
+That reconstruction was completed as `profile-a-recovered` and subsequent
+campaign progress was earned through ordinary game controls.
+
+## Resume point
+
+All review browsers are closed. Profile
+`.manual-save-review/profiles/profile-a-recovered` is saved at the main menu,
+with 1,450 coins, 1,927 EXP, and all 44 quests claimed. Seeds: wheat 12, corn 2,
+rice 2, potato 3, sugarcane 1, tomato 1. The farm is four columns by three rows;
+Bot 0 is at (2,0), with move duration 0.6. Lesson protection is inactive.
+Production remains `c6ff644` at `http://127.0.0.1:4175/`. The saved Blockly
+program visits columns 0–2, removes a crop, prepares soil, plants tomato,
+waters/waits until ready, then harvests. The separate text remains `bot.water();`.
+
+The exact final root is `.manual-save-review/batch-3-final-root.json`, revision
+7646, playthrough `fd4dc4ba-de62-4270-b53a-c41e2c33347b`. All 44 claimed flags
+agree with the quest matrix. Earlier batch roots are retained. Campaign A has
+no remaining quests; preserve this developed profile for targeted scenarios.
+
+Campaign B is also closed at the main menu in
+`.manual-save-review/profiles/profile-b`. Final root:
+`.manual-save-review/campaign-b-final-root.json`, revision 2317, playthrough
+`a08a646b-768a-4cf1-a9fd-9e911dfc69fd`. It has all 44 quests claimed, 920 coins,
+1,897 EXP, three columns and four rows. Seeds: wheat 12, corn 2, rice 2,
+potato 3, sugarcane 0, tomato 0. Bot 0 is at (0,1), with action duration 0.7;
+Bot 1 is at (2,1), with default action duration 0.8. Text mode and Bot 0 are
+selected. Their programs say distinct Campaign B messages, then jump to their
+respective saved tiles. Lesson protection is inactive.
+
+Campaign C is closed at the main menu in
+`.manual-save-review/profiles/profile-c`. Final root:
+`.manual-save-review/campaign-c-final-root.json`, revision 2655, playthrough
+`888a6ee3-67a3-42ce-b965-b566eaa4fc46`. All 44 quests are claimed, with 920 coins,
+1,897 EXP, four columns and three rows. Seeds: wheat 12, corn 1, rice 0,
+potato 0, sugarcane 0, tomato 1. Bot 0 is at (3,2), with default move duration
+0.7; Bot 1 is at (0,0), upgraded to 0.6. Both have action duration 0.8 and check
+duration 0.5. Text mode selects Bot 1; Blockly selects Bot 0. Bot 0 retains the
+text fire patrol and a Blockly Boolean-returning function; Bot 1 retains its
+distinct Say message. All twelve tiles have no lesson owner, and lesson
+protection, pests, and fires are inactive. Preserve all three developed
+profiles for the remaining targeted scenarios.
+
+The separate `new-game-batch` profile contains a fresh replacement in its intro.
+It is not campaign B or C. Remaining M08 minimums: 49 replacements and 18
+cancellations. M09 endurance has not started. M01 needs four more complete
+repetitions; the rest of the targeted/fault matrix remains outstanding.
+
+## Batch 5: Campaign C completed
+
+Campaign C began from New Game in a fresh persistent profile on unchanged
+production build `c6ff644`. Its 44 quest checks span 12:34–13:19 UTC on September
+30, including tool and observation time. All progression came from normal
+editor, shop, and quest controls. No developer completion or storage injection
+was used. The five onboarding awards are automatic; the other 39 rewards were
+claimed through the UI before leaving. Each committed claim survived Continue.
+
+The interruptions alternated throughout: 15 reloads, 15 tab reopens, and 14
+full Chromium restarts using the same persistent profile and origin. An
+independent audit of all 44 before/after pairs found matching playthrough and
+owner identity, economy, quests, bots and both program sources, dimensions,
+unlocks, editor selections, and lesson state. The final root has 44 claim flags.
+Local audit: `.manual-save-review/campaign-c-expanded-audit.json`.
+
+Thirty-nine pairs match the entire payload. Five have simulation-timer
+differences: hazard accumulator phase, scheduler clock/cooldown, and (in the
+return-value quest) corn synergy phase. The four advancing scheduler clocks
+increased by 1.549–1.993 seconds, with matching cooldown decreases. Gameplay
+continues while the screenshot and exit are processed; these are comparisons
+with a subsequently committed revision, not a claim of exact paused simulation.
+No crop identity, state, health, growth, water ownership, inventory, or reward
+changed in these pairs. Offline-time coverage remains the separately recorded
+M06 case and its outstanding minimums.
+
+- Blockly was used for onboarding and later loops, watering, crop checks,
+  cleanup, row count, variables, wait conditions, and the optional returning
+  function. Text covered other conditions, loops, crop farming, functions,
+  arguments, arrays, and patrols. Both saved forms remained independently
+  editable and survived switching editors.
+- Optional corn, rice, potato, sugarcane, and tomato harvests were interleaved
+  immediately after their respective unlocks. The return-value practice was
+  completed before the crop-list lesson. All crops were grown through ordinary
+  programs; longer runs used the game's 400% speed control.
+- Shop purchases added a fourth column, a second bot, and a movement upgrade
+  for Bot 1. The restore comparisons retained the purchases and deductions.
+  A distinct Bot 1 text message survived reopening with Bot 1 selected and ran
+  again after Continue. Blockly and text have separate bot selections: the
+  count-up test selected Blockly Bot 1 but ran text on Bot 0. The journal was
+  corrected to reflect the saved selections, rather than the operator's initial
+  assumption. Later Bot 1 text execution was explicitly selected and verified.
+- Seed buying and two-tile planting were played at 390×844, alongside desktop
+  play at 1440×1000. Two continuity checks crossed viewport sizes: intro_loop
+  reopened at the browser context's phone default, and loop_row_0 restarted at
+  desktop size. Their journal entries record both actual viewports. These
+  passed data continuity while exposing the separate canvas-resize defect.
+- Pest and fire patrols completed across all twelve tiles. After Continue,
+  pests and fires remained absent, lesson protection was false, and every
+  tile's lesson owner was null. The final restored Bot 1 message ran and saved
+  successfully before returning to the menu and closing the browser.
+
+Teaching tips paused and resumed programs normally. Blockly connection and
+selection mistakes were corrected through the UI before the affected quest
+passed. A controller alias briefly referred to a closed tab early in the run;
+reattaching to the live tab preserved its checkpoint. No such tooling issue is
+counted as a game failure or an additional pass.
+
+This batch changes review records only. Automated tests were not rerun for
+documentation changes. Campaign quest checks are not counted again toward M01–M11
+or fault-laboratory minimums; those remaining scenarios are still outstanding.
+
+## UI-003 — Canvas retains phone dimensions after window enlargement
+
+Severity: P2. Status: open. Found and reproduced on `c6ff644`; this is a viewport
+layout defect, with no observed save-data loss.
+
+1. Load the game at 390×844 and choose Continue.
+2. Enlarge the viewport to 1440×1000 without reloading.
+3. The HTML controls resize, but the farm canvas remains 392×848 in both its
+   intrinsic dimensions and CSS bounds. The rest of the farm area is black.
+4. Reload at desktop size and Continue. The canvas becomes 1440×1000 and the
+   same completed farm and programs return. Running Bot 1 and saving still work.
+
+`src/lib/kaplay.js` initializes explicit width/height from the initial window
+dimensions. A resize fix was not made during this fixed-build campaign.
+Evidence: `.manual-save-review/C-viewport-geometry.json`,
+`C-viewport-phone.png`, `C-viewport-desktop-stale.png`, and
+`C-viewport-desktop-recovered.png`. The earlier observed reproduction is also
+retained as `C-viewport-return-desktop.png`.
+
+## Batch 4: Campaign B completed
+
+Campaign B began from New Game in a fresh persistent profile on unchanged
+production build `c6ff644`. Its 44 quest checks span 11:52–12:29 UTC on September
+30, including tool and observation time. No storage or developer progression
+was injected. The first five quests required Blockly onboarding; subsequent
+programming was typed into the text editor. No new save/load defect was found.
+
+All 44 quest checkpoint pairs and two supplementary M04 pairs were independently
+audited. Playthrough/owner identity, economy, quest flags, both program forms,
+farm dimensions, bot positions/upgrades, unlocks, and selected editor/bot matched
+in all 46 pairs. All 44 final claim flags agree with the matrix and journal.
+Detailed local results: `campaign-b-expanded-audit.json`.
+
+- The five onboarding quests automatically award their rewards; a completed but
+  unclaimed state is unavailable. Each was reloaded immediately after the award,
+  preserving claim and balance without another payout. Harvesting the dry
+  introductory crop and starting ordinary farming saved successfully, covering
+  the transitions that exposed BUG-001 and BUG-002 in Campaign A.
+- The other 39 quests were reloaded after committed completion and before
+  claiming. Continue preserved each unclaimed state. Each claim was checked
+  against the exact coin and EXP reward. Optional rewards remained in Mission
+  path after the main mission card regained focus.
+- Buying a row retained the 100-coin deduction and 3×3-to-3×4 expansion. A
+  50-coin action upgrade retained Bot 0's 0.8-to-0.7 duration change, and a
+  500-coin bot purchase retained Bot 1. Both purchases survived before the
+  upgrade quest's reward was claimed.
+- Text variables, conditionals, counters, dimension loops, nested loops,
+  functions, arguments, return values, and indexed arrays survived exactly.
+  Restored programs remained editable and were replaced through normal input
+  for each subsequent quest. Completed pest/fire patrols stayed cleared after
+  reload; lesson ownership and protection remained ended on all twelve tiles.
+- All six crop harvest quests were completed. The five optional crops grew on
+  ordinary tiles using purchased seeds. Longer farm and crop runs used the
+  game's 400% speed control; reload restored the usual 100% speed. Sugarcane's
+  regrowing plants survived the completed-unclaimed reload.
+- M04-B-unfinished-01 preserved an unterminated string and unfinished if block.
+  Starting it did not advance the quest. Editing it into a valid program after
+  Continue allowed planting and saving normally.
+- M04-B-two-bots-01 restored distinct text programs and Bot 1 selection, with
+  both bots stopped at their saved positions. Running Bot 1 moved only Bot 1;
+  selecting and running Bot 0 then reached its separate target. Both outcomes
+  saved successfully.
+
+Teaching dialogs paused runs and resumed after dismissal. An initial `rows`
+reference lacked the required call parentheses; correcting it to `rows()`
+completed the quest. These ordinary authoring/timing corrections were not save
+defects. Quest reloads are not counted again toward targeted/endurance totals;
+only the two distinct M04 reloads increase that targeted count. Campaign C and
+the remaining minimums are still open. This batch changed review records only;
+the prior automated-test results below were not rerun or counted as manual play.
+
+## Batch 3: Campaign A completed
+
+On unchanged production build `c6ff644`, eight more quests passed: the crop
+list, pest patrol, fire patrol, and all five remaining optional crop harvests.
+Each was authored or edited through Blockly and restored by reload/Continue
+before execution. All nine new checkpoint pairs (eight quests plus one M02
+case) were independently compared: playthrough ID, economy, quest state, and
+both program sources matched. No new save/load defect was confirmed.
+
+- The list retained wheat/corn/rice strings and its indexed lookup. Execution
+  planted the three types in the intended order.
+- Two practice pests retained their IDs, positions, timers, and lesson settings.
+  The restored nested-loop patrol removed both and completed the quest.
+- Two practice fires retained their tile locations and were extinguished by
+  the restored patrol. Both hazard completions cleared lesson ownership and
+  protection on all twelve tiles before reward collection.
+- Ordinary corn, rice, potato, sugarcane, and tomato grew and yielded three
+  harvests each after restoring the selected crop and program. Seeds were
+  purchased through the shop. The game speed control was set to 400% for the
+  longer runs; reload resets it to 100%, so it was selected again afterward.
+- The separate M02 case retained three dry sugarcane plants at 14.2656,
+  14.1324, and 14.666 seconds of regrowth. After Continue, the edited care loop
+  watered and harvested those same IDs at 100% speed, earning exactly 12 coins.
+
+The sugarcane teaching dialog paused play and resumed after Got it. Optional
+quest completion returned the mission card to the main path; rewards remained
+available in Mission path and were collected there. Authored disconnected
+blocks were corrected through the editor before checkpoint testing.
+
+Campaign A spans the earlier baseline and two fixes described below; it is not
+a claim that all 44 quests were repeated on the final build. Historical missing
+evidence from TOOLING-001 remains explicitly disclosed. The batch began with
+an exact checkpoint/program/localStorage backup before replacing the prior
+program. New evidence is in `.manual-save-review/`, including
+`batch-3-audit.json` and `batch-3-final-menu.png`. Quest checks are not counted
+again toward targeted or endurance totals. B/C and the broader review remain
+unfinished. No source changes or new automated-test runs were needed here.
+
+## Batch 2: chapters 3 through 9
+
+Production build `c6ff644` remained fixed throughout. Added 26 completed quest
+checks, each using real Blockly edits, reload/Continue, execution or purchase,
+and reward collection. No new save/load defect was confirmed in this batch.
+The 26 before/after snapshot pairs were independently compared again while
+reconciling this report: playthrough ID, economy, quest flags, and both program
+sources matched in every pair. The matrix agrees with all 36 claimed flags in
+the final checkpoint. Batch journal entries span 08:55 to 10:12 UTC on
+September 30; this includes tool waits and documentation work, not just play.
+
+- Conditional branches, NOT/AND, comparison operators, random-number bounds,
+  and nested loops retained their connections and executed after Continue.
+- Buying a column retained the 100-coin deduction and expanded the farm from
+  nine to twelve tiles. A subsequent dimension-based loop used all four columns.
+  A 50-coin Move Speed upgrade retained the 0.7-to-0.6 duration change.
+- Variable IDs, numeric/string values, and getters survived. A conditional
+  harvest counter harvested three restored crops and saved successfully.
+- A growing wheat crop retained its identity and exact committed growth time
+  (1.8166 of 8 seconds). The restored waiting loop observed it become ready and
+  exited. The earlier attempt had already reached ripeness before reload and
+  was not used as the growing-crop check.
+- Nested row/column loops watered all twelve tiles. A named function, a disabled
+  block tree, a reused function call, a crop parameter added through the mutator,
+  and a Boolean return value all survived reload and remained executable.
+- Optional Return an answer restored both selected quest and lesson ownership.
+  After execution, the UI returned to the main path while the optional reward
+  remained ready in Mission path; it was collected there exactly once.
+
+Some first attempts contained disconnected blocks or omitted a quest-required
+readiness guard. The same authored mistakes were present before and after
+reload. They were corrected through the UI and the successful runs have their
+own evidence files; they are not reported as save defects. Teaching dialogs
+paused the combined-condition and corn-parameter runs, which resumed normally
+after dismissal. These quest checks are not added again to targeted/endurance
+totals. B/C and all previously outstanding targeted minimums remain open.
+
+### TOOLING-002: controller timeout during function reuse
+
+A Node controller call hit its 30-second execution limit while waiting for a
+long full-farm run and reset the browser-control kernel. The same persistent
+Chromium profile reopened normally. Its checkpoint retained the program, twelve
+planted crops, the last settled bot tile, and an uncompleted quest. Continue
+left execution stopped. No storage was injected or reconstructed.
+
+The interrupted attempt was not counted as a quest pass. After resetting the
+practice farm through the UI, a new reload/Continue and complete run passed;
+`A-fn_reuse_0-retest-*` holds its evidence. The interrupted root is retained as
+`A-fn_reuse_0-interrupted-root.json`. Subsequent waits were kept shorter than the
+controller limit. This is recorded as a tooling interruption, not a game bug.
+
+## BUG-002 — Starting normal farming blocks every later checkpoint
+
+Severity: P1. Fixed in `c6ff644`; three manual retests passed. Discovered on
+`ef8d250` through ordinary UI progression, immediately
+after the third BUG-001 retest. Start farming followed by Clear/Shop reports
+`Invalid scheduler clocks.` Retry repeats the failure. The previous checkpoint
+is preserved, but new progress cannot be saved.
+
+Cause: `QuestFeedback.startFarming()` assigns `Date.now()` to `lastEventTime`.
+The scheduler now uses elapsed active gameplay milliseconds; the epoch timestamp
+exceeds save validation's bound and also makes its cooldown effectively endless.
+The transition must begin cooldown using the scheduler's own clock.
+
+Evidence: `.manual-save-review/BUG-002-root.json`, `BUG-002-ui.txt`, `BUG-002.png`.
+The root contains the last valid checkpoint, not the rejected in-memory state.
+Regression coverage checks the actual Start farming UI/save/Continue transition
+and cooldown expiration after restored active gameplay, including paused time.
+
+## Test environment and validation
+
+The production play sessions after both fixes used `c6ff644` (app 1.3.13).
+`2b96322` changes only test timeout and Vite watcher exclusions. Unit tests:
+394 passed. The production build passed with existing bundle-size warnings.
+The two new Chromium regressions passed separately. A broader run initially
+failed because Vite tried to watch a locked Chromium Cookies file in the manual
+profile directory. Excluding `.manual-save-review` fixed that server crash.
+
+The next run passed 31/32; its first cold-start test exceeded 60 seconds, and
+repeated that timeout in isolation. The same case passed with a 120-second
+budget in about one minute. Its timeout was updated accordingly. The final
+`2b96322` Chromium save suite passed all 32 cases in 2.3 minutes. Log:
+`.manual-save-review/2b96322-save-suite.txt`. These automated checks are separate
+from the manual quest and scenario counts.
+
+Unrelated in-progress additions to package.json/package-lock.json (Wrangler)
+were preserved and excluded from review commits. Manual journal timestamps span
+multiple hours and include tool/test waits; they are not an estimate of active
+player time or of the remaining complete campaign.

@@ -1,5 +1,7 @@
-import { lerp } from "../utils/math.js";
+import { lerp } from "../utils/scalar-math.js";
+import { persistenceChanged } from "../persistence/signals.js";
 import { RewardTypes, CropTypes } from "./enum.js";
+import { getWeatherArtwork } from "../events/artwork.js";
 
 export const TYPE_COLORS = {
   keyword: "#c678dd",
@@ -147,6 +149,7 @@ export const PLAYER_DATA = {
   },
   changeExp(amount) {
     this.exp += amount;
+    persistenceChanged();
     this.updateUI();
   },
   updateUI() {
@@ -186,15 +189,18 @@ export const INVENTORY = {
     [CropTypes.TOMATO]: null,
   },
   changeCoins(amount) {
-    if (this.elements.coin === null) this.setElements();
-    if (!this.elements.coin) return;
-
+    persistenceChanged();
     const start_value = this.coins;
     const end_value = this.coins + amount;
+    this.coins = end_value;
+    this.setElements();
+    if (!this.elements.coin) return;
+    const animationVersion = this.coinAnimationVersion = (this.coinAnimationVersion || 0) + 1;
     const duration = 500;
     const start_time = performance.now();
 
     const animate = (current_time) => {
+      if (this.coinAnimationVersion !== animationVersion) return;
       const elapsed = current_time - start_time;
       const progress = Math.min(elapsed / duration, 1);
 
@@ -220,6 +226,7 @@ export const INVENTORY = {
   },
   changeCrops(type, amount) {
     this.crops[type] += amount;
+    persistenceChanged();
 
     this.updateUI();
   },
@@ -233,7 +240,7 @@ export const INVENTORY = {
     this.elements[CropTypes.TOMATO] = document.getElementById(CropTypes.TOMATO);
   },
   updateUI() {
-    if (this.elements.coin === null) this.setElements();
+    this.setElements();
 
     if (this.elements[CropTypes.WHEAT]) this.elements[CropTypes.WHEAT].innerText = this.crops[CropTypes.WHEAT];
     if (this.elements[CropTypes.CORN]) this.elements[CropTypes.CORN].innerText = this.crops[CropTypes.CORN];
@@ -340,6 +347,13 @@ export const CROP_DATA = {
   }),
 };
 
+// Assessments use the original crop rules, regardless of the main farm's DDA.
+export const BASE_CROP_DATA = Object.freeze(Object.fromEntries(
+  Object.entries(CROP_DATA).map(([type, data]) => [type, Object.freeze({
+    ...data, resistance: Object.freeze({ ...data.resistance }),
+  })]),
+));
+
 export const SAY_DATA = {
   farm: {
     error: {
@@ -350,7 +364,6 @@ export const SAY_DATA = {
       plant_planted: "Tile is already planted",
       plant_initial: "The soil is not tilled",
       harvest_not_ready: "The crop is not fully grown",
-      destroy_absoring: "The crop is absoring water",
       crop_dead: "The crop is dead, destroy instead",
       out_of_bounds: "Out of bounds",
       insufficient_resources: "Insufficient resources",
@@ -386,10 +399,10 @@ export function setCameraCenter(k, camera) {
 export const DOCUMENT_DATA = {
   events: {
     fire: {
-      definition: "A fire starts on a random crop and spreads to nearby crops unless extinguished quickly.",
-      icon: "/sprites/icon_fire.png",
+      definition: "When at least two thirds of the farm is planted, fire can ignite random crops. Larger events start more fires.",
+      icon: getWeatherArtwork("icon_fire_2"),
       example: `bot.extinguish(); // Put out the fire`,
-      note: "Respond immediately. Delaying can cause the fire to spread across your farm.",
+      note: "Fire damages crops and removes them completely when they burn down. Medium and fully grown flames spread to adjacent crops. Wet soil reduces spread; bot.extinguish(), bot.water(), and raindrops put fires out.",
       type: "event",
       is_unlocked: true,
       tier: 3,
@@ -406,10 +419,10 @@ export const DOCUMENT_DATA = {
     },
 
     rain: {
-      definition: "Rain automatically waters all crops, reducing the need for manual watering.",
-      icon: "/sprites/icon_rain.png",
+      definition: "Clouds move in from the side and rain on selected tiles, preferring tiles with crops. Larger events bring more clouds.",
+      icon: getWeatherArtwork("icon_cloud"),
       example: `// No action required`,
-      note: "Take advantage of rainy weather by skipping unnecessary watering commands.",
+      note: "Raindrops water soil and extinguish fire. Water on empty soil drains away quickly. Rain does not till the ground; use bot.till() before planting on unprepared soil.",
       type: "event",
       is_unlocked: true,
       tier: 1,
@@ -504,7 +517,7 @@ export const DOCUMENT_DATA = {
     },
     shop: {
       definition: "Use this variable to access shop related functions.",
-      example: `shop.buy_plants("wheat", 1)`,
+      example: `shop.buy_seed("wheat", 1)`,
       type: "variable",
       is_unlocked: true,
       tier: 0,
@@ -607,7 +620,7 @@ export const DOCUMENT_DATA = {
     for: {
       type: "keyword",
       definition: "Repeats a block of code a set number of times using a counter variable.",
-      example: `for (let i = 0; i < 5; i++) {\n  console.log("Step " + i);\n}`,
+      example: `for (var i = 0; i < 5; i++) {\n  console.log("Step " + i);\n}`,
       note: "Off-by-one errors are common, double-check whether your condition uses '<' or '<='. Also, forgetting to increment 'i' creates an infinite loop.",
       is_unlocked: true,
       tier: 2,
@@ -615,7 +628,7 @@ export const DOCUMENT_DATA = {
     break: {
       type: "keyword",
       definition: "Immediately exits a loop or switch statement.",
-      example: `for (let i = 0; i < 10; i++) {\n  if (i === 5) break;\n  console.log(i);\n}`,
+      example: `for (var i = 0; i < 10; i++) {\n  if (i === 5) break;\n  console.log(i);\n}`,
       note: "'break' only exits the innermost loop or switch. If you have nested loops, it won't break out of the outer one.",
       is_unlocked: true,
       tier: 3,
@@ -623,7 +636,7 @@ export const DOCUMENT_DATA = {
     continue: {
       type: "keyword",
       definition: "Skips the rest of the current loop iteration and jumps to the next one.",
-      example: `for (let i = 0; i < 5; i++) {\n  if (i === 2) continue;\n  console.log(i); // prints 0, 1, 3, 4\n}`,
+      example: `for (var i = 0; i < 5; i++) {\n  if (i === 2) continue;\n  console.log(i); // prints 0, 1, 3, 4\n}`,
       note: "Like 'break', 'continue' only affects the innermost loop. Overusing it can make loops harder to read and reason about.",
       is_unlocked: true,
       tier: 3,
@@ -631,7 +644,7 @@ export const DOCUMENT_DATA = {
     while: {
       type: "keyword",
       definition: "Repeats a block of code as long as a condition stays true.",
-      example: `let water = 10;\nwhile (water > 0) {\n  water--;\n}`,
+      example: `var water = 10;\nwhile (water > 0) {\n  water--;\n}`,
       note: "If the condition never becomes false, the loop runs forever and crashes your program. Always make sure something inside the loop moves it toward ending.",
       is_unlocked: true,
       tier: 3,
@@ -647,7 +660,7 @@ export const DOCUMENT_DATA = {
     return: {
       type: "keyword",
       definition: "Exits a function and optionally sends a value back to whoever called it.",
-      example: `function add(a, b) {\n  return a + b;\n}\n\nlet sum = add(3, 4); // sum is 7`,
+      example: `function add(a, b) {\n  return a + b;\n}\n\nvar sum = add(3, 4); // sum is 7`,
       note: "Any code written after 'return' in the same block will never run. Also, a function without a 'return' statement gives back 'undefined' by default.",
       is_unlocked: true,
       tier: 4,
@@ -779,6 +792,18 @@ export const DOCUMENT_DATA = {
     },
   },
   bot_farm_actions: {
+    send: {
+      type:"function", arguments:"bot.send(botNumber, message)", is_unlocked:true, tier:0,
+      definition:"Sends text, a number, or true/false to another bot on this farm. Bot numbers start at 0.",
+      example:'bot.send(1, "Ready!");',
+      note:"Run both bots with Start All. Each bot has its own inbox (32 messages). A message stays until received; sending to a missing bot fails. Continue restores saved messages; New Game clears them.",
+    },
+    receive: {
+      type:"function", arguments:"bot.receive()", is_unlocked:true, tier:0,
+      definition:"Takes the oldest message from this bot's inbox. Returns empty text if its inbox is empty.",
+      example:'while (!bot.has_message()) { bot.wait(0.2); }\nvar message = bot.receive();\nbot.say(message);',
+      note:"Check has_message() before receiving. Use wait() inside a waiting loop so the other bot has time to work. Messages are read once, in the order sent.",
+    },
     say: {
       type: "function",
       arguments: "bot.say(text: String)",
@@ -802,7 +827,7 @@ export const DOCUMENT_DATA = {
       arguments: "None",
       definition: "Waters the soil on the bot's current tile. Crops need water to grow.",
       example: `bot.water();`,
-      note: "Watering a tile that hasn't been planted yet has no effect.",
+      note: "Till, plant, then water. Living crops absorb water as they grow; when no living crop remains, unused water drains away quickly. Watering also extinguishes fire on the current tile.",
       is_unlocked: true,
       tier: 0,
     },
@@ -810,7 +835,7 @@ export const DOCUMENT_DATA = {
       type: "function",
       arguments: `bot.plant(crop_type: String)`,
       definition: "Plants a specified crop on the bot's current tile. The tile must already be tilled.",
-      example: `bot.plant("wheat");\nbot.plant("carrot");`,
+      example: `bot.plant("wheat");`,
       note: "You must pass the crop name as a string argument. Planting on an untilled tile will fail.",
       is_unlocked: true,
       tier: 0,
@@ -829,9 +854,9 @@ export const DOCUMENT_DATA = {
       arguments: `bot.wait(amount: Number)`,
       definition: "Make the bot wait in seconds before taking any action.",
       example: `bot.wait(10)`,
-      note: "Be careful setting this too high! It'll make your bot standby doing nothing.",
+      note: "Wait pauses this bot for a number of seconds. Crops keep growing while it waits.",
       is_unlocked: true,
-      tier: 4,
+      tier: 0,
     },
     destroy: {
       type: "function",
@@ -862,6 +887,28 @@ export const DOCUMENT_DATA = {
     },
   },
   bot_checks: {
+    has_message: {
+      type:"function", arguments:"bot.has_message()", is_unlocked:true, tier:0,
+      definition:"Returns true when this bot has a message waiting in its inbox, otherwise false.",
+      example:'if (bot.has_message()) { bot.say(bot.receive()); }',
+      note:"This check does not remove the message. Use bot.receive() to read it.",
+    },
+    crop_value: {
+      type:"function", arguments:"column, row (starting at 0)", is_unlocked:true, tier:2,
+      definition:"Reads the coins a ready crop would give now. Returns 0 for young, dead or empty tiles. Reading does not move the bot.",
+      example:"bot.say(bot.crop_value(0, 0));", note:"Expiring crops give half their fresh value. Compare tiles before choosing where to harvest.",
+    },
+    crop_time_left: {
+      type:"function", arguments:"column, row (starting at 0)", is_unlocked:true, tier:2,
+      definition:"Reads seconds left before a ready crop spoils. Returns -1 when there is no ready crop.",
+      example:"if (bot.crop_time_left(1, 0) > 0) {\n  bot.say(bot.crop_time_left(1, 0));\n}",
+      note:"Read again as time passes. A small positive number means the crop needs attention soon.",
+    },
+    crop_type: {
+      type:"function", arguments:"column, row (starting at 0)", is_unlocked:true, tier:2,
+      definition:"Reads the living crop's name, such as corn. Returns empty text for dead or empty tiles.",
+      example:'bot.say(bot.crop_type(0, 0));',
+    },
     is_tilled: {
       type: "function",
       arguments: `None`,

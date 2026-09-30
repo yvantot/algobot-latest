@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "deployment_ready": false,
+  "observed_action_counts": {"0": 40, "1": 0, "2": 0, "3": 0, "4": 0},
+  "reason": "The preserved replay exports contain only Normal actions. They do not support comparison of the five DDA actions. Use LSTM proficiency with explicit difficulty rules until a policy has adequate action coverage and separate evaluation.",
+  "audit_date": "2026-09-14",
+  "model_baseline_commit": "008bc124204c7ff47e90e051625dcbb2bba22cd4"
+}

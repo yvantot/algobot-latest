@@ -1,5 +1,10 @@
 <script>
   import { onMount } from "svelte";
+  import { fly } from "svelte/transition";
+  import { devInteger, inspectFarm, executeDevAction } from "../game/dev-console.js";
+  import { destroyFarmEvents } from "../game/event.js";
+  import { robots_state, ONBOARDING, finishIntroduction, finishTutorialForTesting } from "./global.svelte.js";
+  import { stopCodeRuns } from "../game/global/code-runner.js";
   import {
     addFarmbot,
     addBug,
@@ -34,16 +39,84 @@
   import { mlAgent } from "../game/ml/agent.js";
   import { dataLogger } from "../game/ml/data-logger.js";
   import { eventScheduler } from "../game/ml/event-scheduler.js";
+  import { CHALLENGES } from "../game/challenges/catalog.js";
+  import { canStartChallenge } from "../game/challenges/records.js";
+  import { challengeSamples } from "../game/ml/challenge-quality.js";
 
-  let { showDDADashboard = $bindable(false) } = $props();
+  let { showDDADashboard = $bindable(false), gameSpeed = $bindable(1) } = $props();
 
   let isVisible = $state(false);
   let position = $state({ x: 20, y: 20 });
-  let size = $state({ w: 380, h: 580 });
-  let activeTab = $state("world");
+  let size = $state({ w: 540, h: 680 });
+  let activeTab = $state("testing");
+  let revision = $state(0);
+  let points = $state(500);
+  let stackCount = $state(3);
+  let pending = $state(false);
+  let snapshot = $state([]);
+  let collectionCheck = $state(null);
+  function checkCollection() {
+    const session=dataLogger.buildSessionExport();
+    const cleared=dataLogger.clearedSessionIds.has(session.session_id);
+    const tasks=CHALLENGES.filter(task=>session.challenge_attempts.some(a=>a.task_id===task.id)).map(task=>{
+      const report=challengeSamples([session],task.id);
+      return {title:task.title,usable:report.samples.length,reasons:report.excluded.map(e=>e.reason)};
+    });
+    collectionCheck={participant:session.student_id,source:session.source_type,cleared,
+      ready:!cleared && session.source_type==='recorded' && canStartChallenge(telemetry),
+      tasks,storageError:dataLogger.lastPersistenceError,
+      protocol:session.collection?.study_protocol?.id ?? null,
+      build:{version:session.build?.version ?? "unknown",dirty:session.build?.dirty}};
+    return `${session.student_id}: ${tasks.reduce((n,t)=>n+t.usable,0)} usable challenge labels in this session.`;
+  }
+
+  function refresh() {
+    snapshot = inspectFarm(farm_grid_index);
+    schedulerInfo = eventScheduler.getState();
+    revision++;
+  }
+
+  function selectedTile() {
+    const x = devInteger(inspectX, 0, CONFIG.FARM.columns - 1, "Column");
+    const y = devInteger(inspectY, 0, CONFIG.FARM.rows - 1, "Row");
+    const tile = getTile(x, y);
+    if (!tile?.soil) throw new Error("Tile is not available");
+    return { tile, x, y };
+  }
+
+  function prepareFarm(wet) {
+    stopCodeRuns(robots_state, telemetry);
+    destroyFarmEvents(farm_grid_index);
+    batchKillAllBugs();
+    batchResetSoil();
+    batchTillAll();
+    INVENTORY.changeCrops(batchCrop, allCells().length);
+    const count = batchPlantAll(batchCrop);
+    batchInstantGrow();
+    if (wet) batchWaterAll();
+    return count;
+  }
+
+  function exportDiagnostics() {
+    refresh();
+    const data = { version: 1, capturedAt: new Date().toISOString(),
+      farm: { rows: CONFIG.FARM.rows, columns: CONFIG.FARM.columns },
+      speed: gameSpeed, tiles: snapshot, scheduler: schedulerInfo, actions: log };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type:"application/json"}));
+    const link = document.createElement("a"); link.href = url; link.download = "algobot-debug.json"; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
   let log = $state([]);
   let questKey = $state(Object.keys(QUEST_DATA)[0]);
   let questAmt = $state(1);
+  const questChapters = [...new Set(Object.values(QUEST_DATA).map(quest => quest.chapter))].sort((a, b) => a - b);
+  const selectedQuest = $derived(QUEST_DATA[questKey]);
+  const selectedQuestState = $derived(QUEST_STATE[questKey]);
+
+  function questStatus(key) {
+    const state = QUEST_STATE[key];
+    return state?.is_claimed ? "Claimed" : state?.is_completed ? "Ready to claim" : `${state?.progress ?? 0}/${QUEST_DATA[key].goal}`;
+  }
 
   // Bot tab state
   let botIndex = $state(0);
@@ -65,6 +138,7 @@
   let schedulerInfo = $state(null);
 
   const TABS = [
+    { id: "testing", label: "Testing" },
     { id: "world", label: "World" },
     { id: "player", label: "Player" },
     { id: "quests", label: "Quests" },
@@ -91,10 +165,13 @@
 
   onMount(() => {
     const handleKeydown = (e) => {
-      if (e.key === "\\") isVisible = !isVisible;
+      if (e.key === "Escape" && isVisible) { isVisible = false; return; }
+      if (e.target.closest?.("input, textarea, select, [contenteditable=true], .monaco-editor, .cm-editor")) return;
+      if (e.key === "\\" && !e.repeat) { isVisible = !isVisible; if (isVisible) refresh(); }
     };
+    const timer = setInterval(() => { if (isVisible && !ONBOARDING.isModalOpen) refresh(); }, 500);
     window.addEventListener("keydown", handleKeydown);
-    return () => window.removeEventListener("keydown", handleKeydown);
+    return () => { clearInterval(timer); window.removeEventListener("keydown", handleKeydown); };
   });
 
   function push(msg, color = "text-gray-300") {
@@ -102,13 +179,15 @@
     log = [{ ts, msg, color }, ...log].slice(0, 80);
   }
 
-  function run(label, fn, color = "text-gray-200") {
+  async function run(label, fn, color = "text-gray-200", mutates = true) {
+    if (pending) return;
+    pending = true;
     try {
-      fn();
-      push(`✓ ${label}`, color);
+      const result = await executeDevAction(fn, { tracker: telemetry, label, mutates });
+      push(`${result.ok ? "✓" : "!"} ${label}: ${result.message}`, result.ok ? color : "text-amber-300");
     } catch (e) {
       push(`✗ ${label}: ${e.message}`, "text-red-400");
-    }
+    } finally { pending = false; refresh(); }
   }
 
   function drag(node) {
@@ -116,12 +195,12 @@
     const onMouseDown = (e) => {
       const isResizeHandle =
         e.offsetX > node.offsetWidth - 20 && e.offsetY > node.offsetHeight - 20;
-      if (e.target.closest("button, input, select") || isResizeHandle) return;
+      if (!e.target.closest("[data-dev-drag]") || e.target.closest("button, input, select") || isResizeHandle) return;
       moving = true;
     };
     const onMouseMove = (e) => {
       if (moving)
-        position = { x: position.x + e.movementX, y: position.y + e.movementY };
+        position = { x: Math.max(0, Math.min(window.innerWidth - 100, position.x + e.movementX)), y: Math.max(0, Math.min(window.innerHeight - 50, position.y + e.movementY)) };
     };
     const onMouseUp = () => (moving = false);
     node.addEventListener("mousedown", onMouseDown);
@@ -174,7 +253,7 @@
       if (!tile) continue;
       const { soil } = tile;
       if (soil && soil.soil_state === SoilStates.INITIAL) {
-        soil.setSoilState(SoilStates.READY);
+        soil.till();
         count++;
       }
     }
@@ -188,7 +267,7 @@
       if (!tile) continue;
       const { soil } = tile;
       if (soil && soil.soil_state === SoilStates.READY) {
-        soil.setSoilState(SoilStates.WATERED);
+        soil.water();
         count++;
       }
     }
@@ -239,10 +318,8 @@
     for (const { x, y } of allCells()) {
       const tile = getTile(x, y);
       if (!tile?.crop) continue;
-      if (!tile.crop.absorbing_water) {
-        tile.crop.cropDestroy();
-        count++;
-      }
+      tile.crop.cropDestroy();
+      count++;
     }
     return count;
   }
@@ -253,7 +330,7 @@
       const tile = getTile(x, y);
       if (!tile?.soil) continue;
       // Destroy crop first if any
-      if (tile.crop && !tile.crop.absorbing_water) {
+      if (tile.crop) {
         tile.crop.cropDestroy();
       }
       tile.soil.setSoilState(SoilStates.INITIAL);
@@ -272,13 +349,7 @@
         crop.crop_state !== CropStates.HARVESTABLE &&
         crop.crop_state !== CropStates.DEAD
       ) {
-        crop.crop_state = CropStates.HARVESTABLE;
-        crop.sprite = `${crop.crop_type}${CropStates.HARVESTABLE}`;
-        // Also reset soil to READY so the crop doesn't keep absorbing water
-        const { soil } = tile;
-        if (soil && soil.soil_state === SoilStates.WATERED) {
-          crop.absorbing_water = false;
-        }
+        crop.matureNow();
         count++;
       }
     }
@@ -287,10 +358,9 @@
 
   function batchKillAllBugs() {
     let count = 0;
-    for (const { x, y } of allCells()) {
-      const tile = getTile(x, y);
-      if (!tile?.bug) continue;
-      tile.bug.bugDestroy();
+    const bugs = new Set([...farm_grid_index.values()].map(tile => tile?.bug).filter(Boolean));
+    for (const bug of bugs) {
+      bug.bugDestroy();
       count++;
     }
     return count;
@@ -303,8 +373,7 @@
       if (!tile?.crop) continue;
       const { crop } = tile;
       if (crop.crop_state !== CropStates.DEAD) {
-        crop.crop_state = CropStates.DEAD;
-        crop.sprite = `${crop.crop_type}${CropStates.DEAD}`;
+        crop.markDead();
         count++;
       }
     }
@@ -333,6 +402,7 @@
 
 {#snippet btn(label, color = "text-gray-200", cb)}
   <button
+    disabled={pending}
     onclick={() => cb && cb()}
     class="rounded bg-gray-800 px-2 py-1 text-left text-sm transition-colors hover:bg-gray-700 active:scale-95 cursor-pointer {color}"
     >{label}</button
@@ -341,7 +411,7 @@
 
 {#snippet sec(title)}
   <h3
-    class="mt-3 mb-1 text-[9px] font-black uppercase tracking-widest text-gray-500 border-b border-gray-800 pb-1"
+    class="mt-4 mb-2 text-xs font-bold text-gray-300 border-b border-gray-700 pb-1"
   >
     {title}
   </h3>
@@ -362,15 +432,20 @@
 {#if isVisible}
   <div
     use:drag
+    transition:fly={{y:12,duration:180}}
+    role="region" aria-label="Dev Console"
     class="fixed z-[9999] flex flex-col overflow-hidden rounded-xl border border-gray-700 bg-gray-950/97 text-white shadow-2xl backdrop-blur-md"
     style:left="{position.x}px"
     style:top="{position.y}px"
     style:width="{size.w}px"
     style:height="{size.h}px"
     style:resize="both"
+    style:max-width="calc(100vw - 24px)"
+    style:max-height="calc(100vh - 24px)"
   >
     <!-- Header -->
     <div
+      data-dev-drag
       class="flex cursor-grab items-center justify-between bg-gray-900 px-4 py-2 active:cursor-grabbing select-none shrink-0"
     >
       <div class="flex items-center gap-2">
@@ -379,9 +454,10 @@
           class="text-sm font-black uppercase tracking-tighter text-gray-300"
           >Dev Console</span
         >
-        <span class="text-[9px] text-gray-600">[ \ ] to toggle</span>
+        <span class="text-xs text-gray-400">[ \ ] to toggle</span>
       </div>
       <button
+        aria-label="Close Dev Console"
         onclick={() => (isVisible = false)}
         class="text-gray-500 hover:text-white cursor-pointer">✕</button
       >
@@ -389,21 +465,69 @@
 
     <!-- Tabs -->
     <div
-      class="flex shrink-0 border-b border-gray-800 bg-gray-900/60 overflow-x-auto"
+      class="flex flex-wrap shrink-0 border-b border-gray-800 bg-gray-900/60"
     >
       {#each TABS as tab}
         <button
+          aria-pressed={activeTab === tab.id}
           onclick={() => (activeTab = tab.id)}
           class="flex-1 py-1.5 px-2 text-sm font-bold transition-colors cursor-pointer whitespace-nowrap {activeTab ===
           tab.id
             ? 'bg-gray-800 text-white'
-            : 'text-gray-500 hover:text-gray-300'}">{tab.label}</button
+            : 'text-gray-400 hover:text-gray-200'}">{tab.label}</button
         >
       {/each}
     </div>
 
     <!-- Content -->
     <div class="flex-1 overflow-y-auto p-3 custom-scrollbar text-sm space-y-1">
+      {#if ONBOARDING.isModalOpen}<p>Close the introduction or reward dialog before testing the farm.</p>{:else}
+      {#if activeTab === "testing"}
+        <p class="text-gray-300">Testing changes the current game and can enter session logs. Use a test session.</p>
+        {@render sec("Simulation")}
+        <div class="grid grid-cols-3 gap-2">
+          {#each [0, 0.25, 0.5, 1, 2, 4] as speed}
+            {@render btn(speed === 0 ? "Pause" : `${speed}× speed`, gameSpeed === speed ? "text-green-300" : "text-gray-200", () => run(`Simulation ${speed}×`, () => { gameSpeed = speed; }))}
+          {/each}
+          {@render btn("Stop all programs", "text-amber-300", () => run("Stop programs", () => stopCodeRuns(robots_state, telemetry)))}
+          {@render btn("End protected practice", "text-amber-300", () => run("End practice", finishIntroduction))}
+          {@render btn("Finish tutorial & missions", "text-green-300", () => run("Finish tutorial and claim its missions", finishTutorialForTesting))}
+        </div>
+        {@render sec("Events")}
+        <label class="flex gap-2 items-center">Difficulty points <input aria-label="Difficulty points" type="number" min="100" max="10000" bind:value={points} class="w-28 bg-gray-800 p-2 rounded" /></label>
+        <div class="grid grid-cols-3 gap-2 mt-2">
+          {#each [["Fire", spawnFireEvent], ["Rain", spawnRainEvent], ["Pests", spawnBugEvent]] as event}
+            {@render btn(event[0], "text-gray-200", () => run(event[0], () => event[1](farm_grid_index, devInteger(points,100,10000,"Points"))))}
+          {/each}
+          {@render btn("Clear weather", "text-sky-300", () => run("Clear weather", () => destroyFarmEvents(farm_grid_index)))}
+          {@render btn("Remove all pests", "text-amber-300", () => run("Remove pests", batchKillAllBugs))}
+        </div>
+        <p class="text-gray-300 mt-2">{schedulerInfo?.plantedCount ?? 0} planted. Fire requires at least 2/3 of the farm; normal DDA multipliers apply.</p>
+        {@render sec("Repeatable farm setups (replace crops)")}
+        {@render cropSelect("Crop", batchCrop, value => batchCrop = value)}
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          {@render btn("Ripe dry farm", "text-gray-200", () => run("Ripe dry farm", () => prepareFarm(false)))}
+          {@render btn("Ripe wet farm", "text-gray-200", () => run("Ripe wet farm", () => prepareFarm(true)))}
+          {@render btn("Spoilage setup", "text-gray-200", () => run("Spoilage setup", () => { prepareFarm(false); return batchDeadAll(); }))}
+          {@render btn("Empty farm", "text-amber-300", () => run("Empty farm", () => { stopCodeRuns(robots_state,telemetry); destroyFarmEvents(farm_grid_index); batchKillAllBugs(); return batchResetSoil(); }))}
+        </div>
+        {@render sec("Selected tile")}
+        <div class="flex gap-3">
+          <label>Column <input aria-label="Tile column" type="number" min="0" max={CONFIG.FARM.columns-1} bind:value={inspectX} class="w-16 bg-gray-800 p-1" /></label>
+          <label>Row <input aria-label="Tile row" type="number" min="0" max={CONFIG.FARM.rows-1} bind:value={inspectY} class="w-16 bg-gray-800 p-1" /></label>
+        </div>
+        <div class="grid grid-cols-3 gap-2 mt-2">
+          {#each [["Till", t => t.soil.till()], ["Water", t => t.soil.water()], ["Mature", t => t.crop ? (t.crop.matureNow(), true) : false], ["Rot", t => t.crop ? (t.crop.markDead(), true) : false], ["Destroy crop", t => t.crop ? (t.crop.cropDestroy(), true) : false], ["Extinguish", t => t.fire?.extinguish("dev") ?? false]] as action}
+            {@render btn(action[0], "text-gray-200", () => run(action[0], () => action[1](selectedTile().tile)))}
+          {/each}
+          {@render btn("Inspect tile", "text-sky-300", () => activeTab = "inspect")}
+        </div>
+        <label class="flex gap-2 mt-2">Bots to add <input aria-label="Bots to add" type="number" min="1" max="20" bind:value={stackCount} class="w-16 bg-gray-800 p-1" /></label>
+        {@render btn("Stack new bots here", "text-gray-200", () => run("Stack bots", () => { const {x,y} = selectedTile(); const count=devInteger(stackCount,1,20,"Bots"); for(let i=0;i<count;i++) addFarmbot(robots.length,farm_grid_index,x,y); return count; }))}
+        {@render sec("Live diagnostics")}
+        <p>{snapshot.length} tiles · {snapshot.filter(t => t.crop).length} crops · {snapshot.filter(t => t.fire).length} fires · {robots.length} bots</p>
+        {@render btn("Download diagnostics JSON", "text-sky-300", () => run("Export diagnostics", exportDiagnostics))}
+      {/if}
       <!-- WORLD TAB -->
       {#if activeTab === "world"}
         {@render sec("Spawn Entity")}
@@ -443,14 +567,14 @@
               spawnBugEvent(farm_grid_index, 10000),
             ),
           )}
-          {@render btn("Fire Event (WIP)", "text-[#F2E0CF]", () =>
-            run("Fire Event (WIP)", () =>
-              spawnFireEvent(farm_grid_index, 1500),
-            ),
-          )}
-          {@render btn("Rain Event (WIP)", "text-sky-200", () =>
-            run("Rain Event (WIP)", () => spawnRainEvent(farm_grid_index, 500)),
-          )}
+          {#each [100, 500, 2000, 10000] as points}
+            {@render btn(`Fire Event (${points} pts)`, "text-orange-300", () =>
+              run(`Fire Event (${points} pts)`, () => spawnFireEvent(farm_grid_index, points)),
+            )}
+            {@render btn(`Rain Event (${points} pts)`, "text-sky-200", () =>
+              run(`Rain Event (${points} pts)`, () => spawnRainEvent(farm_grid_index, points)),
+            )}
+          {/each}
         </div>
 
         {@render sec("Seeds & Resources")}
@@ -654,7 +778,7 @@
         </div>
 
         {@render sec("Reset")}
-        {@render btn("Reset All Progress", "text-red-400", () =>
+        {@render btn("Reset EXP, coins and seeds", "text-red-400", () =>
           run("Reset progress", () => {
             PLAYER_DATA.exp = 0;
             PLAYER_DATA.updateUI();
@@ -669,19 +793,44 @@
 
         <!-- QUESTS TAB -->
       {:else if activeTab === "quests"}
-        {@render sec("Progress a Quest")}
+        {@render sec("Selected Quest")}
+        <label for="dev-quest-select" class="block text-sm text-gray-300 mb-1">Quest to change</label>
         <div class="flex gap-1 mb-1">
           <select
+            id="dev-quest-select"
             bind:value={questKey}
-            class="flex-1 rounded bg-gray-800 px-2 py-1 text-sm text-white border border-gray-700 cursor-pointer"
+            disabled={pending}
+            class="w-full min-w-0 rounded bg-gray-800 px-2 py-1 text-sm text-white border border-gray-700 cursor-pointer"
           >
-            {#each Object.entries(QUEST_DATA) as [key, data]}
-              <option value={key}>{data.title}</option>
+            {#each questChapters as chapter}
+              <optgroup label={`Chapter ${chapter}`}>
+                {#each Object.entries(QUEST_DATA).filter(([, quest]) => quest.chapter === chapter) as [key, data]}
+                  <option value={key}>{data.title}{data.optional ? " (optional)" : ""} · {questStatus(key)}</option>
+                {/each}
+              </optgroup>
             {/each}
           </select>
         </div>
-        <div class="flex gap-1">
+        <p class="text-sm text-gray-300 mb-1">{selectedQuest.description}</p>
+        <p class="text-sm text-gray-300 mb-1" aria-live="polite">{selectedQuestState?.is_claimed ? "Claimed" : selectedQuestState?.is_completed ? "Ready to claim" : "In progress"} · {selectedQuestState?.progress ?? 0}/{selectedQuest.goal} progress</p>
+        <p class="text-xs text-gray-400 break-words mb-2">ID: {questKey}</p>
+        <button
+          disabled={pending || selectedQuestState?.is_claimed}
+          onclick={() => run(`Complete & claim ${questKey}`, () => {
+            const state = QUEST_STATE[questKey];
+            if (!state) throw new Error("Quest not found");
+            if (state.is_claimed) return false;
+            state.progress = QUEST_DATA[questKey].goal;
+            state.is_completed = true;
+            claimQuest(questKey);
+            return state.is_claimed;
+          })}
+          class="w-full rounded bg-gray-800 px-2 py-2 text-left text-sm text-green-300 hover:bg-gray-700 cursor-pointer mb-1"
+        >{selectedQuestState?.is_claimed ? "Already claimed" : "Complete & claim selected quest"}</button>
+        <p class="text-xs text-gray-400 mb-3">Grants this quest's rewards and unlocks. Other quests keep their current progress.</p>
+        <div class="flex flex-wrap gap-1">
           <input
+            aria-label="Quest progress amount"
             type="number"
             bind:value={questAmt}
             min="1"
@@ -693,7 +842,7 @@
               const state = QUEST_STATE[questKey];
               if (!state) throw new Error("Quest not found");
               state.progress = Math.min(
-                state.progress + Number(questAmt),
+                state.progress + devInteger(questAmt, 1, 999, "Quest progress"),
                 QUEST_DATA[questKey].goal,
               );
               if (state.progress >= QUEST_DATA[questKey].goal)
@@ -852,6 +1001,9 @@
           {@render btn("Kill Bug", "text-gray-200", () =>
             run("bot.killBug", () => getBot(botIndex).botKillBug()),
           )}
+          {@render btn("Extinguish", "text-sky-200", () =>
+            run("bot.extinguish", () => getBot(botIndex).botExtinguish()),
+          )}
         </div>
 
         <!-- Plant with crop selector -->
@@ -963,13 +1115,13 @@
               push(`  → Planted ${n} ${batchCrop}`, "text-gray-300");
             }),
           )}
-          {@render btn("Till+Water+Plant", "text-gray-200", () =>
+          {@render btn("Till+Plant+Water", "text-gray-200", () =>
             run(`Batch: full setup ${batchCrop}`, () => {
               const t = batchTillAll();
-              const w = batchWaterAll();
               const p = batchPlantAll(batchCrop);
+              const w = batchWaterAll();
               push(
-                `  → ${t} tilled, ${w} watered, ${p} planted`,
+                `  → ${t} tilled, ${p} planted, ${w} watered`,
                 "text-gray-300",
               );
             }),
@@ -1009,16 +1161,16 @@
         {@render sec("Full Pipeline")}
         <div class="grid grid-cols-1 gap-1">
           {@render btn(
-            "Till + Water + Plant + Instant Grow",
+            "Till + Plant + Water + Instant Grow",
             "text-gray-200",
             () =>
               run(`Batch: full pipeline ${batchCrop}`, () => {
                 const t = batchTillAll();
-                const w = batchWaterAll();
                 const p = batchPlantAll(batchCrop);
+                const w = batchWaterAll();
                 const g = batchInstantGrow();
                 push(
-                  `  → ${t} tilled, ${w} watered, ${p} planted, ${g} grown`,
+                  `  → ${t} tilled, ${p} planted, ${w} watered, ${g} grown`,
                   "text-gray-300",
                 );
               }),
@@ -1026,12 +1178,12 @@
           {@render btn("Full Pipeline + Harvest", "text-gray-200", () =>
             run(`Batch: plant+harvest ${batchCrop}`, () => {
               const t = batchTillAll();
-              const w = batchWaterAll();
               const p = batchPlantAll(batchCrop);
+              const w = batchWaterAll();
               const g = batchInstantGrow();
               const h = batchHarvestAll();
               push(
-                `  → ${t} tilled, ${w} watered, ${p} planted, ${g} grown, ${h} harvested`,
+                `  → ${t} tilled, ${p} planted, ${w} watered, ${g} grown, ${h} harvested`,
                 "text-gray-300",
               );
             }),
@@ -1089,6 +1241,7 @@
           >
         </div>
 
+        {#key revision}
         {@const tileData = getTile(inspectX, inspectY)}
         <div
           class="rounded bg-gray-900 p-2 text-sm font-mono space-y-1 border border-gray-800"
@@ -1106,6 +1259,14 @@
                     tileData.soil.soil_state)
                   : "None"}</span
               >
+            </div>
+            <div>
+              <span class="text-gray-500">Soil Water:</span>
+              <span class="text-sky-300">{Math.round((tileData.soil?.water_remaining ?? 0) * 100)}%</span>
+            </div>
+            <div>
+              <span class="text-gray-500">Fire:</span>
+              <span class="text-orange-300">{tileData.fire?.isBurning() ? `Stage ${tileData.fire.stage + 1} / 3` : "None"}</span>
             </div>
             <div>
               <span class="text-gray-500">Crop:</span>
@@ -1159,6 +1320,7 @@
           {/if}
         </div>
 
+        {/key}
         {@render sec("All farm_grid_index Entries")}
         <div class="flex gap-1 items-center mb-1">
           <span class="text-sm text-gray-500 shrink-0">Filter:</span>
@@ -1173,6 +1335,7 @@
           </select>
         </div>
 
+        {#key revision}
         {@const entries = getGridEntries()}
         <div
           class="rounded bg-gray-900 p-2 text-sm font-mono space-y-1 max-h-56 overflow-y-auto border border-gray-800 custom-scrollbar"
@@ -1218,6 +1381,7 @@
             </p>
           {/each}
         </div>
+        {/key}
       {/if}
 
       <!-- DDA TAB -->
@@ -1298,23 +1462,23 @@
             <span
               class="font-bold {mlAgent.mode === 'ml'
                 ? 'text-emerald-400'
-                : 'text-amber-400'}">{mlAgent.mode || "bootstrap"}</span
+                : 'text-amber-400'}">{mlAgent.mode === "hybrid" ? "LSTM + Rules" : "Rules"}</span
             >
           </div>
           <div class="flex justify-between">
             <span class="text-gray-400">Predicted Proficiency:</span>
             <span class="font-bold text-white"
-              >{(mlAgent.predictedProficiency * 100).toFixed(1)}%</span
+              >{mlAgent.mode === "bootstrap" || !Number.isFinite(mlAgent.predictedProficiency) ? "Unavailable" : `${(mlAgent.predictedProficiency * 100).toFixed(1)}%`}</span
             >
           </div>
           <div class="flex justify-between">
-            <span class="text-gray-400">Frustration Index:</span>
+            <span class="text-gray-400">Frustration Proxy:</span>
             <span class="font-bold text-red-400"
               >{(telemetry.frustrationScore * 100).toFixed(1)}%</span
             >
           </div>
           <div class="flex justify-between">
-            <span class="text-gray-400">Flow Score:</span>
+            <span class="text-gray-400">Flow Proxy:</span>
             <span class="font-bold text-emerald-400"
               >{(telemetry.flowScore * 100).toFixed(1)}%</span
             >
@@ -1326,10 +1490,9 @@
             >
           </div>
           <div class="flex justify-between">
-            <span class="text-gray-400">Sessions / Replay Buffer:</span>
+            <span class="text-gray-400">Saved Sessions:</span>
             <span class="text-gray-300"
-              >{dataLogger.getSessionCount()} sessions / {mlAgent.replayBuffer
-                ?.length || 0} exp</span
+              >{dataLogger.getSessionCount()} sessions</span
             >
           </div>
         </div>
@@ -1363,13 +1526,21 @@
               >
             </div>
             <div class="flex justify-between">
-              <span class="text-gray-400">Precondition:</span>
+              <span class="text-gray-400">Pest Precondition:</span>
               <span
                 class="font-bold {schedulerInfo.preconditionMet
                   ? 'text-emerald-400'
                   : 'text-red-400'}"
                 >{schedulerInfo.preconditionMet ? "MET" : "NOT MET"}</span
               >
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Fire Precondition:</span>
+              <span class="text-white">{schedulerInfo.firePreconditionMet ? "MET" : "NOT MET"} ({schedulerInfo.plantedCount} planted; need 2/3)</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Event Severity:</span>
+              <span class="text-white">{schedulerInfo.severity} pts</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-400">Spawn Chance (Bootstrap):</span>
@@ -1411,34 +1582,47 @@
             () =>
               run("Refresh Scheduler", () => {
                 schedulerInfo = eventScheduler.getState();
-              }),
+              }, "text-gray-200", false),
           )}
           {@render btn("Force Event Check", "text-red-400 font-bold", () =>
             run("Force Event Check", () => {
               const result = eventScheduler.forceCheck();
               schedulerInfo = eventScheduler.getState();
+              return result;
             }),
           )}
         </div>
 
-        {@render sec("Dataset Exports")}
+        {@render sec("Research Data")}
+        {@render btn("Check Collection", "text-sky-300 font-bold", () =>
+          run("Collection check", checkCollection, "text-gray-200", false),
+        )}
+        {#if collectionCheck}
+          <div class="p-2 my-2 border border-gray-600 rounded text-sm text-gray-100" aria-live="polite">
+            <p class="font-bold">Participant: {collectionCheck.participant}</p>
+            {#if collectionCheck.protocol}<p class="text-green-300">Study conditions: {collectionCheck.protocol} (100% speed, fixed Normal difficulty, fixed task order).</p>
+            {:else}<p class="text-red-300">No study conditions. Reload with ?study_participant=CODE before this student plays.</p>{/if}
+            <p class={collectionCheck.build.dirty===false ? "text-gray-300" : "text-red-300"}>Build {collectionCheck.build.version}{collectionCheck.build.dirty===false ? ", committed" : collectionCheck.build.dirty ? ", UNCOMMITTED CHANGES: commit, restart the server, then reload" : ", commit status unknown"}</p>
+            {#if collectionCheck.cleared}<p class="text-red-300">Data was cleared. Reload before the next student plays.</p>
+            {:else if collectionCheck.source==='developer_test'}<p class="text-red-300">Developer actions were used. This session is excluded from training.</p>
+            {:else}<p>{collectionCheck.ready ? "Gameplay window ready for a first challenge attempt." : (collectionCheck.protocol ? "Gameplay window not ready. Keep playing at 100% speed for about two minutes (after the tutorial, or after the previous challenge); short breaks preserve earlier observations." : "Gameplay window not ready. Keep playing after the tutorial for about two minutes. Any player speed is okay; short breaks preserve earlier observations.")}</p>{/if}
+            {#if collectionCheck.storageError}<p class="text-red-300">Storage problem: {collectionCheck.storageError}. Download the JSON before leaving.</p>{/if}
+            {#each collectionCheck.tasks as task}
+              <p class="mt-2 font-bold">{task.title}: {task.usable ? "usable training label" : "no usable training label"}</p>
+              {#each task.reasons as reason}<p class="break-words text-amber-200">{reason.replaceAll('_',' ')}</p>{/each}
+            {:else}<p class="mt-2">No challenge attempts yet. Gameplay alone does not provide a scored label.</p>{/each}
+            <p class="mt-2 text-gray-300">Snapshot at last check. Check again after submission. Download JSON before clearing data.</p>
+          </div>
+        {/if}
         <div class="grid grid-cols-2 gap-1">
-          {@render btn("Export JSON Dataset", "text-sky-300 font-bold", () =>
-            run("Export JSON", () => dataLogger.exportAllSessionsJSON()),
-          )}
-          {@render btn("Export Quest CSV", "text-emerald-300 font-bold", () =>
-            run("Export CSV", () => dataLogger.exportQuestCSV()),
-          )}
-          {@render btn(
-            "Export Replay Buffer",
-            "text-violet-300 font-bold",
-            () =>
-              run("Export Replay", () => dataLogger.exportReplayBufferJSON()),
+          {@render btn("Download Dataset JSON", "text-sky-300 font-bold", () =>
+            run("Export JSON", () => dataLogger.exportAllSessionsJSON(), "text-gray-200", false),
           )}
           {@render btn("Clear Stored Data", "text-red-400", () =>
             run("Clear Data", () => dataLogger.clearAllData()),
           )}
         </div>
+      {/if}
       {/if}
     </div>
 
@@ -1447,25 +1631,25 @@
       class="shrink-0 border-t border-gray-800 bg-gray-900/80 px-3 py-2 max-h-28 overflow-y-auto custom-scrollbar"
     >
       <div class="flex justify-between items-center mb-1">
-        <p class="text-[9px] font-bold uppercase text-gray-600">Log</p>
+        <p class="text-xs font-bold text-gray-300">Action log {pending ? "(running)" : ""}</p>
         <button
           onclick={() => (log = [])}
-          class="text-[9px] text-gray-700 hover:text-gray-400 cursor-pointer"
+          class="text-xs text-gray-300 hover:text-white cursor-pointer"
           >Clear</button
         >
       </div>
       {#each log as entry}
-        <p class="text-[9px] font-mono {entry.color}">
-          <span class="text-gray-700">[{entry.ts}]</span>
+        <p class="text-xs font-mono {entry.color}">
+          <span class="text-gray-400">[{entry.ts}]</span>
           {entry.msg}
         </p>
       {:else}
-        <p class="text-[9px] text-gray-700 italic">No actions yet.</p>
+        <p class="text-xs text-gray-400">No actions yet.</p>
       {/each}
     </div>
 
     <div
-      class="bg-gray-900/30 p-1 text-[8px] text-gray-600 text-center border-t border-gray-800/50 shrink-0"
+      class="bg-gray-900 p-2 text-xs text-gray-400 text-center border-t border-gray-800 shrink-0"
     >
       DRAG TO MOVE · BOTTOM-RIGHT TO RESIZE · [ \ ] TOGGLE
     </div>
@@ -1473,6 +1657,8 @@
 {/if}
 
 <style>
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #86efac; outline-offset: 2px; }
+  button:disabled { opacity: .5; cursor: wait; }
   .custom-scrollbar::-webkit-scrollbar {
     width: 4px;
   }

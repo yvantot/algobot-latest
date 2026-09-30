@@ -37,13 +37,13 @@
       opacity: 0;
       filter: drop-shadow(0 0 10px rgba(202, 138, 4, 0.6));
     }
-    20% {
+    15%, 55% {
       transform: translate(var(--startX), calc(var(--startY) - 45px)) scale(1.2)
         rotate(0deg);
       opacity: 1;
       filter: drop-shadow(0 0 20px rgba(234, 179, 8, 0.9));
     }
-    80% {
+    88% {
       transform: translate(var(--endX), calc(var(--endY) + 20px)) scale(0.9)
         rotate(5deg);
       opacity: 0.95;
@@ -56,8 +56,12 @@
     }
   }
 
+  @media(prefers-reduced-motion:reduce){.fly-badge{display:none}}
+
   .fly-badge {
-    animation: flyToCommandMenu 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    opacity: 0;
+    transform: translate(var(--startX), var(--startY)) scale(.5);
+    animation: flyToCommandMenu 2.8s cubic-bezier(0.45, 0, 0.55, 1) both;
     will-change: transform, opacity;
   }
 </style>

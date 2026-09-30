@@ -1,5 +1,7 @@
+import { activeQuest, movementQuest, createMovementTracker, INTRO_QUESTS, tutorialPolicy } from "../game/global/tutorial.js";
 import { AvatarTypes, ModalTypes } from "../game/global/enum.js";
 import { QUEST_DATA } from "../game/global/quests.js";
+import { PROGRAM_QUESTS } from "../game/global/quest-program.js";
 import { PLAYER_DATA, INVENTORY, DOCUMENT_DATA, SHOP_DATA, CROP_DATA } from "../game/global/global.js";
 import { telemetry, CS1_STAGES } from "../game/ml/telemetry.js";
 import { mlAgent } from "../game/ml/agent.js";
@@ -10,6 +12,7 @@ export const CLAIMED_REWARDS = $state([]);
 export const robots = $state([]);
 
 export const robots_state = $state([])
+export const PLAYTHROUGH_UI = $state({ editor: 0, blockBot: 0, textBot: 0, completedDemos: [], entryScreen: "demonstration" });
 
 export const ONBOARDING = $state({
 	startClicked: false,
@@ -28,6 +31,33 @@ export const Modals = $state({
 	[ModalTypes.SHOP]: false,
 });
 
+export const QUEST_FEEDBACK = $state({ queue: [], hazardsPending: false, revision: 0 });
+export const TUTORIAL = $state({ active: true, authoredBlocks: [], sequenceBlocks: [] });
+export const QUEST_SELECTION = $state({ key: null });
+export function currentQuest() {
+  const selected = QUEST_SELECTION.key;
+  if (selected && QUEST_DATA[selected]?.optional && !QUEST_STATE[selected]?.is_completed &&
+    QUEST_DATA[selected].prereq.every(id => QUEST_STATE[id]?.is_claimed)) return selected;
+  return activeQuest(QUEST_DATA, QUEST_STATE);
+}
+export function chooseQuest(key = null) { QUEST_SELECTION.key = key; }
+export function finishIntroduction() {
+  TUTORIAL.active = false; tutorialPolicy.protected = false;
+  QUEST_FEEDBACK.hazardsPending = false;
+}
+
+export function finishTutorialForTesting() {
+  for (const key of INTRO_QUESTS) {
+    QUEST_STATE[key].progress = QUEST_DATA[key].goal;
+    QUEST_STATE[key].is_completed = true;
+    claimQuest(key);
+  }
+  finishIntroduction();
+  QUEST_FEEDBACK.queue = QUEST_FEEDBACK.queue.filter(item => !INTRO_QUESTS.includes(item.key));
+  ONBOARDING.startClicked = true;
+  return INTRO_QUESTS.length;
+}
+
 export const QUEST_STATE = $state({});
 // Initialize quest state
 for (const [key, data] of Object.entries(QUEST_DATA)) {
@@ -38,7 +68,35 @@ for (const [key, data] of Object.entries(QUEST_DATA)) {
 	};
 }
 
-export function trackQuest(key, amount = 1) {
+function questStage(key) {
+  const chapter = QUEST_DATA[key]?.chapter;
+  if ([4, 7].includes(chapter)) return CS1_STAGES.CONDITIONAL;
+  if ([3, 8, 9, 10].includes(chapter)) return CS1_STAGES.LOOPING;
+  if ([1, 2, 5, 6].includes(chapter)) return CS1_STAGES.SEQUENTIAL;
+	if (key === "cs_if_0" || key === "cs_cleanup_0") return CS1_STAGES.CONDITIONAL;
+	if (key === "cs_grid_0") return CS1_STAGES.SEQUENTIAL;
+	if (key === "intro_loop") return CS1_STAGES.LOOPING;
+	return telemetry.currentStage;
+}
+
+export function beginActiveQuest() {
+	const key = currentQuest();
+	const entry = key ? [key, QUEST_DATA[key]] : null;
+	if (entry) {
+		telemetry.setStage(questStage(entry[0]));
+		telemetry.recordQuestStart(entry[0]);
+	}
+}
+
+const movementCredit = createMovementTracker();
+export function trackQuest(key, amount = 1, action = null) {
+  if (PROGRAM_QUESTS.has(key) && !action?.program) return;
+	if (key === "tut_1") {
+    key = movementQuest(currentQuest(), { ...action, authored: TUTORIAL.authoredBlocks.includes(action?.blockId), sequence: TUTORIAL.sequenceBlocks.includes(action?.blockId) });
+    amount = movementCredit(key, action);
+    if (!key) return;
+  }
+  if (!Number.isFinite(amount) || amount <= 0) return;
 	if (!QUEST_STATE[key] || QUEST_STATE[key].is_completed) return;
 
 	// Check if prereqs are met
@@ -49,25 +107,31 @@ export function trackQuest(key, amount = 1) {
 		}
 	}
 
-	// Track quest start for ML pipeline (episode boundary)
+	// Record stage before capturing the quest's starting feature vector.
+	telemetry.setStage(questStage(key));
 	telemetry.recordQuestStart(key);
+	// The farming tutorial requires all four distinct successful actions.
+	if (key === "tut_2") {
+		if (!["till", "plant", "water", "harvest"].includes(action)) return;
+		const actions = QUEST_STATE[key].actions || [];
+		if (actions.includes(action)) return;
+		QUEST_STATE[key].actions = [...actions, action];
+	}
 
 	QUEST_STATE[key].progress += amount;
 	if (QUEST_STATE[key].progress >= QUEST_DATA[key].goal) {
 		QUEST_STATE[key].progress = QUEST_DATA[key].goal;
 		QUEST_STATE[key].is_completed = true;
+		if (telemetry.recordQuestComplete(key)) mlAgent.addQuestCompletionReward();
+    QUEST_FEEDBACK.revision++;
+    QUEST_FEEDBACK.queue.push({ key, title: QUEST_DATA[key].title, rewards: QUEST_DATA[key].rewards,
+      milestone: ["tut_2", "intro_loop"].includes(key) });
+    if (INTRO_QUESTS.includes(key)) claimQuest(key);
+    if (key === "tut_2") QUEST_FEEDBACK.hazardsPending = true;
 	}
 
-	// Telemetry: track CS1 milestone stage from quest type
-	if (key.startsWith("tut_")) telemetry.setStage(CS1_STAGES.SEQUENTIAL);
-	else if (key === "cs_if_0") telemetry.setStage(CS1_STAGES.CONDITIONAL);
-	else if (key === "cs_loop_0") telemetry.setStage(CS1_STAGES.LOOPING);
-
-	// Sample telemetry snapshot for LSTM buffer
-	telemetry.sampleHistory();
-
 	// Trigger async DDA update (non-blocking)
-	mlAgent.updateAndPredict(telemetry.currentStage).catch(() => { });
+	if (!TUTORIAL.active) mlAgent.updateAndPredict(telemetry.currentStage).catch(() => { });
 }
 
 export const UNLOCK_VERSION = $state({ count: 0 });
@@ -97,8 +161,9 @@ export function triggerUnlockFly(unlocks, mouseEvent = null) {
 	}
 
 	// Command Editor icon target position (top-left bar)
-	const endX = 260;
-	const endY = 32;
+	const target = document.getElementById("command-menu-button")?.getBoundingClientRect();
+	const endX = target ? target.x + target.width / 2 : 260;
+	const endY = target ? target.y + target.height / 2 : 32;
 
 	unlocks.forEach((item, index) => {
 		const animId = Date.now() + "_" + index + "_" + Math.random();
@@ -109,13 +174,13 @@ export function triggerUnlockFly(unlocks, mouseEvent = null) {
 			startY,
 			endX,
 			endY,
-			delay: index * 180
+			delay: 1200 + index * 550
 		};
 		UNLOCK_ANIMATIONS.flyingItems.push(newItem);
 
 		setTimeout(() => {
 			UNLOCK_ANIMATIONS.flyingItems = UNLOCK_ANIMATIONS.flyingItems.filter((i) => i.id !== animId);
-		}, index * 180 + 1300);
+		}, 1200 + index * 550 + 3000);
 	});
 }
 
@@ -125,7 +190,7 @@ export function claimQuest(key, mouseEvent = null) {
 	QUEST_STATE[key].is_claimed = true;
 
 	// Track quest completion for ML pipeline (episode boundary + label generation)
-	telemetry.recordQuestComplete(key);
+	// Completion is recorded when the objective is reached, before claiming.
 
 	const rewards = QUEST_DATA[key].rewards;
 	if (rewards) {
@@ -160,6 +225,7 @@ export function claimQuest(key, mouseEvent = null) {
 			UNLOCK_VERSION.count++;
 		}
 	}
+	beginActiveQuest();
 }
 
 // "Did You Know?" Tips Data & Popup State
@@ -168,76 +234,76 @@ export const DID_YOU_KNOW_TIPS = {
 		id: "spoilage",
 		title: "Quality & Freshness",
 		category: "Game Mechanics",
-		description: "Crops progress from Young -> Growing -> Harvestable. If a harvestable crop is left unpicked for too long, it expires into DEAD rot! Harvest promptly to maximize EXP and Coin yields.",
+		description: "Harvest ripe crops before they spoil.",
 		image: "/sprites/art_crop_growth.png"
 	},
 	soil: {
 		id: "soil",
 		title: "Soil States",
 		category: "Game Mechanics",
-		description: "Land starts in an UNTILLED state (0). Use bot.till() to change it to READY (1), then bot.water() for WATERED (2). Crops only absorb water and grow when planted in watered soil!",
+		description: "Prepare soil, plant, then water. Water again when the soil dries.",
 		image: "/sprites/art_soil_states.png"
 	},
 	bugs: {
 		id: "bugs",
 		title: "Bug Infestations",
 		category: "Game Mechanics",
-		description: "Purple bugs can spawn and invade your farm, chewing on harvestable crops and dealing damage! Use bot.kill_bug() to clear bugs before they destroy your crops.",
+		description: "Pests hurt crops. Send a bot to remove them!",
 		image: "/sprites/art_bug_infestation.png"
 	},
 	shop: {
 		id: "shop",
 		title: "Shop & Expansion",
 		category: "Game Mechanics",
-		description: "Spend earned Coins in the Shop to purchase new seed varieties, expand farm rows & columns, and buy extra autonomous robots!",
+		description: "Spend coins on seeds, more land, and extra bots.",
 		image: "/sprites/art_shop_expansion.png"
 	},
 	freshness: {
 		id: "freshness",
 		title: "Crop Freshness Stages",
 		category: "Game Mechanics",
-		description: "Once harvestable, a crop enters a freshness countdown, sparkle icons mean 100% rewards (FRESH), flies mean half rewards (EXPIRING). After full expiry, the crop rots. Watch for the visual cues!",
+		description: "Sparkles: full rewards. Flies: half rewards. Green gas: spoiled.",
 		image: "/sprites/art_crop_freshness.png"
 	},
 	seed_drop: {
 		id: "seed_drop",
 		title: "Seed Drop on Harvest",
 		category: "Game Mechanics",
-		description: "Harvesting a crop can randomly drop a bonus seed pack back into your inventory. Wheat has a 90% chance to drop seeds, but rare crops like Tomato only drop at 5%!",
+		description: "Harvesting can drop bonus seeds. Check your inventory!",
 		image: "/sprites/art_seed_drop.png"
 	},
 	corn_synergy: {
 		id: "corn_synergy",
 		title: "Corn Cluster Growth Synergy",
 		category: "Game Mechanics",
-		description: "Corn grows faster when surrounded by other corn! Each adjacent corn crop reduces its growth duration by 6 seconds. Plant corn in dense clusters to maximize growth speed.",
+		description: "Plant corn beside corn to help it grow faster.",
 		image: "/sprites/art_corn_buff.png"
 	},
 	sugarcane: {
 		id: "sugarcane",
 		title: "Sugarcane Automatic Regrowth",
 		category: "Game Mechanics",
-		description: "Sugarcane does not die after harvesting! Once harvested, it automatically resets to the growing state. Automate a loop to harvest sugarcane continuously for ongoing profit.",
+		description: "Sugarcane regrows after harvest. Keep watering it!",
 		image: "/sprites/art_sugarcane_regrow.png"
 	},
 	bot_check: {
 		id: "bot_check",
 		title: "Bot Inspection Functions",
 		category: "Game Mechanics",
-		description: "Bots can inspect their current tile using check functions: bot.is_tilled(), bot.is_watered(), bot.is_planted(), bot.is_harvestable(), bot.is_dead(), bot.is_bug(), and bot.is_fire(). These return true or false and are perfect for writing smart conditional logic.",
+		description: "Check blocks answer true or false. Use them inside an if block.",
 		image: "/sprites/art_bot_check.png"
 	},
 	out_of_bounds: {
 		id: "out_of_bounds",
 		title: "Farm Grid Boundaries",
 		category: "Game Mechanics",
-		description: "Bots cannot move outside the farm grid! Attempting to jump out of bounds will show an error and the bot will stop. Use conditional checks before moving to avoid errors."
+		description: "Stay inside the farm. Moving past the edge stops your bot."
 	},
 	bug_damage: {
 		id: "bug_damage",
 		title: "Crop Resistance to Bugs",
 		category: "Game Mechanics",
-		description: "Bugs deal damage based on a crop's resistance stat. Potato is completely immune to bugs (resistance = 0)! Rice takes normal damage, while Wheat, Corn, Tomato, and Sugarcane are more vulnerable.",
+		description: "Potatoes resist pests. Other crops need protection.",
 		image: "/sprites/art_crop_resistance.png"
 	}
 };
@@ -248,6 +314,8 @@ export const DID_YOU_KNOW_STATE = $state({
 });
 
 export function triggerDidYouKnow(id) {
+  // A hidden tip still pauses the engine, so never open one behind a blocking scene.
+  if (TUTORIAL.active || ONBOARDING.isModalOpen) return;
 	if (DID_YOU_KNOW_STATE.shown[id]) return;
 	const tip = DID_YOU_KNOW_TIPS[id];
 	if (!tip) return;
