@@ -99,12 +99,16 @@ export class EventScheduler {
     return this.lastEventTime > 0 && this.clock - this.lastEventTime < COOLDOWN_MS;
   }
 
+  beginCooldown() {
+    this.lastEventTime = this.clock;
+  }
+
   computeSpawnChance() {
     return Math.min(0.30, 0.03 + Math.min(0.27, Math.max(0, PLAYER_DATA.level) * 0.018));
   }
 
   _markEvent(type, result) {
-    this.lastEventTime = this.clock;
+    this.beginCooldown();
     this.eventsTriggered++;
     telemetry.recordScheduledEvent(type, { mode: mlAgent.mode, actionId: mlAgent.lastAction,
       severity_points: this.eventSeverity(), planted_crops: this.countPlantedCrops(), total_tiles: this.getTotalTiles() });

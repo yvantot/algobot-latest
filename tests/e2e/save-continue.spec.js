@@ -205,6 +205,34 @@ test("harvesting a naturally grown dry crop can save and Continue without dangli
   expect((await readSave(page)).active.payload.economy.coins).toBe(saved.payload.economy.coins);
 });
 
+test("Start farming saves a resumable gameplay-time hazard cooldown", async ({ page }) => {
+  await fresh(page, true); await closeDemo(page);
+  await page.evaluate(() => {
+    const t = window.saveTesting;
+    t.TUTORIAL.active = true;
+    t.QUEST_FEEDBACK.queue = [];
+    t.QUEST_FEEDBACK.hazardsPending = true;
+  });
+  await page.getByRole("button", { name: "Start farming", exact: true }).click();
+  await page.evaluate(async () => { await window.saveTesting.persistence.checkpoint({ required: true }); });
+  const saved = (await readSave(page)).active;
+  expect(saved.payload.tutorial.active).toBe(false);
+  expect(saved.payload.feedback.hazardsPending).toBe(false);
+  expect(saved.payload.scheduler.lastEventTime).toBeGreaterThan(0);
+  expect(saved.payload.scheduler.lastEventTime).toBeLessThanOrEqual(saved.payload.scheduler.clock);
+  await page.reload(); await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("button", { name: "New Game", exact: true })).toHaveCount(0);
+  const state = await page.evaluate(async () => {
+    const t = window.saveTesting;
+    await t.persistence.checkpoint({ required: true });
+    return t.eventScheduler.getState();
+  });
+  expect(state.cooldownActive).toBe(true);
+  expect(state.cooldownRemaining).toBeGreaterThan(290000);
+  expect(state.cooldownRemaining).toBeLessThanOrEqual(300000);
+  await expect(page.getByRole("button", { name: "Start farming", exact: true })).toHaveCount(0);
+});
+
 test("a second tab cannot replace an actively owned farm", async ({ page, context }) => {
   await fresh(page); const original = (await readSave(page)).active.playthroughId;
   const other = await context.newPage(); await other.goto("/");

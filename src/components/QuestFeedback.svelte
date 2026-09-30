@@ -34,7 +34,7 @@
     return () => { clearTimeout(timer); clearTimeout(flight); flying = []; };
   });
   function startFarming() {
-    eventScheduler.lastEventTime = Date.now();
+    eventScheduler.beginCooldown();
     finishIntroduction();
   }
 </script>

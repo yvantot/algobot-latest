@@ -94,3 +94,23 @@ test("normal mode and paused gameplay do not introduce challenge events", () => 
   assert.equal(s._check().reason, "gameplay_paused");
   assert.equal(calls.length, 0);
 });
+
+test("introduction cooldown survives restore and expires only during active gameplay", () => {
+  const { scheduler: s } = scheduler();
+  s.beginCooldown();
+  assert.equal(s.lastEventTime, 1);
+  assert.equal(s.getState().cooldownRemaining, 300000);
+  s.advance(1000);
+  const { scheduler: restored } = scheduler();
+  restored.restore(s.snapshot());
+  assert.equal(restored.getState().cooldownRemaining, 299000);
+  restored.shouldRun = () => false;
+  restored.advance(86400000);
+  assert.equal(restored.getState().cooldownRemaining, 299000);
+  restored.shouldRun = () => true;
+  __weatherAgent.lastAction = 0;
+  restored.advance(298999);
+  assert.equal(restored.isCooldownActive(), true);
+  restored.advance(1);
+  assert.equal(restored.isCooldownActive(), false);
+});
