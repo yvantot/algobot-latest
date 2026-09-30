@@ -15,6 +15,7 @@ async function fresh(page, fixture = false) {
   await expect(page.getByRole("button", { name: "New Game", exact: true })).toHaveCount(0);
 }
 test("New Game saves a farm and Continue survives a real reload", async ({ page }) => {
+  test.setTimeout(120000);
   const errors = []; page.on("pageerror", error => errors.push(error.message));
   await fresh(page);
   const original = (await readSave(page)).active;

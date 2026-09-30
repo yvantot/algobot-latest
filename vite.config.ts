@@ -13,6 +13,9 @@ try {
 
 export default defineConfig({
 	plugins: [tailwindcss(), svelte()],
-  server: { hmr: process.env.PLAYWRIGHT_TEST === "1" ? false : undefined },
+  server: {
+    hmr: process.env.PLAYWRIGHT_TEST === "1" ? false : undefined,
+    watch: { ignored: ["**/.manual-save-review/**"] },
+  },
   define: { __BUILD_PROVENANCE__: JSON.stringify({ ...provenance, ...sourceFingerprint(fileURLToPath(new URL(".", import.meta.url))) }) },
 });
