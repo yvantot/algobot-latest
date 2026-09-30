@@ -3,7 +3,6 @@
   import { CAMERA, CONFIG } from "../game/global/global.js";
   import { createTransientNotice } from "./transient-notice.js";
   import { fly } from "svelte/transition";
-  import TutorialTarget from "./TutorialTarget.svelte";
   import QuestFeedback from "./QuestFeedback.svelte";
   import { tutorialPolicy } from "../game/global/tutorial.js";
   import { TUTORIAL, QUEST_FEEDBACK } from "./global.svelte.js";
@@ -415,7 +414,6 @@
   <FarmIntroduction bind:isOpen={showIntroduction} lesson={demoLesson} rewardAvailable={!completedDemos.includes(demoLesson)} onComplete={completeDemo} />
   {#if docPreview}<DocumentationPreview name={docPreview} onClose={closeDocPreview}/>{/if}
   <QuestFeedback />
-  <TutorialTarget />
   <DidYouKnowPopup />
   <UnlockFlyOverlay />
   <EventBanner />
