@@ -22,6 +22,10 @@
   let hintLevel = $state(0), guideRevision = $state(0);
   let offered = $state(false);
   let tick = $state(0);
+  let lessonBusy = $derived.by(() => {
+    const refresh = tick;
+    return robots_state.some(state => state.is_running) || robots.some(robot => !robot.is_available);
+  });
   let idle = 0;
   let lastErrors = 0;
   let lastProgress = 0;
@@ -131,7 +135,7 @@
     {#if mission.optional}<button onclick={() => chooseQuest()}>Return to main path</button>{/if}
     {#if mission.setup}
       <p class="hint">{setupMessage || "Prepare practice tiles for this lesson."}</p>
-      <button disabled={robots_state.some(state => state.is_running) || robots.some(robot => !robot.is_available)}
+      <button disabled={lessonBusy}
         onclick={() => setupLesson(true)}>Reset lesson tiles</button>
       <p class="count">Replaces crops on {lessonTiles(missionKey, CONFIG.FARM).length} practice tiles. Keeps your program.</p>
     {/if}

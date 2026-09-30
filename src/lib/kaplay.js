@@ -19,8 +19,6 @@ export function initKaplay() {
 		global: false,
 		debug: false,
 
-		height: Math.round(innerHeight / 8) * 8,
-		width: Math.round(innerWidth / 8) * 8,
 		pixelDensity: savedDensity,
 		crisp: false,
 	});
