@@ -13,6 +13,7 @@ import { CHALLENGES } from "../src/game/challenges/catalog.js";
 import { joinBotInbox } from "../src/game/global/bot-messages.js";
 import { cropReading } from "../src/game/global/crop-inspection.js";
 import { prepareLesson, releaseLesson } from "../src/game/global/quest-setup.js";
+import { QUEST_DATA } from "../src/game/global/quests.js";
 import { scenarioSolutions } from "./scenario-solutions.js";
 import { CropStates, CropTypes, FreshnessStates, SoilStates, IconTypes, OrbTypes } from "../src/game/global/enum.js";
 
@@ -226,6 +227,105 @@ test("lesson tiles drain after removal and replanted crops absorb a fresh wateri
   assert.equal(soil.water_remaining, 0.6);
   assert.equal(tile.lesson, "row-young");
 });
+
+for (const [key, quest] of Object.entries(QUEST_DATA)) {
+  test(`${key}: quest setup and reset preserve crop lifecycles for every crop type`, () => {
+    const h = harness();
+    const size = { columns: 4, rows: 3 };
+    Object.assign(h.context.CONFIG.FARM, size);
+    for (let y = 0; y < size.rows; y++) for (let x = 0; x < size.columns; x++) h.addSoil(x, y);
+    const hazard = (x, y, field) => {
+      const tile = h.farm.get(y + "-" + x);
+      return tile[field] = { destroy() { tile[field] = null; } };
+    };
+    const deps = {
+      grid: h.farm, size, robot: { botJump() {} }, inventory: h.context.INVENTORY,
+      createCrop: (x, y, state) => h.plant(CropTypes.WHEAT, state, x, y),
+      createBug: (x, y) => hazard(x, y, "bug"),
+      ignite: position => { const [y, x] = position.split("-").map(Number); return hazard(x, y, "fire"); },
+    };
+    for (const replace of [false, true]) {
+      assert.equal(prepareLesson(key, { ...deps, replace }).prepared, !!quest.setup);
+      const planted = [...h.farm.values()].filter(tile => tile.crop);
+      const initial = planted.map(tile => tile.crop.crop_state);
+      for (const tile of planted) tile.soil.water();
+      h.advance(0.25);
+      planted.forEach(({ crop, soil }, i) => {
+        if ([CropStates.YOUNG, CropStates.GROWING].includes(initial[i])) {
+          assert.equal(crop.absorbing_water, true, "prepared crops absorb water before and after reset");
+          assert.ok(crop.crop_grow_time > 0);
+          assert.ok(soil.water_remaining < 1);
+        } else {
+          assert.equal(crop.crop_state, initial[i], "ready and deliberately spoiled crops keep their intended state");
+          assert.equal(crop.absorbing_water, false);
+        }
+      });
+      h.advance(10);
+      for (const tile of planted) tile.soil.water();
+      h.advance(10);
+      planted.forEach(({ crop }, i) => {
+        assert.equal(crop.crop_state, initial[i] === CropStates.DEAD ? CropStates.DEAD : CropStates.HARVESTABLE,
+          "prepared growing crops reach harvest; cleanup crops stay spoiled");
+      });
+    }
+    const tiles = [...h.farm.values()].filter(tile => tile.lesson);
+    if (!tiles.length) tiles.push(h.farm.get("0-0"));
+    for (const type of Object.values(CropTypes)) {
+      for (const tile of tiles) {
+        tile.crop?.cropDestroy("remove");
+        tile.soil.till();
+        tile.soil.water();
+      }
+      h.advance(0.25);
+      for (const tile of tiles) {
+        assert.equal(tile.soil.water_remaining, 0);
+        assert.equal(tile.soil.soil_water_mask, null, "empty practice tiles still drain");
+        h.plant(type, CropStates.YOUNG, tile.soil.grid_x, tile.soil.grid_y);
+      }
+      h.advance(0.25);
+      for (const tile of tiles) {
+        assert.equal(tile.crop.crop_grow_time, 0, "replacement crops cannot inherit the previous watering");
+        tile.soil.water();
+      }
+      h.advance(0.25);
+      for (const tile of tiles) {
+        assert.equal(tile.crop.absorbing_water, true, type + " absorbs water on replanted lesson tiles");
+        assert.ok(tile.crop.crop_grow_time > 0);
+        assert.ok(tile.soil.water_remaining < 1);
+      }
+      h.advance(9.75);
+      for (const tile of tiles) {
+        assert.equal(tile.crop.crop_state, CropStates.GROWING);
+        assert.equal(tile.soil.water_remaining, 0);
+        tile.soil.water();
+      }
+      h.advance(10);
+      for (const tile of tiles) assert.equal(tile.crop.crop_state, CropStates.HARVESTABLE);
+      if (type === CropTypes.SUGARCANE) {
+        for (const tile of tiles) assert.equal(tile.crop.harvest(), true);
+        h.advance(1);
+        for (const tile of tiles) {
+          assert.equal(tile.crop.crop_state, CropStates.GROWING);
+          tile.soil.water();
+        }
+        h.advance(10);
+        for (const tile of tiles) assert.equal(tile.crop.crop_state, CropStates.HARVESTABLE, "sugarcane regrows after harvest");
+      }
+      h.advance(100);
+      for (const tile of tiles) {
+        assert.equal(tile.crop.crop_state, tile.lesson ? CropStates.HARVESTABLE : CropStates.DEAD);
+      }
+    }
+    releaseLesson(h.farm);
+    assert.equal(h.farm.lessonActive, false);
+    assert.ok([...h.farm.values()].every(tile => !tile.lesson && !tile.lessonBug && !tile.lessonFire));
+    h.advance(8);
+    for (const tile of tiles) {
+      assert.equal(tile.lesson, null);
+      assert.equal(tile.crop.crop_state, CropStates.DEAD, "normal spoilage resumes when the lesson ends");
+    }
+  });
+}
 
 test("only the cutscene's designated crop can spoil during protected practice", () => {
   const h = harness(); h.addSoil();

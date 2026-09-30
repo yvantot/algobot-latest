@@ -59,6 +59,12 @@ the mission, editor mode, and capped level are recorded in hint telemetry.
 
 - Run npm test for graph, rewards, setup lifecycle, hint construction, and
   interpreter checks, including every concept answer in both editor modes.
+  The lifecycle suite also checks every quest against all six crop types using
+  the actual soil and crop components: automatic setup, explicit reset,
+  absorption, growth to harvest, removal and replanting, empty-tile drainage,
+  sugarcane regrowth, and spoilage protection followed by lesson release.
+  Intentionally spoiled cleanup crops remain spoiled. Hazard spawning is
+  stubbed in this crop-lifecycle matrix; hazard behavior has separate tests.
 - Run npm run build for the production build.
 - Open /tests/ui/quests.html under the Vite dev server for real rendering,
   keyboard, hint, setup, and completion checks. This fixture does not start
