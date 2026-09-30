@@ -81,3 +81,5 @@ training/synthetic/
 .save-browser-output.txt
 .save-build-output.txt
 test-results-production/
+.manual-save-review/
+test-results-bug001/

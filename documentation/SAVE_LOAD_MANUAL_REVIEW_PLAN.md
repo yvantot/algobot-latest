@@ -47,7 +47,8 @@ This document plans the work; no play sessions or passes are claimed yet.
    Diagnostic downloads are evidence, not a supported game import feature.
 5. Record each run in a durable journal under
    `documentation/save-load-manual-review/`, with large screenshots, traces,
-   downloads, and test profiles under ignored test-results directories. Do not
+   downloads, and test profiles under ignored `.manual-save-review/`, outside
+   Playwright's output directories (which it clears before running). Do not
    commit browser profiles or raw participant data.
 
 Each journal row contains: case ID, profile, build, starting quest/farm state,
