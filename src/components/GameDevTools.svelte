@@ -109,6 +109,14 @@
   let log = $state([]);
   let questKey = $state(Object.keys(QUEST_DATA)[0]);
   let questAmt = $state(1);
+  const questChapters = [...new Set(Object.values(QUEST_DATA).map(quest => quest.chapter))].sort((a, b) => a - b);
+  const selectedQuest = $derived(QUEST_DATA[questKey]);
+  const selectedQuestState = $derived(QUEST_STATE[questKey]);
+
+  function questStatus(key) {
+    const state = QUEST_STATE[key];
+    return state?.is_claimed ? "Claimed" : state?.is_completed ? "Ready to claim" : `${state?.progress ?? 0}/${QUEST_DATA[key].goal}`;
+  }
 
   // Bot tab state
   let botIndex = $state(0);
@@ -785,19 +793,44 @@
 
         <!-- QUESTS TAB -->
       {:else if activeTab === "quests"}
-        {@render sec("Progress a Quest")}
+        {@render sec("Selected Quest")}
+        <label for="dev-quest-select" class="block text-sm text-gray-300 mb-1">Quest to change</label>
         <div class="flex gap-1 mb-1">
           <select
+            id="dev-quest-select"
             bind:value={questKey}
-            class="flex-1 rounded bg-gray-800 px-2 py-1 text-sm text-white border border-gray-700 cursor-pointer"
+            disabled={pending}
+            class="w-full min-w-0 rounded bg-gray-800 px-2 py-1 text-sm text-white border border-gray-700 cursor-pointer"
           >
-            {#each Object.entries(QUEST_DATA) as [key, data]}
-              <option value={key}>{data.title}</option>
+            {#each questChapters as chapter}
+              <optgroup label={`Chapter ${chapter}`}>
+                {#each Object.entries(QUEST_DATA).filter(([, quest]) => quest.chapter === chapter) as [key, data]}
+                  <option value={key}>{data.title}{data.optional ? " (optional)" : ""} · {questStatus(key)}</option>
+                {/each}
+              </optgroup>
             {/each}
           </select>
         </div>
-        <div class="flex gap-1">
+        <p class="text-sm text-gray-300 mb-1">{selectedQuest.description}</p>
+        <p class="text-sm text-gray-300 mb-1" aria-live="polite">{selectedQuestState?.is_claimed ? "Claimed" : selectedQuestState?.is_completed ? "Ready to claim" : "In progress"} · {selectedQuestState?.progress ?? 0}/{selectedQuest.goal} progress</p>
+        <p class="text-xs text-gray-400 break-words mb-2">ID: {questKey}</p>
+        <button
+          disabled={pending || selectedQuestState?.is_claimed}
+          onclick={() => run(`Complete & claim ${questKey}`, () => {
+            const state = QUEST_STATE[questKey];
+            if (!state) throw new Error("Quest not found");
+            if (state.is_claimed) return false;
+            state.progress = QUEST_DATA[questKey].goal;
+            state.is_completed = true;
+            claimQuest(questKey);
+            return state.is_claimed;
+          })}
+          class="w-full rounded bg-gray-800 px-2 py-2 text-left text-sm text-green-300 hover:bg-gray-700 cursor-pointer mb-1"
+        >{selectedQuestState?.is_claimed ? "Already claimed" : "Complete & claim selected quest"}</button>
+        <p class="text-xs text-gray-400 mb-3">Grants this quest's rewards and unlocks. Other quests keep their current progress.</p>
+        <div class="flex flex-wrap gap-1">
           <input
+            aria-label="Quest progress amount"
             type="number"
             bind:value={questAmt}
             min="1"
@@ -809,7 +842,7 @@
               const state = QUEST_STATE[questKey];
               if (!state) throw new Error("Quest not found");
               state.progress = Math.min(
-                state.progress + Number(questAmt),
+                state.progress + devInteger(questAmt, 1, 999, "Quest progress"),
                 QUEST_DATA[questKey].goal,
               );
               if (state.progress >= QUEST_DATA[questKey].goal)

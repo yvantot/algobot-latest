@@ -10,6 +10,8 @@
   import TextBased from "../../src/components/TextBased.svelte";
   import QuestHUD from "../../src/components/QuestHUD.svelte";
   import Quest from "../../src/components/Quest.svelte";
+  import GameDevTools from "../../src/components/GameDevTools.svelte";
+  import PlayerInfo from "../../src/components/PlayerInfo.svelte";
   let ready = $state(false), mode = $state("blocks"), selected = $state("cs_cleanup_0");
   let editor = $state(), revision = $state(0), path = $state(false), compact = $state(false);
   function selectLesson() {
@@ -51,6 +53,8 @@
   <button onclick={() => compact = !compact}>Toggle narrow panel</button>
 </header>
 {#if ready}
+  <GameDevTools/>
+  <div class="player"><PlayerInfo/></div>
   <div class="editor">{#key revision}{#if mode === "blocks"}<BlockBased bind:this={editor}/>{:else}<TextBased bind:this={editor}/>{/if}{/key}</div>
   <div class="hud" style:width={compact ? "300px" : "360px"}><QuestHUD editorMode={mode} onOpenEditor={() => {}} onOpenQuestMenu={() => path = !path}/></div>
   {#if path}<div class="path"><Quest/></div>{/if}
@@ -59,4 +63,5 @@
   header{position:fixed;inset:0 0 auto;z-index:9000;background:white;padding:8px;display:flex;gap:8px;flex-wrap:wrap;font:14px sans-serif}
   button,select{padding:6px;border:1px solid #64748b;background:#f3f4f6;color:#334155}
   .editor{position:fixed;right:4px;top:90px}.hud{position:fixed;left:8px;top:100px;max-height:80vh;overflow:auto}.path{position:fixed;left:380px;top:90px;z-index:8000}
+  .player{position:fixed;right:8px;bottom:8px}
 </style>
