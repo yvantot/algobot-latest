@@ -7,8 +7,8 @@ quest progress is earned by dragging blocks and pressing the game's controls.
 
 ## Current progress
 
-- Campaign A completed and claimed 10 of 44 quests through Blockly, through
-  `loop_water_0`. Each has a real reload/Continue check. The per-quest record is
+- Campaign A completed and claimed 36 of 44 quests through Blockly, through
+  chapter 9 including optional `fn_return_0`. Each has a real reload/Continue check. The per-quest record is
   [quest-matrix.csv](quest-matrix.csv); B and C have not started.
 - During the first farming quest, till, plant, and water progress survived
   separate reloads. Continued watering grew the same wheat to harvestable.
@@ -23,7 +23,7 @@ quest progress is earned by dragging blocks and pressing the game's controls.
   Crops absorbed water and grew under protection. Completion cleared lesson
   ownership; spoilage counted down and the former lesson crop died normally
   after Continue. An ordinary tile at (1,1) also absorbed water and grew. This
-  supplementary control used the text editor; all ten quest completions used
+  supplementary control used the text editor; all 36 quest completions used
   Blockly. Evidence includes the lifecycle and ordinary-tile snapshots.
 - One M04 edit/Continue case passed: both source forms persisted, and the restored
   text remained editable and executable. Other M04 minimums remain outstanding.
@@ -88,23 +88,75 @@ campaign progress was earned through ordinary game controls.
 
 All review browsers are closed. Profile
 `.manual-save-review/profiles/profile-a-recovered` is saved at the main menu,
-with 293 coins and ten claimed quests. Current quest: `crop_wheat_1`, Harvest
-three wheat crops. Its three practice tiles were reset to ripe crops before
-save-and-return. Bot 0's saved settled position is (1,1), with a single Harvest
-crop block; returning to the menu interrupted the reset jump. Resume at
-`http://127.0.0.1:4175/` on the same production build `c6ff644`, Continue, press
-Reset lesson tiles and wait for Bot 0 to land at (0,0). Then build repeat 2
-{ Harvest crop; Move right }, followed by a final Harvest crop.
-Confirm its save, reload, run, and claim. The exact final root is preserved in
-`.manual-save-review/batch-1-final-root.json`.
-An ordinary control crop at (1,1) is now dead; this is expected after its
-unprotected spoilage countdown. The saved text program is `bot.water();`; the
-selected editor is Blockly, whose single Harvest crop block remains intact.
+with 1,231 coins, 1,484 EXP, four wheat seeds, one corn seed, and 36 claimed
+quests. Current quest: `list_crops_0`, Plant a crop list. The farm is four columns
+by three rows; Bot 0 is at (0,0), with move duration 0.6. Resume at
+`http://127.0.0.1:4175/` on production build `c6ff644`. Continue, build the list
+program through Blockly, reset its three practice tiles, confirm the program
+and farm checkpoint, reload, run, and claim. The saved Blockly program still
+defines `is empty tile`, returns NOT planted, and says the function result.
+The separate text program remains `bot.water();`.
+
+The exact final root is `.manual-save-review/batch-2-final-root.json`, revision
+5680, playthrough `fd4dc4ba-de62-4270-b53a-c41e2c33347b`. Its 36 claimed quest
+flags were checked against the journal. The earlier batch-1 root is retained.
+Remaining A quests: lists, bugs, fires, and the five optional crop harvests.
 
 The separate `new-game-batch` profile contains a fresh replacement in its intro.
 It is not campaign B or C. Remaining M08 minimums: 49 replacements and 18
 cancellations. M09 endurance has not started. M01 needs four more complete
 repetitions; the rest of the targeted/fault matrix remains outstanding.
+
+## Batch 2: chapters 3 through 9
+
+Production build `c6ff644` remained fixed throughout. Added 26 completed quest
+checks, each using real Blockly edits, reload/Continue, execution or purchase,
+and reward collection. No new save/load defect was confirmed in this batch.
+The 26 before/after snapshot pairs were independently compared again while
+reconciling this report: playthrough ID, economy, quest flags, and both program
+sources matched in every pair. The matrix agrees with all 36 claimed flags in
+the final checkpoint. Batch journal entries span 08:55 to 10:12 UTC on
+September 30; this includes tool waits and documentation work, not just play.
+
+- Conditional branches, NOT/AND, comparison operators, random-number bounds,
+  and nested loops retained their connections and executed after Continue.
+- Buying a column retained the 100-coin deduction and expanded the farm from
+  nine to twelve tiles. A subsequent dimension-based loop used all four columns.
+  A 50-coin Move Speed upgrade retained the 0.7-to-0.6 duration change.
+- Variable IDs, numeric/string values, and getters survived. A conditional
+  harvest counter harvested three restored crops and saved successfully.
+- A growing wheat crop retained its identity and exact committed growth time
+  (1.8166 of 8 seconds). The restored waiting loop observed it become ready and
+  exited. The earlier attempt had already reached ripeness before reload and
+  was not used as the growing-crop check.
+- Nested row/column loops watered all twelve tiles. A named function, a disabled
+  block tree, a reused function call, a crop parameter added through the mutator,
+  and a Boolean return value all survived reload and remained executable.
+- Optional Return an answer restored both selected quest and lesson ownership.
+  After execution, the UI returned to the main path while the optional reward
+  remained ready in Mission path; it was collected there exactly once.
+
+Some first attempts contained disconnected blocks or omitted a quest-required
+readiness guard. The same authored mistakes were present before and after
+reload. They were corrected through the UI and the successful runs have their
+own evidence files; they are not reported as save defects. Teaching dialogs
+paused the combined-condition and corn-parameter runs, which resumed normally
+after dismissal. These quest checks are not added again to targeted/endurance
+totals. B/C and all previously outstanding targeted minimums remain open.
+
+### TOOLING-002: controller timeout during function reuse
+
+A Node controller call hit its 30-second execution limit while waiting for a
+long full-farm run and reset the browser-control kernel. The same persistent
+Chromium profile reopened normally. Its checkpoint retained the program, twelve
+planted crops, the last settled bot tile, and an uncompleted quest. Continue
+left execution stopped. No storage was injected or reconstructed.
+
+The interrupted attempt was not counted as a quest pass. After resetting the
+practice farm through the UI, a new reload/Continue and complete run passed;
+`A-fn_reuse_0-retest-*` holds its evidence. The interrupted root is retained as
+`A-fn_reuse_0-interrupted-root.json`. Subsequent waits were kept shorter than the
+controller limit. This is recorded as a tooling interruption, not a game bug.
 
 ## BUG-002 — Starting normal farming blocks every later checkpoint
 
