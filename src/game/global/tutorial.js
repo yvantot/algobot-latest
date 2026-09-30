@@ -4,7 +4,7 @@ export const tutorialPolicy = { protected: false };
 export const INTRO_QUESTS = ["intro_run", "intro_build", "intro_say", "intro_sequence", "tut_2"];
 
 export function activeQuest(definitions, states) {
-  return Object.keys(definitions).find(key => !states[key]?.is_completed &&
+  return Object.keys(definitions).find(key => !definitions[key].optional && !states[key]?.is_completed &&
     (definitions[key].prereq || []).every(id => states[id]?.is_claimed));
 }
 

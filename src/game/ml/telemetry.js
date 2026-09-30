@@ -8,6 +8,8 @@
 //
 // Expanded for ML Pipeline: 10-feature vector, raw event stream, quest attempt tracking.
 
+import { QUEST_PATH_VERSION } from "../global/quests.js";
+
 export const CS1_STAGES = {
   SEQUENTIAL: 1,
   CONDITIONAL: 2,
@@ -507,7 +509,7 @@ export class TelemetryTracker {
   getSessionSummary() {
     return {
       sessionId: this.sessionId,
-      introductionVersion: "guided-v1",
+      introductionVersion: QUEST_PATH_VERSION,
       participantId: this.participantId,
       startTime: new Date(this.sessionStartTime).toISOString(),
       durationMinutes: Number(((Date.now() - this.sessionStartTime) / 60000).toFixed(2)),
