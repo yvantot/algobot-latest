@@ -74,6 +74,18 @@ export function saytext(offset_x, offset_y, opt = { size: 14, height: 80, durati
     say_stack: 0,
     say_objects: new Set(),
 
+    add() {
+      // These effects are root siblings. Remove them before KAPLAY snapshots
+      // the root children for scene teardown, rather than during bot destruction.
+      const leave = k.onSceneLeave(() => this.clearSpeech());
+      this.onDestroy(() => leave.cancel());
+    },
+
+    clearSpeech() {
+      for (const object of this.say_objects) object.destroy();
+      this.say_objects.clear();
+    },
+
     sayText(say_text, color = "#fafafa", textcolor = this.say_color) {
       if (this.say_stack > 6) this.say_stack = 0;
       this.say_stack += 1;
@@ -123,8 +135,7 @@ export function saytext(offset_x, offset_y, opt = { size: 14, height: 80, durati
     },
 
     destroy() {
-      for (const object of this.say_objects) object.destroy();
-      this.say_objects.clear();
+      this.clearSpeech();
     },
   };
 }
@@ -286,10 +297,17 @@ export function popupicon() {
     require: ["gridpos"],
     icon: null,
 
-    destroy() {
+    add() {
+      const leave = k.onSceneLeave(() => this.clearPopupIcon());
+      this.onDestroy(() => leave.cancel());
+    },
+
+    clearPopupIcon() {
       this.icon?.destroy();
       this.icon = null;
     },
+
+    destroy() { this.clearPopupIcon(); },
 
     showIcon(type, duration, is_animate = true) {
       const pos = this.gridAxisToWorld(this.grid_x, this.grid_y);

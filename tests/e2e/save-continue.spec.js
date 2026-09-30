@@ -1,4 +1,8 @@
 import { test, expect } from "@playwright/test";
+import uploadWorker from "../../upload-worker/index.js";
+import { fakeEnv, request, zipped } from "../helpers/upload-fixture.js";
+import { sealDataset } from "../../src/game/ml/export-integrity.js";
+import { decodeUpload } from "../../upload-worker/dataset.js";
 
 async function readSave(page) {
   return page.evaluate(async () => {
@@ -357,6 +361,76 @@ test("RESEARCH-1 reward failure rolls back, retry commits once and reload preser
   expect(root.active.payload.economy.coins).toBe(paid.total);
   expect(root.research.assessments[paid.id].reward_claimed).toBe(true);
 });
+test("shop quest returns to menu and Continues repeatedly while preserving uploaded sessions", async ({ page }) => {
+  test.setTimeout(120000);
+  const errors = []; page.on("pageerror", error => errors.push(error.message));
+  await fresh(page, true); await closeDemo(page);
+  await page.evaluate(() => {
+    const t = window.saveTesting;
+    for (const id of ["intro_run", "intro_build", "intro_say", "intro_sequence", "tut_2"]) {
+      Object.assign(t.QUEST_STATE[id], { progress: t.QUEST_DATA[id].goal, is_completed: true, is_claimed: true });
+    }
+    t.TUTORIAL.active = false;
+    t.farm_grid_index.get("1-1").soil.till();
+  });
+  const env = fakeEnv();
+  const uploadedSessions = new Set();
+  const upload = async () => {
+    const {data, participant, session} = await page.evaluate(() => ({data: window.saveTesting.dataLogger.buildDatasetExport(),
+      participant: window.saveTesting.telemetry.participantId, session: window.saveTesting.telemetry.sessionId}));
+    uploadedSessions.add(session);
+    const response = await uploadWorker.fetch(request(await zipped(await sealDataset(data)), {
+      "X-Participant": participant, "X-Session": session,
+    }), env);
+    expect(response.status, await response.text()).toBe(200);
+  };
+  for (let cycle = 0; cycle < 3; cycle++) {
+    await page.evaluate(() => {
+      const bot = window.saveTesting.k.get().find(o => o.bot_index !== undefined);
+      bot.showIcon("hoe", 1); bot.sayText("Ready");
+    });
+    await upload();
+    await page.getByRole("button", { name: /start menu/i }).click();
+    await page.getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(0);
+    expect(await page.evaluate(() => window.saveTesting.farm_grid_index.get("1-1").soil.soil_state)).toBe(1);
+    expect(await page.evaluate(() => window.saveTesting.QUEST_STATE.shop_seed_0.is_claimed)).toBe(false);
+    await upload();
+  }
+  expect(errors).toEqual([]);
+  expect(env.store.size).toBe(1);
+  const { data } = await decodeUpload([...env.store.values()][0]);
+  expect(new Set(data.sessions.map(s => s.session_id))).toEqual(uploadedSessions);
+});
+
+test("Continue reconstruction cleans floating bot effects before scene teardown", async ({ page }) => {
+  test.setTimeout(60000);
+  const errors = []; page.on("pageerror", error => errors.push(error.message));
+  await fresh(page, true); await closeDemo(page);
+  const result = await page.evaluate(async () => {
+    const t = window.saveTesting; t.persistence.busy = true;
+    const roots = [];
+    try {
+      for (let i = 0; i < 12; i++) {
+        t.farm_grid_index.get("1-1").soil.till();
+        const bot = t.k.get().find(o => o.bot_index !== undefined);
+        bot.showIcon("hoe", 1);
+        bot.sayText("Ready");
+        const saved = t.captureWorld();
+        await Promise.race([i === 11 ? t.newWorld() : t.restoreWorld(saved),
+          new Promise((_, reject) => setTimeout(() => reject(Error("Scene transition stalled")), 5000))]);
+        roots.push(t.k.get().length);
+        if (i < 11 && t.farm_grid_index.get("1-1").soil.soil_state !== 1) throw Error("Tilled soil was lost");
+      }
+    } finally { t.persistence.busy = false; }
+    return roots;
+  });
+  expect(errors).toEqual([]);
+  expect(Math.max(...result) - Math.min(...result)).toBeLessThan(5);
+});
+
 test("engine endurance keeps bot and soil counts bounded through 100 restores and 50 new farms", async ({ page }) => {
   test.setTimeout(120000); await fresh(page, true); await closeDemo(page);
   const counts = await page.evaluate(async () => {
