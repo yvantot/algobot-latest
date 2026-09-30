@@ -51,3 +51,19 @@ Restore the existing test credentials securely when updating this environment fr
 The deployment command validates test resource names and the upload URL before building. It sends secrets through Wrangler's protected file input and does not print their values. Config files contain no secrets. The Vite output goes to ignored `dist-staging/`, leaving production `dist/` independent.
 
 Test records are kept until explicitly removed. The retained production QA record documented in `documentation/CLOUDFLARE_UPLOAD_VERIFICATION_2026-10-01.md` stays in the production bucket and must not be deleted without the user's instruction.
+
+## Verification — October 1, 2026 (Taipei)
+
+Deployed from local commit `f60f9d9`, without a Git push. The hosted game was opened in Chromium, a new QA farm was named **QA Test Farm - KEEP**, and returning to the menu triggered the normal browser upload. Reload and Continue restored the same farm name and Chapter 1 mission.
+
+Authenticated readback from `algobot-data-test` confirmed a valid gzip v4 archive, session checksums, and the SHA-256 in its object key. The first retained object is:
+
+```text
+testing/QA_STAGING_20261001_KEEP/5616cfac-e335-4796-bcf1-0f609f018f8c--f028d1b233a21bbfcf0da458ff5436898a56b08233a7d4525fafe779022b89e0.json.gz
+```
+
+It contains one short QA session with four recorded events (2,329 compressed bytes), not a completed study playthrough. Later snapshots may share this participant prefix. Keep these records until the user asks to remove them.
+
+Validation also passed: 18 targeted tests; Vite staging build and upload-configuration verification; both Wrangler dry runs; exact CORS origins for the hosted test game and localhost/127.0.0.1 port 5173; denial of production-origin requests to the test API; denial of unauthenticated admin reads; absence of production credentials and test admin credentials from the frontend bundle. Localhost CORS was checked by HTTP preflight; the end-to-end browser upload was performed on the hosted test game.
+
+Cloudflare's production game and upload Worker modification timestamps were unchanged after this deployment. Neither production storage nor its retained QA record was modified. This is a deployment/upload smoke test, not a repeat of the full save/load campaigns.
