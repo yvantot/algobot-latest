@@ -562,6 +562,27 @@ test("multiple bots, Blockly XML, inboxes and pest clocks survive engine reconst
   expect(result.restored.pests).toEqual(result.saved.pests); expect(result.running).toEqual([false, false]);
 });
 
+test("lesson reset becomes available after a stopped robot finishes its action", async ({ page }) => {
+  await fresh(page, true); await closeDemo(page);
+  await page.evaluate(() => {
+    const t = window.saveTesting;
+    for (const id of Object.keys(t.QUEST_DATA)) {
+      if (id === "farm_two_0") break;
+      Object.assign(t.QUEST_STATE[id], { progress: t.QUEST_DATA[id].goal, is_completed: true, is_claimed: true });
+    }
+    t.TUTORIAL.active = false;
+    const bot = t.k.get().find(o => o.bot_index === 0);
+    bot.is_available = false;
+    t.robots_state[0].is_running = false;
+  });
+  const reset = page.getByRole("button", { name: "Reset lesson tiles", exact: true });
+  await expect(reset).toBeDisabled();
+  await page.evaluate(() => { window.saveTesting.k.get().find(o => o.bot_index === 0).is_available = true; });
+  await expect(reset).toBeEnabled();
+  await reset.click();
+  await expect(page.getByText("Practice tiles are ready. Start with Bot 0.", { exact: true })).toBeVisible();
+});
+
 test("restored Water the row lesson absorbs water and releases protection on completion", async ({ page }) => {
   await fresh(page, true); await closeDemo(page);
   const result = await page.evaluate(async () => {
