@@ -7,8 +7,8 @@ quest progress is earned by dragging blocks and pressing the game's controls.
 
 ## Current progress
 
-- Campaign A completed and claimed 36 of 44 quests through Blockly, through
-  chapter 9 including optional `fn_return_0`. Each has a real reload/Continue check. The per-quest record is
+- Campaign A completed and claimed all 44 quests through Blockly, including
+  every optional quest. Each has a real reload/Continue check. The per-quest record is
   [quest-matrix.csv](quest-matrix.csv); B and C have not started.
 - During the first farming quest, till, plant, and water progress survived
   separate reloads. Continued watering grew the same wheat to harvestable.
@@ -23,10 +23,14 @@ quest progress is earned by dragging blocks and pressing the game's controls.
   Crops absorbed water and grew under protection. Completion cleared lesson
   ownership; spoilage counted down and the former lesson crop died normally
   after Continue. An ordinary tile at (1,1) also absorbed water and grew. This
-  supplementary control used the text editor; all 36 quest completions used
+  supplementary control used the text editor; all 44 quest completions used
   Blockly. Evidence includes the lifecycle and ordinary-tile snapshots.
 - One M04 edit/Continue case passed: both source forms persisted, and the restored
   text remained editable and executable. Other M04 minimums remain outstanding.
+- One M02 sugarcane regrowth reload passed: three dry, previously harvested
+  plants retained their IDs and exact growth progress. Rewatering the restored
+  plants produced three more harvests and exactly 12 coins. Other lifecycle
+  states and the remaining 23 minimum reload cases are outstanding.
 - One M06 browser-closure case passed after 588 seconds of real elapsed time.
   The entire stored payload stayed identical at the menu; Continue restored it
   and a subsequent harvest saved successfully. This case had no live hazards.
@@ -88,24 +92,63 @@ campaign progress was earned through ordinary game controls.
 
 All review browsers are closed. Profile
 `.manual-save-review/profiles/profile-a-recovered` is saved at the main menu,
-with 1,231 coins, 1,484 EXP, four wheat seeds, one corn seed, and 36 claimed
-quests. Current quest: `list_crops_0`, Plant a crop list. The farm is four columns
-by three rows; Bot 0 is at (0,0), with move duration 0.6. Resume at
-`http://127.0.0.1:4175/` on production build `c6ff644`. Continue, build the list
-program through Blockly, reset its three practice tiles, confirm the program
-and farm checkpoint, reload, run, and claim. The saved Blockly program still
-defines `is empty tile`, returns NOT planted, and says the function result.
-The separate text program remains `bot.water();`.
+with 1,450 coins, 1,927 EXP, and all 44 quests claimed. Seeds: wheat 12, corn 2,
+rice 2, potato 3, sugarcane 1, tomato 1. The farm is four columns by three rows;
+Bot 0 is at (2,0), with move duration 0.6. Lesson protection is inactive.
+Production remains `c6ff644` at `http://127.0.0.1:4175/`. The saved Blockly
+program visits columns 0–2, removes a crop, prepares soil, plants tomato,
+waters/waits until ready, then harvests. The separate text remains `bot.water();`.
 
-The exact final root is `.manual-save-review/batch-2-final-root.json`, revision
-5680, playthrough `fd4dc4ba-de62-4270-b53a-c41e2c33347b`. Its 36 claimed quest
-flags were checked against the journal. The earlier batch-1 root is retained.
-Remaining A quests: lists, bugs, fires, and the five optional crop harvests.
+The exact final root is `.manual-save-review/batch-3-final-root.json`, revision
+7646, playthrough `fd4dc4ba-de62-4270-b53a-c41e2c33347b`. All 44 claimed flags
+agree with the quest matrix. Earlier batch roots are retained. Campaign A has
+no remaining quests; preserve this developed profile for targeted scenarios.
+Next player-track work: create a separate persistent Campaign B profile at the
+same origin, use New Game, and begin onboarding. B uses text after it unlocks
+and reloads completed-but-unclaimed quests where that state is reachable.
 
 The separate `new-game-batch` profile contains a fresh replacement in its intro.
 It is not campaign B or C. Remaining M08 minimums: 49 replacements and 18
 cancellations. M09 endurance has not started. M01 needs four more complete
 repetitions; the rest of the targeted/fault matrix remains outstanding.
+
+## Batch 3: Campaign A completed
+
+On unchanged production build `c6ff644`, eight more quests passed: the crop
+list, pest patrol, fire patrol, and all five remaining optional crop harvests.
+Each was authored or edited through Blockly and restored by reload/Continue
+before execution. All nine new checkpoint pairs (eight quests plus one M02
+case) were independently compared: playthrough ID, economy, quest state, and
+both program sources matched. No new save/load defect was confirmed.
+
+- The list retained wheat/corn/rice strings and its indexed lookup. Execution
+  planted the three types in the intended order.
+- Two practice pests retained their IDs, positions, timers, and lesson settings.
+  The restored nested-loop patrol removed both and completed the quest.
+- Two practice fires retained their tile locations and were extinguished by
+  the restored patrol. Both hazard completions cleared lesson ownership and
+  protection on all twelve tiles before reward collection.
+- Ordinary corn, rice, potato, sugarcane, and tomato grew and yielded three
+  harvests each after restoring the selected crop and program. Seeds were
+  purchased through the shop. The game speed control was set to 400% for the
+  longer runs; reload resets it to 100%, so it was selected again afterward.
+- The separate M02 case retained three dry sugarcane plants at 14.2656,
+  14.1324, and 14.666 seconds of regrowth. After Continue, the edited care loop
+  watered and harvested those same IDs at 100% speed, earning exactly 12 coins.
+
+The sugarcane teaching dialog paused play and resumed after Got it. Optional
+quest completion returned the mission card to the main path; rewards remained
+available in Mission path and were collected there. Authored disconnected
+blocks were corrected through the editor before checkpoint testing.
+
+Campaign A spans the earlier baseline and two fixes described below; it is not
+a claim that all 44 quests were repeated on the final build. Historical missing
+evidence from TOOLING-001 remains explicitly disclosed. The batch began with
+an exact checkpoint/program/localStorage backup before replacing the prior
+program. New evidence is in `.manual-save-review/`, including
+`batch-3-audit.json` and `batch-3-final-menu.png`. Quest checks are not counted
+again toward targeted or endurance totals. B/C and the broader review remain
+unfinished. No source changes or new automated-test runs were needed here.
 
 ## Batch 2: chapters 3 through 9
 
