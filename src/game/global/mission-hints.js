@@ -1,44 +1,75 @@
-import { commandExample } from "./documentation.js";
+import { lessonAnswer, lessonFocus, lessonWhy } from "./quest-lessons.js";
+import { QUEST_DATA } from "./quests.js";
 
-const command = name => commandExample(name.startsWith("is_") ? "bot_checks" : name === "jump" ? "bot_movement" : "bot_farm_actions", name);
-const chain = examples => {
-  const nodes = examples.map(example => structuredClone(example.block));
-  nodes.slice(0,-1).forEach((node,index) => node.next = {block:nodes[index+1]});
-  return {block:nodes[0],code:examples.map(example=>example.code).join("\n")};
-};
-const sayValue = example => ({block:{type:"bot_say",inputs:{TEXT:{block:example.block}}},code:`bot.say(${example.code.replace(/;$/,"")});`});
-const condition = (check, action) => ({block:{type:"controls_if",inputs:{IF0:{block:command(check).block},DO0:{block:command(action).block}}},code:`if (bot.${check}()) {\n  bot.${action}();\n}`});
+export function diagnoseMission(context = {}) {
+  const { blocks = [], code = "", seeds = {}, tile, x = 0, columns = Infinity, lastError = "" } = context;
+  const floating = blocks.find(b => !b.parent && !b.type.startsWith("procedures_def") && blocks.filter(b => !b.parent && !b.type.startsWith("procedures_def")).length > 1);
+  if (floating) return "A block is floating. Snap it under your other blocks.";
+  const loops = blocks.filter(b => b.type.startsWith("controls_repeat") || b.type === "controls_for" || b.type === "controls_whileUntil");
+  if (loops.some(b => !b.hasBody)) return "Your loop is empty. Move the action blocks inside.";
+  const crop = code.match(/bot\.plant\(["']([^"']+)["']\)/)?.[1];
+  if (crop && !(seeds[crop] > 0)) return "Buy " + crop + " seeds from Shop before planting.";
+  if (crop && tile?.planted && !/is_planted|destroy|harvest/.test(code)) return "This tile has a crop. Move to an empty tile.";
+  if (crop && tile && !tile.tilled && !/bot\.till/.test(code)) return "Add Prepare soil before Plant.";
+  if (x >= columns - 1 && /bot\.right/.test(code)) return "Your robot is at the edge. Start on the left.";
+  if (/crop type/i.test(lastError)) return 'Use a crop name, such as "wheat", with quotes.';
+  if (/not defined/i.test(lastError)) return "Set your variable before using it. Check its spelling.";
+  if (/loop condition|too many steps/i.test(lastError)) return "Change the value inside your loop so it can stop.";
+  if (/out of bounds/i.test(lastError)) return "Move inside the farm. Row and column numbers start at 0.";
+  if (/already tilled/i.test(lastError)) return "This soil is ready. Remove the extra Prepare soil block.";
+  if (/not tilled|till the soil first/i.test(lastError)) return "Add Prepare soil before Plant or Water soil.";
+  if (/already watered/i.test(lastError)) return "The soil is wet. Wait for it to dry.";
+  if (/not fully grown/i.test(lastError)) return "Water the crop. Harvest when Is the crop ready? says true.";
+  if (/crop is dead/i.test(lastError)) return "Use Remove crop to clear this spoiled crop.";
+  if (/already planted/i.test(lastError)) return "Move to an empty tile before planting.";
+  if (/insufficient resources/i.test(lastError)) return "Buy seeds from Shop before planting.";
+  if (/locked/i.test(lastError)) return "Collect the earlier quest reward to unlock this command.";
+  if (/no bug|no fire/i.test(lastError)) return "Check for trouble first. Put the action inside if.";
+  if (/plant the soil first/i.test(lastError)) return "Plant a seed before using this action.";
+  return "";
+}
 
-export function missionHint(key, level = 0, actions = [], harvestReady = false) {
-  if (key.startsWith("crop_")) {
-    const crop=key.slice(5,-2);
-    const plant={block:{type:"bot_plant",fields:{TYPE:crop}},code:`bot.plant("${crop}");`};
-    return [command("till"),plant,command("water"),condition("is_harvestable","harvest")][Math.min(level,3)];
+function incomplete(answer) {
+  const result = structuredClone(answer);
+  let missing = false;
+  function removeSlot(block) {
+    if (!block || missing) return;
+    for (const name of ["DO0", "DO", "VALUE", "TEXT", "CROP", "RETURN"]) {
+      if (block.inputs?.[name]) {
+        delete block.inputs[name]; missing = true; return;
+      }
+    }
+    if (block.next) { delete block.next; missing = true; }
   }
-  switch(key) {
-    case "intro_run": return command("right");
-    case "intro_build": return command("down");
-    case "intro_say": return command("say");
-    case "intro_sequence": return chain([command("left"),command("right")]);
-    case "tut_2": return command(!actions.includes("till")?"till":!actions.includes("plant")?"plant":!actions.includes("water")||!harvestReady?"water":"harvest");
-    case "intro_loop": return {block:{type:"controls_repeat_ext",inputs:{TIMES:{shadow:{type:"math_number",fields:{NUM:2}}},DO:{block:chain([command("left"),command("right")]).block}}},code:"for (var i = 0; i < 2; i++) {\n  bot.left();\n  bot.right();\n}"};
-    case "cs_check_0": return sayValue(command("is_planted"));
-    case "cs_if_0": return {block:{type:"controls_if",inputs:{
-      IF0:{block:{type:"logic_negate",inputs:{BOOL:{block:command("is_planted").block}}}},
-      DO0:{block:command("plant").block}}},
-      code:'if (!bot.is_planted()) {\n  bot.plant("wheat");\n}'};
-    case "cs_grid_0": return sayValue(commandExample("globals","rows"));
-    case "cs_jump_0": return command("jump");
-    case "cs_cleanup_0": return condition("is_dead","destroy");
-    case "cs_wait_0": return command("wait");
-    case "cs_random_0": return sayValue(commandExample("globals","randint"));
-    case "shop_seed_0": return commandExample("shop","buy_seed");
-    case "shop_land_0": return commandExample("shop",level%2?"buy_column":"buy_row");
-    case "shop_upgrade_0": return commandExample("shop","upgrade_bot_move");
-    default: throw Error(`Missing visual mission hint: ${key}`);
+  removeSlot(result.block);
+  if (result.blocks) {
+    result.blocks = result.blocks.map(block => { removeSlot(block); return block; });
   }
+  if (!missing) {
+    result.block = { type: "bot_say" };
+    delete result.blocks;
+  }
+  const lines = answer.code.split("\n");
+  const at = Math.max(0, lines.findIndex(line => /bot\.(plant|water|harvest|say|right|down|destroy|wait|jump)|return /.test(line)));
+  lines[at] = "// YOUR TURN: fill in this step.";
+  result.code = lines.join("\n");
+  result.changeLine = at + 1;
+  return result;
+}
+
+export function missionHint(key, level = 0, actions = [], harvestReady = false, context = {}) {
+  const answer = lessonAnswer(key, actions, harvestReady);
+  const focus = lessonFocus(key);
+  const stage = Math.max(0, Math.min(3, level));
+  const diagnostic = diagnoseMission(context);
+  const message = stage === 0 ? "Look in " + focus.category + "." :
+    stage === 1 ? QUEST_DATA[key].tip :
+    stage === 2 ? "Fill the empty slot. What step belongs there?" : "Build these steps, then press Start.";
+  const content = stage < 2 ? { block: null, code: "// " + (diagnostic || message) } :
+    stage === 2 ? incomplete(answer) : { ...answer, code: "// " + lessonWhy(key) + "\n" + answer.code };
+  return { ...content, ...focus, level: stage, message, diagnostic, why: stage === 3 ? lessonWhy(key) : null };
 }
 
 export function recordMissionHint(tracker, key, editor, level, example) {
-  tracker.recordHintShown(example.code,"requested_quest_hint",{mission:key,editor,level});
+  tracker.recordHintShown(example.code, "requested_quest_hint", { mission: key, editor, level: Math.min(level, 3) });
 }

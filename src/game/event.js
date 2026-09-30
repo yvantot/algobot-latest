@@ -12,6 +12,7 @@ export { configureFarmEvents, destroyFarmEvents } from "./events/renderer.js";
 
 /** Spawn a pest event while preserving the existing DDA scaling. */
 export function spawnBugEvent(farmGridIndex, difficultyPoints = 100) {
+  if (farmGridIndex.lessonActive) return { applied: false, reason: "lesson_practice" };
   if (tutorialPolicy.protected) return { applied: false, reason: "tutorial_protected" };
   const scaledPoints = Math.round(difficultyPoints * (dda.bugSpawnMultiplier ?? 1));
   const params = getDifficultyParams(scaledPoints);
@@ -36,6 +37,7 @@ export function spawnBugEvent(farmGridIndex, difficultyPoints = 100) {
 
 /** Initial fires require at least two thirds of actual farm tiles to be planted. */
 export function spawnFireEvent(farmGridIndex, difficultyPoints = 100) {
+  if (farmGridIndex.lessonActive) return { applied: false, reason: "lesson_practice" };
   if (tutorialPolicy.protected) return { applied: false, reason: "tutorial_protected" };
   const points = Math.round(difficultyPoints * (dda.fireSpawnMultiplier ?? 1));
   if (!canStartFireEvent(farmGridIndex)) {
@@ -58,6 +60,7 @@ export function spawnFireEvent(farmGridIndex, difficultyPoints = 100) {
 
 /** Clouds approach from the side; water and extinguishing happen on drop impact. */
 export function spawnRainEvent(farmGridIndex, difficultyPoints = 100) {
+  if (farmGridIndex.lessonActive) return { applied: false, reason: "lesson_practice" };
   const runtime = getFarmEventRuntime(farmGridIndex);
   const result = runtime.simulation.startRain(difficultyPoints);
   if (!result.applied) return result;

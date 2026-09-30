@@ -9,6 +9,7 @@ import { createInterpreterInit } from "../src/game/global/interpreter-bindings.j
 import { isPurchaseAmount, expansionTiles, waterRainTiles } from "../src/game/global/farm-rules.js";
 import { SoilStates, CropStates } from "../src/game/global/enum.js";
 import { preferences } from "../src/game/utils/preferences.js";
+import { PROGRAM_QUESTS } from "../src/game/global/quest-program.js";
 
 const context = vm.createContext({ console, setTimeout, clearTimeout });
 vm.runInContext(fs.readFileSync(new URL("../public/js-interpreter.js", import.meta.url), "utf8"), context);
@@ -204,7 +205,7 @@ test("documented inventory and pest checks work in the actual interpreter bindin
 test("farming tutorial cannot be completed by repeating the same action", () => {
   const completions = [];
   const questContext = vm.createContext({
-    $state: value => value, activeQuest, movementQuest, createMovementTracker, INTRO_QUESTS, tutorialPolicy: { protected: false },
+    $state: value => value, activeQuest, movementQuest, createMovementTracker, INTRO_QUESTS, PROGRAM_QUESTS, tutorialPolicy: { protected: false },
     AvatarTypes: { FARMER: "farmer" }, ModalTypes: {},
     QUEST_DATA: { tut_2: { goal: 4, prereq: [] } },
     PLAYER_DATA: {}, INVENTORY: {}, DOCUMENT_DATA: {}, SHOP_DATA: {}, CROP_DATA: {},

@@ -209,6 +209,15 @@
         this.setColour("#15803d");
       },
     };
+    Blockly.Blocks["bot_plant_value"] = {
+      init() {
+        this.appendValueInput("CROP").setCheck("String").appendField("Plant crop");
+        this.setPreviousStatement(true);
+        this.setNextStatement(true);
+        this.setColour("#15803d");
+        this.setTooltip("Plant the crop name stored in text, a variable, or a list.");
+      },
+    };
     Blockly.Blocks["bot_destroy"] = {
       init() {
         this.appendDummyInput().appendField("Remove crop");
@@ -430,6 +439,8 @@
     javascriptGenerator.forBlock["bot_harvest"] = () => `bot.harvest();\n`;
     javascriptGenerator.forBlock["bot_plant"] = (b) =>
       `bot.plant("${b.getFieldValue("TYPE")}");\n`;
+    javascriptGenerator.forBlock["bot_plant_value"] = (b) =>
+      'bot.plant(' + (javascriptGenerator.valueToCode(b, "CROP", ON) || '\"\"') + ');\n';
     javascriptGenerator.forBlock["bot_destroy"] = () => `bot.destroy();\n`;
     javascriptGenerator.forBlock["bot_kill_bug"] = () => `bot.kill_bug();\n`;
     javascriptGenerator.forBlock["bot_extinguish"] = () =>
@@ -571,6 +582,7 @@
           { kind: "block", type: "bot_water" },
           { kind: "block", type: "bot_harvest" },
           { kind: "block", type: "bot_plant" },
+          { kind: "block", type: "bot_plant_value", inputs: { CROP: { shadow: { type: "text", fields: { TEXT: "wheat" } } } } },
           { kind: "block", type: "bot_destroy" },
           { kind: "block", type: "bot_kill_bug" },
           { kind: "block", type: "bot_extinguish" },
@@ -894,6 +906,33 @@
     });
     const observer = new ResizeObserver(() => { if (workspace && blocklyDiv.clientWidth) Blockly.svgResize(workspace); });
     observer.observe(blocklyDiv);
+    function hintContext(event) {
+      Object.assign(event.detail, {
+        robotIndex: selected_robot,
+        code: javascriptGenerator.workspaceToCode(workspace),
+        blocks: workspace.getAllBlocks(false).map(block => ({
+          type: block.type, parent: block.getParent()?.id,
+          hasBody: !!block.getInputTargetBlock(block.type === "controls_if" ? "DO0" : "DO"),
+        })),
+      });
+    }
+    function hintFocus(event) {
+      const { category: name, blockType, level } = event.detail;
+      const toolbox = workspace.getToolbox();
+      const category = toolbox?.getToolboxItems().find(item => item.getName?.().includes(name));
+      if (!category) return;
+      toolbox.setSelectedItem(category);
+      const element = category.getDiv?.();
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) element?.animate(
+        [{ backgroundColor: "#fef3c7" }, { backgroundColor: "transparent" }], { duration: 700, iterations: 2 });
+      if (level === 1) {
+        const flyout = workspace.getFlyout()?.getWorkspace();
+        const block = flyout?.getAllBlocks(false).find(block => block.type === blockType);
+        if (block) flyout.highlightBlock(block.id);
+      }
+    }
+    window.addEventListener("quest-hint-context", hintContext);
+    window.addEventListener("quest-hint-focus", hintFocus);
 
     workspace.addChangeListener((event) => {
       if (isBlocklyProgramEdit(event)) telemetry.recordCodeEdit();
@@ -924,7 +963,11 @@
     }
     previousPracticeQuest = currentQuest();
     workspaceReady = true;
-    return () => { workspaceReady = false; observer.disconnect(); };
+    return () => {
+      workspaceReady = false; observer.disconnect();
+      window.removeEventListener("quest-hint-context", hintContext);
+      window.removeEventListener("quest-hint-focus", hintFocus);
+    };
   });
 
   $effect(() => {

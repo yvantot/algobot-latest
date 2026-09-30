@@ -1,6 +1,6 @@
 <script>
   import { QUEST_DATA } from "../game/global/quests.js";
-  import { QUEST_STATE, currentQuest, claimQuest } from "./global.svelte.js";
+  import { QUEST_STATE, currentQuest, claimQuest, chooseQuest } from "./global.svelte.js";
   let active = $derived(currentQuest());
 </script>
 <section class="path" aria-label="Mission path">
@@ -11,7 +11,10 @@
       {@const locked = (quest.prereq || []).some(id => !QUEST_STATE[id]?.is_claimed)}
       <li class:active={key === active} class:locked aria-current={key === active ? "step" : undefined}>
         <span class="state">{state.is_claimed ? "COMPLETED" : state.is_completed ? "REWARD READY" : key === active ? "CURRENT MISSION" : locked ? "LOCKED" : "AVAILABLE"}</span>
+        <p class="small">{quest.optional ? "Optional practice" : "Chapter " + quest.chapter}</p>
         <h2>{quest.title}</h2><p>{quest.description}</p>
+        {#if quest.optional && !locked && !state.is_completed && key !== active}<button onclick={() => chooseQuest(key)}>Practice this quest</button>{/if}
+        {#if quest.optional && key === active}<button onclick={() => chooseQuest()}>Return to main path</button>{/if}
         {#if locked}<p class="small">Complete: {(quest.prereq || []).filter(id => !QUEST_STATE[id]?.is_claimed).map(id => QUEST_DATA[id]?.title).join(", ")}</p>{/if}
         {#if quest.rewards?.unlocks}<p class="small">Unlocks: {quest.rewards.unlocks.map(name => name.replaceAll("_", " ")).join(", ")}</p>{/if}
         {#if state.is_completed && !state.is_claimed}<button onclick={() => claimQuest(key)}>Collect reward</button>{/if}

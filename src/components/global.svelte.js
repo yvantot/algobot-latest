@@ -1,6 +1,7 @@
 import { activeQuest, movementQuest, createMovementTracker, INTRO_QUESTS, tutorialPolicy } from "../game/global/tutorial.js";
 import { AvatarTypes, ModalTypes } from "../game/global/enum.js";
 import { QUEST_DATA } from "../game/global/quests.js";
+import { PROGRAM_QUESTS } from "../game/global/quest-program.js";
 import { PLAYER_DATA, INVENTORY, DOCUMENT_DATA, SHOP_DATA, CROP_DATA } from "../game/global/global.js";
 import { telemetry, CS1_STAGES } from "../game/ml/telemetry.js";
 import { mlAgent } from "../game/ml/agent.js";
@@ -31,7 +32,14 @@ export const Modals = $state({
 
 export const QUEST_FEEDBACK = $state({ queue: [], hazardsPending: false, revision: 0 });
 export const TUTORIAL = $state({ active: true, authoredBlocks: [], sequenceBlocks: [] });
-export function currentQuest() { return activeQuest(QUEST_DATA, QUEST_STATE); }
+export const QUEST_SELECTION = $state({ key: null });
+export function currentQuest() {
+  const selected = QUEST_SELECTION.key;
+  if (selected && QUEST_DATA[selected]?.optional && !QUEST_STATE[selected]?.is_completed &&
+    QUEST_DATA[selected].prereq.every(id => QUEST_STATE[id]?.is_claimed)) return selected;
+  return activeQuest(QUEST_DATA, QUEST_STATE);
+}
+export function chooseQuest(key = null) { QUEST_SELECTION.key = key; }
 export function finishIntroduction() {
   TUTORIAL.active = false; tutorialPolicy.protected = false;
   QUEST_FEEDBACK.hazardsPending = false;
@@ -60,6 +68,10 @@ for (const [key, data] of Object.entries(QUEST_DATA)) {
 }
 
 function questStage(key) {
+  const chapter = QUEST_DATA[key]?.chapter;
+  if ([4, 7].includes(chapter)) return CS1_STAGES.CONDITIONAL;
+  if ([3, 8, 9, 10].includes(chapter)) return CS1_STAGES.LOOPING;
+  if ([1, 2, 5, 6].includes(chapter)) return CS1_STAGES.SEQUENTIAL;
 	if (key === "cs_if_0" || key === "cs_cleanup_0") return CS1_STAGES.CONDITIONAL;
 	if (key === "cs_grid_0") return CS1_STAGES.SEQUENTIAL;
 	if (key === "intro_loop") return CS1_STAGES.LOOPING;
@@ -67,8 +79,8 @@ function questStage(key) {
 }
 
 export function beginActiveQuest() {
-	const entry = Object.entries(QUEST_DATA).find(([key, data]) =>
-		!QUEST_STATE[key].is_completed && (data.prereq || []).every(req => QUEST_STATE[req]?.is_claimed));
+	const key = currentQuest();
+	const entry = key ? [key, QUEST_DATA[key]] : null;
 	if (entry) {
 		telemetry.setStage(questStage(entry[0]));
 		telemetry.recordQuestStart(entry[0]);
@@ -77,6 +89,7 @@ export function beginActiveQuest() {
 
 const movementCredit = createMovementTracker();
 export function trackQuest(key, amount = 1, action = null) {
+  if (PROGRAM_QUESTS.has(key) && !action?.program) return;
 	if (key === "tut_1") {
     key = movementQuest(currentQuest(), { ...action, authored: TUTORIAL.authoredBlocks.includes(action?.blockId), sequence: TUTORIAL.sequenceBlocks.includes(action?.blockId) });
     amount = movementCredit(key, action);

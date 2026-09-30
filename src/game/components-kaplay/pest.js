@@ -63,7 +63,7 @@ export function bug(farm_grid_index, config = {}) {
 
     add() {
       // 1. Spawn outside of the farm
-      if (farm_grid_index.isDemonstration && config.spawnAt) this.gridPlace(config.spawnAt.x, config.spawnAt.y);
+      if ((farm_grid_index.isDemonstration || config.lesson) && config.spawnAt) this.gridPlace(config.spawnAt.x, config.spawnAt.y);
       else this.spawnOutside();
 
       // Register the bug in the grid immediately on spawn
@@ -93,7 +93,7 @@ export function bug(farm_grid_index, config = {}) {
       });
 
       this.bug_move_timer = this.loop(this.bug_move_interval, () => {
-        if (this.is_dying || (farm_grid_index.isDemonstration && config.stationary)) return;
+        if (this.is_dying || ((farm_grid_index.isDemonstration || config.lesson) && config.stationary)) return;
         // Calculate max bounds based on CONFIG
         const max_x = CONFIG.FARM.columns - 1;
         const max_y = CONFIG.FARM.rows - 1;

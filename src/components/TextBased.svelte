@@ -52,6 +52,8 @@
   });
 
   onMount(() => {
+    const hintContext = event => Object.assign(event.detail, { robotIndex: selected_robot });
+    window.addEventListener("quest-hint-context", hintContext);
     setTimeout(() => (is_command_ready = true), 2000);
     view = createBotTextEditor({
       parent: document.getElementById("editor-container"),
@@ -62,6 +64,7 @@
     }).view;
 
     return () => {
+      window.removeEventListener("quest-hint-context", hintContext);
       runner.dispose(); view.destroy(); view = null;
     };
   });

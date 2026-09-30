@@ -1,7 +1,10 @@
 // One bounded execution controller shared by both editors. Dependencies are
 // injected so the same behavior can be tested with the shipped interpreter.
+import { completedProgramQuests, normalizeQuestNode } from "./quest-program.js";
+
 export function stopCodeRuns(states, telemetry) {
   for (const state of states) {
+    if (state.robot?.questTrace) state.robot.questTrace.active = false;
     clearInterval(state.interval);
     state.interval = null;
     state.is_running = false;
@@ -16,6 +19,12 @@ export function createCodeRunner({ states, InterpreterClass, telemetry, prepare,
   function finish(index, success = null, reason = "manual_stop") {
     const state = states[index];
     if (!state) return;
+    if (state.robot?.questTrace) {
+      state.robot.questTrace.active = false;
+      if (success === true && (state.robot.executionErrorCount || 0) === state.runErrorBaseline) {
+        for (const [key, amount] of completedProgramQuests(state.robot.questTrace)) state.onQuestEvent?.(key, amount, { program: true });
+      }
+    }
     if (state.interval != null) unschedule(state.interval);
     state.interval = null;
     state.interpreter = null;
@@ -31,6 +40,7 @@ export function createCodeRunner({ states, InterpreterClass, telemetry, prepare,
   }
 
   function fail(index, error) {
+    if (states[index]?.robot) states[index].robot.lastError = error.message || String(error);
     telemetry.recordError(error.message || String(error));
     states[index]?.robot?.sayText(`Code error: ${error.message || error}`);
     finish(index, false, "interpreter_error");
@@ -45,7 +55,9 @@ export function createCodeRunner({ states, InterpreterClass, telemetry, prepare,
     telemetry._logRawEvent?.("code_run_start", { run_id: state.researchRunId, robot_index: index });
     state.runErrorBaseline = state.robot?.executionErrorCount || 0;
     state.branchVisits = new WeakSet();
+    state.updateVisits = new WeakSet();
     state.stepsWithoutYield = 0;
+    if (state.robot) state.robot.questTrace = { active: true, events: [], executed: new Set(), updates: [], stack: [], nodes: new WeakMap() };
     try {
       state.interpreter = new InterpreterClass(prepare(index), init(index));
       return true;
@@ -74,6 +86,17 @@ export function createCodeRunner({ states, InterpreterClass, telemetry, prepare,
           ["ForStatement", "ForInStatement", "WhileStatement", "DoWhileStatement"].includes(frame.node?.type));
         if (state.robot) {
           const stack = interpreter.getStateStack();
+          const trace = state.robot.questTrace;
+          trace.stack = stack.map(frame => normalizeQuestNode(frame.node, trace.nodes)).filter(Boolean);
+          const current = trace.stack.at(-1);
+          if (current) {
+            if (["AssignmentExpression", "UpdateExpression"].includes(current.type) && !state.updateVisits?.has(stack.at(-1))) {
+              state.updateVisits ??= new WeakSet();
+              state.updateVisits.add(stack.at(-1));
+              trace.updates.push({ node: current, stack: trace.stack.slice(), x: state.robot.grid_x, y: state.robot.grid_y });
+            }
+            trace.executed.add(current);
+          }
           state.robot.conditionalFrames = stack.filter(frame => frame.node?.type === "IfStatement");
           state.robot.conditionTestFrame = stack.filter((frame, i) => frame.node?.type === "IfStatement" && stack[i + 1]?.node === frame.node.test).at(-1) ?? null;
         }

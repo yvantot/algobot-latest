@@ -48,6 +48,7 @@ export function botact(id, farm_grid_index) {
     },
 
     showError(message) {
+      this.lastError = message;
       this.executionErrorCount = (this.executionErrorCount || 0) + 1;
       if (!farm_grid_index.isDemonstration) telemetry.recordError(message);
       this.sayText(message, "#ffb8bd", "#763c40");

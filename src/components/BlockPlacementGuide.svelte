@@ -6,20 +6,22 @@
   let host, connected = $state(false);
   let nested = $derived(["intro_loop","cs_if_0","cs_cleanup_0"].includes(mission));
   onMount(() => {
-    const workspace = Blockly.inject(host, { readOnly: true, renderer: "zelos", scrollbars: false, sounds: false, zoom: { startScale: 1, maxScale: 1, minScale: .4 } });
+    const workspace = Blockly.inject(host, { readOnly: true, renderer: "zelos", scrollbars: true, sounds: false, zoom: { startScale: 1, maxScale: 1, minScale: .4 } });
     const append = state => Blockly.serialization.blocks.append(state, workspace);
-    const parent = append({...example.block,x:16,y:16});
+    const roots = example.blocks ?? [example.block];
+    const parents = roots.map((root, i) => append({...root,x:16,y:16 + i * 220}));
+    const parent = parents.at(-1);
     const input = ["DO", "DO0", "TEXT"].map(name=>parent.getInput(name)?.connection).find(connection=>connection?.targetBlock());
     const socket = input ?? parent.nextConnection;
     const target = socket?.targetBlock();
     const child = target && !target.isShadow() ? target : null;
     const childConnection = child?.previousConnection ?? child?.outputConnection;
-    if (child && childConnection) { socket.disconnect(); child.moveBy(85,105); }
+    if (example.level === 3 && child && childConnection) { socket.disconnect(); child.moveBy(85,105); }
     const observer = new ResizeObserver(() => { Blockly.svgResize(workspace); workspace.zoomToFit(); });
     observer.observe(host);
     let frame;
     const timer = setTimeout(() => {
-      if (!socket || !child) return;
+      if (example.level !== 3 || !socket || !child) return;
       const origin = child.getRelativeToSurfaceXY();
       const parentPosition = parent.getRelativeToSurfaceXY();
       const destination = socket.getOffsetInBlock();
@@ -43,7 +45,7 @@
 </script>
 
 <div class="example">
-  <strong>{nested ? (connected ? "Inside! Now this action belongs to the block." : "Watch: put the action INSIDE the open space.") : "Snap blocks together, then press Start."}</strong>
+  <strong>{example.level === 2 ? "Fill the empty slot." : nested ? (connected ? "Inside! Now this action belongs to the block." : "Watch: put the action INSIDE the open space.") : "Snap blocks together, then press Start."}</strong>
   <div class="blocks" bind:this={host} aria-label="Animated example of connecting blocks"></div>
   <p>Try it in your own blocks. This example does not run your bot.</p>
 </div>

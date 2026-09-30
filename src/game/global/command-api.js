@@ -4,6 +4,7 @@
 // bool for actions/checks and a crop-type string (or false) for harvesting.
 // Immediate return values only indicate acceptance; they never award quests.
 import { CROP_READINGS } from "./crop-inspection.js";
+import { captureQuestAction } from "./quest-program.js";
 
 export function createCommandAPI({
   robot,
@@ -27,6 +28,7 @@ export function createCommandAPI({
   function reportError(error) {
     const message = `Command error: ${error?.message || String(error)}`;
     robot.executionErrorCount = (robot.executionErrorCount || 0) + 1;
+    robot.lastError = message;
     record("recordError", message);
     observe(speak, message);
   }
@@ -39,7 +41,13 @@ export function createCommandAPI({
 
   function native(category, name, operation, fallback = false) {
     return (...args) => {
-      try { return unlocked(category, name) ? operation(...args) : fallback; }
+      try {
+        if (!unlocked(category, name)) return fallback;
+        const capture = captureQuestAction(robot, category === "globals" ? name : (category === "shop" ? "shop." : "bot.") + name, args);
+        const result = operation(...args);
+        capture(result ?? true);
+        return result;
+      }
       catch (error) { reportError(error); return fallback; }
     };
   }
@@ -47,6 +55,8 @@ export function createCommandAPI({
   function command(name, method, { category = "bot_farm_actions", action = name, check = false, args = values => values, before = () => null, after = () => {} } = {}) {
     return (...values) => {
       const callback = typeof values.at(-1) === "function" ? values.pop() : () => {};
+      const capture = captureQuestAction(robot, "bot." + name, values);
+      if (robot.questTrace) robot.questTrace.size = farmSize();
       let settled = false;
       let context;
       const finish = (value, failed = false) => {
@@ -54,6 +64,7 @@ export function createCommandAPI({
         settled = true;
         // Sensors always return booleans; no missing/null sensor can be truthy.
         const result = check ? !!value : value ?? false;
+        capture(result);
         if (name === "is_planted") {
           lastPlantCheck = !failed && typeof value === "boolean" ? value : null;
           const frame = robot.conditionTestFrame;
