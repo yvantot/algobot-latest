@@ -78,13 +78,19 @@
       <button
         onclick={onContinue}
         disabled={loading || !savedFarm}
-        class="wood-button-25d w-full py-3.5 text-base cursor-pointer text-center select-none"
+        aria-labelledby="continue-label"
+        aria-describedby={savedFarm ? "continue-save-details" : undefined}
+        class="wood-button-25d continue-button w-full py-3.5 text-base cursor-pointer text-center select-none"
       >
-        {loading ? "Loading…" : "Continue"}
+        <span id="continue-label">{loading ? "Loading…" : "Continue"}</span>
+        {#if savedFarm}
+          <span id="continue-save-details" class="continue-save-details">
+            <span class="saved-farm-name">{savedFarm.payload.personalize.FARM_NAME}</span>
+            <span class="saved-chapter">{chapter ? `Chapter ${chapter}` : "Farm progress saved"}</span>
+            <span class="saved-time">Saved {new Date(savedFarm.savedAt).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+          </span>
+        {/if}
       </button>
-      {#if savedFarm}
-        <p class="rounded bg-slate-900/90 p-2 text-center text-white text-sm">{savedFarm.payload.personalize.FARM_NAME}{chapter ? ` · Chapter ${chapter}` : ""}<br />Saved {new Date(savedFarm.savedAt).toLocaleString()}</p>
-      {/if}
       <button onclick={newGame} disabled={loading || !slotKnown} class="wood-button-25d w-full py-3.5 text-base cursor-pointer text-center select-none">New Game</button>
       {#if error}
         <div role="alert" class="rounded border-2 border-red-700 bg-white p-3 text-red-900 text-sm">
@@ -404,4 +410,13 @@
   }
   .wood-button-25d:disabled { opacity: .6; cursor: not-allowed; transform: none; }
   .wood-button-25d:focus-visible { outline: 3px solid #fff6e5; outline-offset: 4px; }
+  .continue-button { padding-inline: 16px; }
+  #continue-label { display: block; font-size: 18px; }
+  .continue-save-details { display: flex; flex-direction: column; gap: 3px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #c8874a; letter-spacing: normal; line-height: 1.4; }
+  .saved-farm-name { font-size: 14px; overflow-wrap: anywhere; }
+  .saved-chapter, .saved-time { font-size: 13px; font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) {
+    .wood-button-25d { transition: none; }
+    .wood-button-25d:hover, .wood-button-25d:active { transform: none; }
+  }
 </style>
