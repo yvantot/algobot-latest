@@ -29,6 +29,12 @@ spoilage while students edit. The while lesson starts with a
 watered, growing crop. Bug and fire lessons place harmless hazards at both ends
 of the farm; leaving the lesson releases its protections and owned hazards.
 
+Lesson protection is released when the active quest changes, including the
+completed-but-unclaimed state and switching out of an optional lesson. HUD
+removal also releases it after its outro finishes. A following lesson can
+establish fresh protection on its own practice tiles. The separate initial
+tutorial protection ends when the player presses **Start farming**.
+
 Three deliberate adaptations make the roadmap executable on the existing farm:
 
 - A three-tile row repeats the first two tiles, then handles the last tile
@@ -69,6 +75,13 @@ the mission, editor mode, and capped level are recorded in hint telemetry.
 - Open /tests/ui/quests.html under the Vite dev server for real rendering,
   keyboard, hint, setup, and completion checks. This fixture does not start
   participant collection and is not a production entry point.
+- Open /tests/ui/protection.html and press **Run protection checks** to verify
+  the real HUD reset/completion/switch/unmount flow, practice-hazard cleanup,
+  crop spoilage resuming, event spawning after release, and the actual
+  **Start farming** control. The fixture pauses simulation except for reset
+  movement, then advances crop lifetimes explicitly for deterministic checks.
+  All seven integration checks passed on 2026-09-30; see
+  [the captured results](protection-checks.png).
 
 Existing training files are not migrated or edited. Deploy this curriculum
 between collection rounds. Do not pool guided-v1 and guided-v2 attempts without
