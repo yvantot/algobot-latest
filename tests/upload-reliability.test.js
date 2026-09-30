@@ -25,11 +25,11 @@ test("an old retry cannot erase a newer successful snapshot; retries deduplicate
   await uploadDataset(await dataset([1, 2, 3]), { participant: "P001", session: "s-1", config,
     fetchImpl: (url, init) => worker.fetch(new Request(url, init), env) });
   release(); await old;
-  assert.equal(env.store.size, 2);
-  assert.deepEqual([...env.store.values()].map(v => JSON.parse(gunzipSync(v)).sessions[0].raw_events.length).sort(), [1, 3]);
+  assert.equal(env.store.size, 1);
+  assert.deepEqual([...env.store.values()].map(v => JSON.parse(gunzipSync(v)).sessions[0].raw_events.length), [3]);
 });
 
-test("simultaneous identical uploads create one immutable object", async () => {
+test("simultaneous identical uploads update one player object", async () => {
   const env = fakeEnv(), body = await zipped();
   const receipts = await Promise.all(Array.from({ length: 5 }, async () => (await worker.fetch(request(body), env)).json()));
   assert.equal(env.store.size, 1);

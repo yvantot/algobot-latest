@@ -2,6 +2,7 @@
 // Students can only write. Listing and downloading require ADMIN_TOKEN, which
 // never ships in the game.
 import { MAX_UPLOAD_BYTES, SAFE_ID, readLimited, decodeUpload } from "./dataset.js";
+import { storePlayerData } from "./player-data.js";
 
 export default {
   async fetch(request, env) {
@@ -35,21 +36,20 @@ async function upload(request, env, reply) {
     return reply(400, { error: "bad participant or session id" });
   }
   if (Number(request.headers.get("Content-Length") ?? 0) > MAX_UPLOAD_BYTES) return reply(413, { error: "too large" });
-  let body, hash;
+  let body, data;
   try {
     body = await readLimited(request.body, MAX_UPLOAD_BYTES);
     if (!body.byteLength) return reply(413, { error: "empty upload" });
-    ({ hash } = await decodeUpload(body, { participant, session }));
+    ({ data } = await decodeUpload(body, { participant, session }));
   } catch (error) { return reply(error.status === 413 ? 413 : 400, { error: error.status === 413 ? "too large" : "invalid sealed gzip dataset" }); }
 
-  // Immutable content keys preserve newer snapshots even when older requests retry.
-  const key = `${env.ROUND}/${participant}/${session}--${hash}.json.gz`;
-  const stored = await env.DATA.put(key, body, {
-    onlyIf: new Headers({ "If-None-Match": "*" }),
-    httpMetadata: { contentType: "application/gzip" },
-    customMetadata: { receivedAt: new Date().toISOString() },
-  });
-  return reply(200, { ok: true, key, duplicate: stored === null });
+  const key = `${env.ROUND}/${participant}/data.json.gz`;
+  try {
+    const receipt = await storePlayerData(env.DATA, key, data, participant);
+    return reply(200, { ok: true, key, ...receipt });
+  } catch (error) {
+    return reply(error.status ?? 503, { error: error.status ? error.message : "Storage temporarily unavailable; retry shortly." });
+  }
 }
 
 async function admin(request, env, url) {

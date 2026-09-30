@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { loadEnv } from "vite";
 
-const env = loadEnv("production", process.cwd(), "VITE_");
+const env = loadEnv(process.argv[3] ?? "production", process.cwd(), "VITE_");
 const endpoint = env.VITE_UPLOAD_URL?.trim(), token = env.VITE_UPLOAD_TOKEN?.trim();
 if (!endpoint || !token) throw Error("Set VITE_UPLOAD_URL and VITE_UPLOAD_TOKEN in the frontend Build variables before building.");
 const url = new URL(endpoint);

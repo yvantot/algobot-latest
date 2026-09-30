@@ -1,0 +1,13 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "algobot-test",
+  "account_id": "ad5d01b72261ea7ae64b9f3ed114564e",
+  "compatibility_date": "2026-09-30",
+  "workers_dev": true,
+  "preview_urls": false,
+  "routes": [],
+  "assets": {
+    "directory": "../../dist-staging",
+    "not_found_handling": "single-page-application"
+  }
+}

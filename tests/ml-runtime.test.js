@@ -11,6 +11,9 @@ import { CHALLENGES, challengeRules, challengeMaxScore } from "../src/game/chall
 import { openChallenge, submitChallenge, interruptChallenge } from "../src/game/challenges/records.js";
 import { challengeSamples } from "../src/game/ml/challenge-quality.js";
 import { makePlan } from "../scripts/training-core.js";
+import uploadWorker from "../upload-worker/index.js";
+import { fakeEnv } from "./helpers/upload-fixture.js";
+import { decodeUpload } from "../upload-worker/dataset.js";
 
 globalThis.__mlTestFarm = new Map();
 globalThis.__mlTestRainApplied = false;
@@ -95,6 +98,7 @@ test("recording, autosave, canonical download and preparation CLI preserve six f
   // These fabricated sessions test transport and validation, not model accuracy.
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'algobot-roundtrip-'));
   const originalNow=Date.now;
+  const cloud = fakeEnv();
   let clock=Date.parse('2026-09-25T00:00:00Z'),stop;
   Date.now=()=>clock;
   try {
@@ -124,6 +128,8 @@ test("recording, autosave, canonical download and preparation CLI preserve six f
       assert.equal(browserCheck.samples[0].stopped_runs_before_score,1);
       telemetry.endCollection();stop();stop=null;
       assert.equal(logger.saveSessionLight(),true);
+      await logger.uploadAllSessionsJSON({config:{url:"https://fixture.test/upload",token:"study"},
+        fetchImpl:(url,init)=>uploadWorker.fetch(new Request(url,init),cloud)});
       clock+=10000;
     }
     let exported;
@@ -143,6 +149,18 @@ test("recording, autosave, canonical download and preparation CLI preserve six f
     assert.equal(new Set(Object.values(plan.split).flat()).size,6);
     assert.equal(plan.assessor_id,'algobot-live-cases-5.0');
     assert.deepEqual(challengeSamples(exported.sessions,task.id).samples,prepared.samples);
+    const cloudDirectory=path.join(directory,"cloud"); fs.mkdirSync(cloudDirectory);
+    assert.equal(cloud.store.size,6);
+    for (const [key,bytes] of cloud.store) {
+      const {data}=await decodeUpload(bytes);
+      assert.equal(data.participant_count,1); assert.equal(data.session_count,1);
+      fs.writeFileSync(path.join(cloudDirectory,key.split("/")[1]+".json"),JSON.stringify(data));
+    }
+    const cloudOutput=path.join(directory,"cloud-samples.json");
+    execFileSync(process.execPath,["scripts/prepare-challenges.js",cloudDirectory,cloudOutput,task.id]);
+    const cloudPrepared=JSON.parse(fs.readFileSync(cloudOutput));
+    assert.equal(cloudPrepared.excluded.length,0);
+    assert.deepEqual(cloudPrepared.samples.sort((a,b)=>a.student_id.localeCompare(b.student_id)),prepared.samples.sort((a,b)=>a.student_id.localeCompare(b.student_id)));
   } finally {stop?.();Date.now=originalNow;fs.rmSync(directory,{recursive:true,force:true});}
 });
 
@@ -680,6 +698,17 @@ test("rule window forgets old mistakes without changing LSTM features", () => {
   const events = [...Array.from({length:7},()=>({t:0,event:'error'})),...Array.from({length:4},()=>({t:0,event:'code_reset'}))];
   assert.ok(recentPolicyState(events,1000).frustrationScore>.5);
   assert.equal(recentPolicyState(events,181000).frustrationScore,0);
+});
+
+test("upload revisions advance across exports, logger recreation and durable assessment updates", () => {
+  const logger = new DataLogger();
+  let stored = [];
+  logger.persistence = { sessions: () => stored };
+  const first = logger.buildSessionExport(), second = logger.buildSessionExport();
+  assert.equal(second.upload_revision, first.upload_revision + 1);
+  stored = [{ ...second, upload_revision: second.upload_revision + 10 }];
+  const recreated = new DataLogger(); recreated.persistence = logger.persistence;
+  assert.equal(recreated.buildSessionExport().upload_revision, stored[0].upload_revision + 1);
 });
 
 test("IndexedDB logger adapter retries earlier sessions after a failed asynchronous write", async () => {

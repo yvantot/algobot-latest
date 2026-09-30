@@ -22,6 +22,10 @@ export async function validateDataset(data, identity) {
         !entry || entry.session_id !== session.session_id ||
         (session.session_id !== null && ids.has(session.session_id))) throw Error("Invalid session manifest.");
     ids.add(session.session_id);
+    if (session.upload_revision !== undefined && (!Number.isSafeInteger(session.upload_revision) || session.upload_revision < 1)) throw Error("Invalid upload revision.");
+    for (const field of ["raw_events", "feature_timeseries", "dda_log", "quest_attempts", "challenge_attempts"]) {
+      if (session[field] !== undefined && !Array.isArray(session[field])) throw Error("Invalid session history.");
+    }
     if (entry.sha256 !== await sha256(new TextEncoder().encode(JSON.stringify(session)))) throw Error("Session checksum mismatch.");
   }
   if (identity && !data.sessions.some(s => s.session_id === identity.session && s.student_id === identity.participant)) {

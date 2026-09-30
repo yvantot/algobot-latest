@@ -5,12 +5,12 @@ import { fakeEnv, request, zipped } from "./helpers/upload-fixture.js";
 const body = await zipped();
 const upload = (headers, bytes = body) => request(bytes, headers);
 
-test("stores an upload under round, participant and session", async () => {
+test("stores an upload under one stable player key", async () => {
   const env = fakeEnv();
   const response = await worker.fetch(upload({}), env);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://algobot.fun");
-  assert.match([...env.store.keys()][0], /^round3\/P001\/s-1--[a-f0-9]{64}\.json\.gz$/);
+  assert.equal([...env.store.keys()][0], "round3/P001/data.json.gz");
 });
 
 test("rejects a wrong token, unsafe IDs and empty bodies", async () => {
@@ -29,7 +29,7 @@ test("reading data requires the admin token, not the study token", async () => {
   const { objects } = await (await list("admin")).json();
   assert.deepEqual(objects.map(o => o.key), [...env.store.keys()]);
   const file = await worker.fetch(new Request(`https://w.dev/admin/file?key=${encodeURIComponent(objects[0].key)}`, { headers: { Authorization: "Bearer admin" } }), env);
-  assert.deepEqual(new Uint8Array(await file.arrayBuffer()), body);
+  assert.deepEqual(new Uint8Array(await file.arrayBuffer()), env.store.get(objects[0].key));
 });
 
 test("answers the browser's CORS preflight for each game address", async () => {

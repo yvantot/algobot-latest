@@ -1,4 +1,9 @@
 import { test, expect } from "@playwright/test";
+import uploadWorker from "../../upload-worker/index.js";
+import { fakeEnv, request, zipped } from "../helpers/upload-fixture.js";
+import { sealDataset } from "../../src/game/ml/export-integrity.js";
+import { decodeUpload } from "../../upload-worker/dataset.js";
+import { writeFileSync } from "node:fs";
 
 async function readSave(page) {
   return page.evaluate(async () => {
@@ -153,6 +158,39 @@ async function closeDemo(page) {
   const close = page.getByRole("button", { name: "Close demo", exact: true });
   if (await close.count()) { await close.click(); await expect(close).toHaveCount(0); }
 }
+
+test("Accept challenge commits its opening after gameplay has already been saved", async ({ page }) => {
+  await fresh(page, true); await closeDemo(page);
+  await page.evaluate(async () => {
+    const t = window.saveTesting;
+    t.TUTORIAL.active = false;
+    for (const [id, quest] of Object.entries(t.QUEST_STATE)) {
+      quest.progress = t.QUEST_DATA[id].goal; quest.is_completed = true; quest.is_claimed = true;
+    }
+    t.telemetry.getCollectionContext = () => ({ phase: "gameplay", game_speed: 1, robot_count: 1 });
+    const start = Date.now() - 105000;
+    t.telemetry.collectionSnapshots = Array.from({ length: 21 }, (_, i) => ({
+      timestamp_ms: start + i * 5000, stage: 1, gameplay_segment: 1,
+      context: { phase: "gameplay", game_speed: 1, robot_count: 1 },
+      counters: { errors: 0, edits: i, completed_runs: i, failed_runs: 0, stopped_runs: 0,
+        requested_hints: 0, harvested: i, spoiled: 0, for_loops: 0, while_loops: 0, conditions: 0 }
+    }));
+    t.dataLogger.saveSessionLight(); await t.persistence.tail;
+    const notify = t.persistence.notify;
+    t.persistence.notify = status => {
+      if (status.error) t.lastFailure = { message: status.error.message, cause: String(status.error.cause), stack: status.error.cause?.stack };
+      notify(status);
+    };
+  });
+  await page.getByRole("button").filter({ has: page.getByRole("img", { name: "challenges", exact: true }) }).click();
+  await page.getByRole("button", { name: /Your first harvest/ }).click();
+  await page.getByRole("button", { name: "Accept challenge", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const t = window.saveTesting;
+    return t.lastFailure ?? Object.keys(t.persistence.root.research.assessments).length;
+  })).toBe(1);
+  await expect(page.getByRole("heading", { name: "Your first harvest", exact: true })).toBeVisible();
+});
 test("crop ownership, programs, economy and all crop types survive closure without offline growth", async ({ page }) => {
   await fresh(page, true); await closeDemo(page);
   const saved = await page.evaluate(async () => {
@@ -307,6 +345,7 @@ test("RESEARCH-1 reward failure rolls back, retry commits once and reload preser
       t.submitChallenge(t.telemetry, assessment, { score: 1, max_score: 1, passed: true, results: [] }, "test", "text");
       return { assessment };
     });
+    const scoredExport = t.dataLogger.buildDatasetExport();
     const before = t.INVENTORY.coins;
     const claim = () => t.assessmentTransition("reward", () => ({ assessment, granted: t.claimChallengeReward(t.telemetry, assessment, () => t.INVENTORY.changeCoins(90), t.farmChallengeRewards) }));
     t.persistence.storage.fault = stage => { if (stage === "after-write") throw Error("Injected failure"); };
@@ -314,7 +353,9 @@ test("RESEARCH-1 reward failure rolls back, retry commits once and reload preser
     t.persistence.storage.fault = () => {};
     const rolledBack = t.INVENTORY.coins;
     const first = await claim(), duplicate = await claim();
-    return { before, failed, rolledBack, first: first.granted, duplicate: duplicate.granted, total: t.INVENTORY.coins, id: assessment.assessment_id };
+    return { before, failed, rolledBack, first: first.granted, duplicate: duplicate.granted, total: t.INVENTORY.coins,
+      id: assessment.assessment_id, participant: t.telemetry.participantId, session: t.telemetry.sessionId,
+      scoredExport, paidExport: t.dataLogger.buildDatasetExport() };
   });
   expect(paid.failed).toBe(true); expect(paid.rolledBack).toBe(paid.before);
   expect(paid.first).toBe(true); expect(paid.duplicate).toBe(false); expect(paid.total).toBe(paid.before + 90);
@@ -323,7 +364,95 @@ test("RESEARCH-1 reward failure rolls back, retry commits once and reload preser
   const root = await readSave(page);
   expect(root.active.payload.economy.coins).toBe(paid.total);
   expect(root.research.assessments[paid.id].reward_claimed).toBe(true);
+  const env = fakeEnv();
+  const restored = await page.evaluate(() => window.saveTesting.dataLogger.buildDatasetExport());
+  if (process.env.CLOUD_REVIEW_EXPORT) writeFileSync(process.env.CLOUD_REVIEW_EXPORT, JSON.stringify({
+    participant: paid.participant, session: paid.session, assessment: paid.id,
+    datasets: [paid.scoredExport, paid.paidExport, restored, paid.scoredExport],
+  }));
+  for (const exported of [paid.scoredExport, paid.paidExport, restored, paid.scoredExport]) {
+    const response = await uploadWorker.fetch(request(await zipped(await sealDataset(exported)), {
+      "X-Participant": paid.participant, "X-Session": paid.session,
+    }), env);
+    expect(response.status, await response.text()).toBe(200);
+  }
+  expect(env.store.size).toBe(1);
+  const { data } = await decodeUpload([...env.store.values()][0]);
+  const challenge = data.sessions.find(s => s.session_id === paid.session).challenge_attempts.find(a => a.assessment_id === paid.id);
+  expect(challenge.reward_claimed).toBe(true);
+  expect(challenge.status).toBe("scored"); expect(challenge.score).toBe(1);
+  expect(challenge.submissions[0].source).toBe("test");
 });
+test("shop quest returns to menu and Continues repeatedly while preserving uploaded sessions", async ({ page }) => {
+  test.setTimeout(120000);
+  const errors = []; page.on("pageerror", error => errors.push(error.message));
+  await fresh(page, true); await closeDemo(page);
+  await page.evaluate(() => {
+    const t = window.saveTesting;
+    for (const id of ["intro_run", "intro_build", "intro_say", "intro_sequence", "tut_2"]) {
+      Object.assign(t.QUEST_STATE[id], { progress: t.QUEST_DATA[id].goal, is_completed: true, is_claimed: true });
+    }
+    t.TUTORIAL.active = false;
+    t.farm_grid_index.get("1-1").soil.till();
+  });
+  const env = fakeEnv();
+  const uploadedSessions = new Set();
+  const upload = async () => {
+    const {data, participant, session} = await page.evaluate(() => ({data: window.saveTesting.dataLogger.buildDatasetExport(),
+      participant: window.saveTesting.telemetry.participantId, session: window.saveTesting.telemetry.sessionId}));
+    uploadedSessions.add(session);
+    const response = await uploadWorker.fetch(request(await zipped(await sealDataset(data)), {
+      "X-Participant": participant, "X-Session": session,
+    }), env);
+    expect(response.status, await response.text()).toBe(200);
+  };
+  for (let cycle = 0; cycle < 3; cycle++) {
+    await page.evaluate(() => {
+      const bot = window.saveTesting.k.get().find(o => o.bot_index !== undefined);
+      bot.showIcon("hoe", 1); bot.sayText("Ready");
+    });
+    await upload();
+    await page.getByRole("button", { name: /start menu/i }).click();
+    await page.getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(0);
+    expect(await page.evaluate(() => window.saveTesting.farm_grid_index.get("1-1").soil.soil_state)).toBe(1);
+    expect(await page.evaluate(() => window.saveTesting.QUEST_STATE.shop_seed_0.is_claimed)).toBe(false);
+    await upload();
+  }
+  expect(errors).toEqual([]);
+  expect(env.store.size).toBe(1);
+  const { data } = await decodeUpload([...env.store.values()][0]);
+  expect(new Set(data.sessions.map(s => s.session_id))).toEqual(uploadedSessions);
+});
+
+test("Continue reconstruction cleans floating bot effects before scene teardown", async ({ page }) => {
+  test.setTimeout(60000);
+  const errors = []; page.on("pageerror", error => errors.push(error.message));
+  await fresh(page, true); await closeDemo(page);
+  const result = await page.evaluate(async () => {
+    const t = window.saveTesting; t.persistence.busy = true;
+    const roots = [];
+    try {
+      for (let i = 0; i < 12; i++) {
+        t.farm_grid_index.get("1-1").soil.till();
+        const bot = t.k.get().find(o => o.bot_index !== undefined);
+        bot.showIcon("hoe", 1);
+        bot.sayText("Ready");
+        const saved = t.captureWorld();
+        await Promise.race([i === 11 ? t.newWorld() : t.restoreWorld(saved),
+          new Promise((_, reject) => setTimeout(() => reject(Error("Scene transition stalled")), 5000))]);
+        roots.push(t.k.get().length);
+        if (i < 11 && t.farm_grid_index.get("1-1").soil.soil_state !== 1) throw Error("Tilled soil was lost");
+      }
+    } finally { t.persistence.busy = false; }
+    return roots;
+  });
+  expect(errors).toEqual([]);
+  expect(Math.max(...result) - Math.min(...result)).toBeLessThan(5);
+});
+
 test("engine endurance keeps bot and soil counts bounded through 100 restores and 50 new farms", async ({ page }) => {
   test.setTimeout(120000); await fresh(page, true); await closeDemo(page);
   const counts = await page.evaluate(async () => {

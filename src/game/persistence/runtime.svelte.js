@@ -128,6 +128,7 @@ export async function assessmentTransition(kind, mutate) {
         recoveryGeneration: save.recoveryGeneration,
         exposureKey: kind === "opened" ? JSON.stringify([assessment.student_id, assessment.task_id]) : null });
     });
+    if (saveStatus.notice.startsWith("Activity was not saved:")) saveStatus.notice = "";
     await syncResearch(); return result;
   } catch (error) {
     INVENTORY.coins = before.economy.coins;

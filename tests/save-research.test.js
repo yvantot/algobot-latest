@@ -10,6 +10,23 @@ function opened() {
   recordTransition(research, { id: "opened:a", kind: "opened", assessment, session, playthroughId: "farm-a", revision: 1, exposureKey: '["A","task"]' });
   return { research, assessment, session };
 }
+
+test("opening a new challenge merges into an already saved gameplay session", () => {
+  const research = emptyDatabase().research;
+  const session = { session_id: "session-a", student_id: "A", challenge_attempts: [], raw_events: [] };
+  saveResearchSession(research, session);
+  const assessment = { assessment_id: "first", session_id: "session-a", student_id: "A", status: "in_progress", submissions: [], reward_claimed: false };
+  session.challenge_attempts.push(assessment);
+  recordTransition(research, { id: "opened:first:0", kind: "opened", assessment, session, playthroughId: "farm-a", revision: 2 });
+  assert.deepEqual(research.sessions[session.session_id].challenge_attempts, [assessment]);
+  assessment.submissions.push({ status: "stopped" });
+  assert.equal(research.sessions[session.session_id].challenge_attempts[0].submissions.length, 0);
+  const second = { ...assessment, assessment_id: "second", submissions: [] };
+  session.challenge_attempts.push(second);
+  recordTransition(research, { id: "opened:second:0", kind: "opened", assessment: second, session, playthroughId: "farm-a", revision: 3 });
+  assert.deepEqual(research.sessions[session.session_id].challenge_attempts.map(a => a.assessment_id), ["first", "second"]);
+  assert.doesNotThrow(() => structuredClone(research));
+});
 test("RESEARCH-2 reload interrupts the original assessment only once without scoring", () => {
   const { research } = opened();
   interruptAssessments(research, "farm-a", 1000);
@@ -23,7 +40,9 @@ test("RESEARCH-2 reload interrupts the original assessment only once without sco
 test("RESEARCH-3 stale logger upserts cannot undo a paid reward", () => {
   const { research, assessment, session } = opened();
   recordTransition(research, { id: "reward:a", kind: "reward", assessment: { ...assessment, status: "scored", reward_claimed: true }, session, playthroughId: "farm-a", revision: 2 });
+  const revision = research.sessions[session.session_id].upload_revision;
   saveResearchSession(research, session);
+  assert.equal(research.sessions[session.session_id].upload_revision, revision);
   assert.equal(research.sessions["session-a"].challenge_attempts[0].reward_claimed, true);
   assert.equal(recordTransition(research, { id: "reward:a", assessment }), false);
 });

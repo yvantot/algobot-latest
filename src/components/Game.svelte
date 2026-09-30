@@ -3,7 +3,6 @@
   import { CAMERA, CONFIG } from "../game/global/global.js";
   import { createTransientNotice } from "./transient-notice.js";
   import { fly } from "svelte/transition";
-  import TutorialTarget from "./TutorialTarget.svelte";
   import QuestFeedback from "./QuestFeedback.svelte";
   import { tutorialPolicy } from "../game/global/tutorial.js";
   import { TUTORIAL, QUEST_FEEDBACK } from "./global.svelte.js";
@@ -14,6 +13,7 @@
   import Shop from "./Shop.svelte";
   import Quest from "./Quest.svelte";
   import Challenges from "./Challenges.svelte";
+  import SaveNotice from "./SaveNotice.svelte";
   import ChallengeFarm from "./ChallengeFarm.svelte";
   import { CHALLENGES, recordExposure, hasExposure } from "../game/challenges/catalog.js";
   import { canStartChallenge, challengeAccess, challengeWaitMessage, openChallenge, submitChallenge, closeChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
@@ -394,14 +394,9 @@
 </script>
 
 <svelte:window onkeydown={e=>{if(e.key==="Escape"&&!docPreview&&docOpen){e.preventDefault();closeDocumentation();}}}/>
-<div class="fixed bottom-2 left-2 z-[10001] max-w-sm rounded border border-slate-500 bg-slate-900 p-2 text-white text-xs" role="status">
-  {saveStatus.phase === "saving" ? "Saving…" : saveStatus.phase === "error" ? `Save failed: ${saveStatus.error?.message}` : "Farm saved"}
-  {#if saveStatus.notice}<p>{saveStatus.notice}</p><button class="underline" onclick={() => saveStatus.notice = ""}>Dismiss</button>{/if}
-  {#if saveStatus.phase === "error"}
-    <button class="underline p-2" onclick={() => persistence.checkpoint({ required: true }).catch(error => { saveStatus.notice = error.message; })}>Retry save</button>
-    <button class="underline p-2" onclick={() => { if (confirm("Return to the menu without saving recent changes? Your last saved farm will be kept.")) onReturnMenu({ discard: true }); }}>Leave without saving</button>
-  {/if}
-</div>
+<SaveNotice status={saveStatus} onDismiss={() => saveStatus.notice = ""}
+  onRetry={() => persistence.checkpoint({ required: true }).catch(error => { saveStatus.notice = error.message; })}
+  onLeave={() => { if (confirm("Return to the menu without saving recent changes? Your last saved farm will be kept.")) onReturnMenu({ discard: true }); }}/>
 <div inert={!!challenge||showFinishData} class:challenge-hidden={!!challenge} class:cutscene={showIntroduction||!!docPreview} class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
   {#if storageWarning}
     <div role="alert" class="fixed top-4 left-1/2 -translate-x-1/2 max-w-sm rounded-lg border-2 border-red-400 bg-white p-3 text-sm text-red-900 shadow-lg">{storageWarning}</div>
@@ -419,7 +414,6 @@
   <FarmIntroduction bind:isOpen={showIntroduction} lesson={demoLesson} rewardAvailable={!completedDemos.includes(demoLesson)} onComplete={completeDemo} />
   {#if docPreview}<DocumentationPreview name={docPreview} onClose={closeDocPreview}/>{/if}
   <QuestFeedback />
-  <TutorialTarget />
   <DidYouKnowPopup />
   <UnlockFlyOverlay />
   <EventBanner />

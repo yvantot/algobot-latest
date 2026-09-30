@@ -87,6 +87,7 @@ export class DataLogger {
     // reset. Keep immutable per-session snapshots in memory until persistence
     // succeeds or the user explicitly clears research data.
     this.pendingSessions = new Map();
+    this.uploadRevisions = new Map();
   }
 
   buildSessionExport() {
@@ -143,6 +144,11 @@ export class DataLogger {
       },
     };
     session.data_quality.collection_audit = inspectCollection(session);
+    let storedRevision = 0;
+    try { storedRevision = this._readStoredSessions().find(s => s.session_id === session.session_id)?.upload_revision ?? 0; }
+    catch { /* The existing export recovery path preserves unreadable local storage. */ }
+    session.upload_revision = Math.max(storedRevision, this.uploadRevisions.get(session.session_id) ?? 0) + 1;
+    this.uploadRevisions.set(session.session_id, session.upload_revision);
     return session;
   }
 
@@ -254,7 +260,10 @@ export class DataLogger {
   // while the integrity hashes are being computed.
   async uploadAllSessionsJSON(options) {
     const participant = telemetry.participantId, session = telemetry.sessionId;
-    const dataset = await sealDataset(this.buildDatasetExport());
+    const exported = this.buildDatasetExport();
+    const sessions = exported.sessions.filter(s => s.student_id === participant);
+    const dataset = await sealDataset({ dataset_version: this.datasetVersion, session_count: sessions.length,
+      participant_count: 1, sessions });
     await uploadDataset(dataset, { ...options, participant, session });
     return `${dataset.session_count} sessions uploaded`;
   }
