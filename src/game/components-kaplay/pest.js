@@ -16,6 +16,21 @@ export function bug(farm_grid_index, config = {}) {
     bug_attack_timer: null,
     bug_move_timer: null,
     spawned_at: Date.now(),
+    exposureAge: 0,
+    attackRemaining: config.attack_interval ?? 2.25,
+    moveRemaining: config.move_interval ?? 5.0,
+    pestConfig: { ...config },
+    random() { return (farm_grid_index.random ?? Math.random)(); },
+
+    update() {
+      if (this.is_dying) return;
+      const dt = k.dt();
+      this.exposureAge += dt;
+      this.attackRemaining -= dt;
+      this.moveRemaining -= dt;
+      while (this.attackRemaining <= 0) { this.attackRemaining += this.bug_attack_interval; this.attackCrop(); }
+      while (this.moveRemaining <= 0) { this.moveRemaining += this.bug_move_interval; this.moveBug(); }
+    },
 
     releaseBugTile() {
       // A bug reserves its destination before its jump finishes. Clear by
@@ -63,13 +78,14 @@ export function bug(farm_grid_index, config = {}) {
 
     add() {
       // 1. Spawn outside of the farm
-      if ((farm_grid_index.isDemonstration || config.lesson) && config.spawnAt) this.gridPlace(config.spawnAt.x, config.spawnAt.y);
+      if ((farm_grid_index.isDemonstration || config.lesson || config.restoring) && config.spawnAt) this.gridPlace(config.spawnAt.x, config.spawnAt.y);
       else this.spawnOutside();
 
       // Register the bug in the grid immediately on spawn
       this.updateGridIndex(this.grid_x, this.grid_y);
+    },
 
-      this.bug_attack_timer = this.loop(this.bug_attack_interval, () => {
+    attackCrop() {
         if (this.is_dying) return;
         const current_tile = farm_grid_index.get(`${this.grid_y}-${this.grid_x}`);
         if (current_tile && current_tile.crop) {
@@ -90,9 +106,9 @@ export function bug(farm_grid_index, config = {}) {
             }
           }
         }
-      });
+    },
 
-      this.bug_move_timer = this.loop(this.bug_move_interval, () => {
+    moveBug() {
         if (this.is_dying || ((farm_grid_index.isDemonstration || config.lesson) && config.stationary)) return;
         // Calculate max bounds based on CONFIG
         const max_x = CONFIG.FARM.columns - 1;
@@ -123,7 +139,11 @@ export function bug(farm_grid_index, config = {}) {
         ];
 
         // Shuffle directions so if multiple rice crops are around, bug picks randomly among them
-        const shuffled_dirs = [...dirs].sort(() => Math.random() - 0.5);
+        const shuffled_dirs = [...dirs];
+        for (let i = shuffled_dirs.length - 1; i > 0; i--) {
+          const j = Math.floor(this.random() * (i + 1));
+          [shuffled_dirs[i], shuffled_dirs[j]] = [shuffled_dirs[j], shuffled_dirs[i]];
+        }
 
         for (const [dx, dy] of shuffled_dirs) {
           const nx = this.grid_x + dx;
@@ -177,11 +197,10 @@ export function bug(farm_grid_index, config = {}) {
 
         // Jump to the new position
         this.gridJump(target_x, target_y, this.bug_jump_duration);
-      });
     },
 
     getRandomDir() {
-      const random = Math.random();
+      const random = this.random();
       if (random < 0.33) {
         return -1;
       } else if (random < 0.66) {
@@ -193,26 +212,26 @@ export function bug(farm_grid_index, config = {}) {
 
     spawnOutside() {
       // Pick a random edge to spawn on: 0=Top, 1=Right, 2=Bottom, 3=Left
-      const edge = Math.floor(Math.random() * 4);
+      const edge = Math.floor(this.random() * 4);
       const cols = CONFIG.FARM.columns;
       const rows = CONFIG.FARM.rows;
 
       const spawn_distance = 5;
 
       if (edge === 0) {
-        this.grid_x = Math.floor(Math.random() * cols);
+        this.grid_x = Math.floor(this.random() * cols);
         this.grid_y = -spawn_distance; // 5 blocks above the farm
       } else if (edge === 1) {
         // 0-indexed max x is (cols - 1), so +5 makes it cols + 4
         this.grid_x = (cols - 1) + spawn_distance;
-        this.grid_y = Math.floor(Math.random() * rows);
+        this.grid_y = Math.floor(this.random() * rows);
       } else if (edge === 2) {
-        this.grid_x = Math.floor(Math.random() * cols);
+        this.grid_x = Math.floor(this.random() * cols);
         // 0-indexed max y is (rows - 1), so +5 makes it rows + 4
         this.grid_y = (rows - 1) + spawn_distance;
       } else {
         this.grid_x = -spawn_distance; // 5 blocks left of the farm
-        this.grid_y = Math.floor(Math.random() * rows);
+        this.grid_y = Math.floor(this.random() * rows);
       }
       this.pos = this.gridAxisToWorld();
     },
@@ -235,7 +254,7 @@ export function bug(farm_grid_index, config = {}) {
 }
 
 export function addBug(farm_grid_index, config = {}) {
-  if (!farm_grid_index.isDemonstration) triggerDidYouKnow("bugs");
+  if (!farm_grid_index.isDemonstration && !config.restoring) triggerDidYouKnow("bugs");
   return k.add([
     k.pos(),
     k.sprite("bug"),

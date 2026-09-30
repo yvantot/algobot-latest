@@ -12,6 +12,7 @@ export function lessonTiles(key, size) {
 
 export function releaseLesson(grid) {
   grid.lessonActive = false;
+  grid.lessonQuest = null;
   for (const tile of grid.values()) {
     tile.lesson = null;
     if (tile.lessonBug) { tile.lessonBug.destroy(); tile.lessonBug = null; }
@@ -31,6 +32,7 @@ export function prepareLesson(key, { grid, size, robot, inventory, createCrop, c
   })) return { prepared: false, message: "Reset lesson tiles to replace their crops with practice crops." };
   releaseLesson(grid);
   grid.lessonActive = true;
+  grid.lessonQuest = key;
   for (const { x, y } of positions) {
     const tile = grid.get(y + "-" + x);
     tile.bug?.destroy(); tile.fire?.destroy(); tile.crop?.cropDestroy("lesson_reset");

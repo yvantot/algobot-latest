@@ -11,6 +11,8 @@ export function gridmove() {
     scaleAnim: null,
     grid_move_timer: null,
     grid_move_version: 0,
+    grid_motion: null,
+    update() { if (this.grid_motion) this.grid_motion.remaining = Math.max(0, this.grid_motion.remaining - k.dt()); },
 
     updateAxis(x, y) {
       this.grid_x = x;
@@ -20,6 +22,7 @@ export function gridmove() {
     gridPlace(x, y) {
       this.grid_move_timer?.cancel();
       this.grid_move_version++;
+      this.grid_motion = null;
       this.unanimate("pos");
       this.unanimate("scale");
       this.pos = this.gridAxisToWorld(x, y);
@@ -29,6 +32,7 @@ export function gridmove() {
     gridJump(x, y, duration) {
       this.grid_move_timer?.cancel();
       const version = ++this.grid_move_version;
+      this.grid_motion = { x, y, remaining: duration };
       const start_pos = this.pos;
       const target_pos = this.gridAxisToWorld(x, y);
       const control_point = k.vec2(start_pos.x + (target_pos.x - start_pos.x) / 2, Math.min(start_pos.y, target_pos.y) - 150);
@@ -65,6 +69,7 @@ export function gridmove() {
       this.grid_move_timer = this.wait(duration, () => {
         if (version === this.grid_move_version) {
           this.updateAxis(x, y);
+          this.grid_motion = null;
           this.unanimate("pos");
           this.pos = target_pos;
         }

@@ -83,6 +83,62 @@ export class FarmEventSimulation {
     this.disposed = false;
   }
 
+  snapshot() {
+    const events = new Map();
+    const clouds = [...this.clouds.values()].map(cloud => {
+      const { recordImpact, destroy, rainEvent, ...data } = cloud;
+      if (rainEvent) events.set(rainEvent.id, { id: rainEvent.id, wateredKeys: [...rainEvent.wateredKeys], wateredTiles: rainEvent.wateredTiles, extinguishedFires: rainEvent.extinguishedFires });
+      return { ...data, eventId: rainEvent?.id ?? cloud.id };
+    });
+    return {
+      accumulator: this.accumulator, sequence: this.sequence, events: [...events.values()], clouds,
+      fires: [...this.fires.values()].map(fire => {
+        const { crop, isBurning, extinguish, destroy, ...data } = fire;
+        return { ...data, cropId: crop.saveId, settings: { ...data.settings, stageDuration: data.settings.stageDuration === Infinity ? null : data.settings.stageDuration } };
+      }),
+      drops: [...this.drops.values()].map(({ cloud, ...drop }) => ({ ...drop, cloudId: cloud.id })),
+    };
+  }
+
+  restore(state) {
+    if (this.fires.size || this.clouds.size || this.drops.size) throw Error("Restore needs an empty event simulation.");
+    const events = new Map((state.events ?? []).map(event => [event.id, { ...event, wateredKeys: new Set(event.wateredKeys) }]));
+    for (const saved of state.fires) {
+      const tile = this.grid.get(saved.key);
+      if (tile?.crop?.saveId !== saved.cropId) throw Error("Saved fire has different fuel.");
+      const settings = { ...saved.settings, stageDuration: saved.settings.stageDuration ?? Infinity };
+      const fire = this.ignite(saved.key, settings);
+      if (!fire) throw Error("Cannot restore fire.");
+      const { cropId, settings: ignored, ...data } = saved;
+      Object.assign(fire, data);
+    }
+    for (const saved of state.clouds) {
+      const { eventId, ...data } = saved;
+      const event = events.get(eventId);
+      if (!event) throw Error("Missing saved rain event.");
+      const cloud = { ...data, rainEvent: event };
+      this.bindCloud(cloud, event);
+      this.clouds.set(cloud.id, cloud);
+    }
+    for (const saved of state.drops) {
+      const { cloudId, ...data } = saved;
+      const cloud = this.clouds.get(cloudId);
+      if (!cloud) throw Error("Missing saved cloud.");
+      this.drops.set(data.id, { ...data, cloud });
+    }
+    this.sequence = state.sequence;
+    this.accumulator = state.accumulator;
+  }
+
+  bindCloud(cloud, event) {
+    cloud.recordImpact = ({ wateredSoil, extinguished }) => {
+      if (extinguished) event.extinguishedFires++;
+      if (wateredSoil) event.wateredKeys.add(cloud.key);
+      event.wateredTiles = event.wateredKeys.size;
+    };
+    cloud.destroy = () => this.removeCloud(cloud);
+  }
+
   startFire(points = 100) {
     const params = getDifficultyParams(points);
     if (this.disposed || !canStartFireEvent(this.grid)) {
@@ -131,21 +187,16 @@ export class FarmEventSimulation {
     // Shuffle within priority groups; crops get rain before empty soil.
     const planted = shuffled(candidates.filter(([, tile]) => isLivingCrop(tile.crop)), this.random);
     const bare = shuffled(candidates.filter(([, tile]) => !isLivingCrop(tile.crop)), this.random);
-    const result = { type: "rain", params, applied: false, clouds: [], wateredTiles: 0, extinguishedFires: 0 };
-    const watered = new Set();
+    const result = { id: ++this.sequence, type: "rain", params, applied: false, clouds: [], wateredKeys: new Set(), wateredTiles: 0, extinguishedFires: 0 };
     for (const [key] of [...planted, ...bare].slice(0, params.entityCount)) {
       if (!coordinates(key)) continue;
       const cloud = {
         id: ++this.sequence, key, ...coordinates(key), side: this.random() < 0.5 ? -1 : 1,
         phase: "entering", phaseAge: 0, dropClock: 0, progress: 0,
         ...rainSettings(params),
-        recordImpact: ({ wateredSoil, extinguished }) => {
-          if (extinguished) result.extinguishedFires++;
-          if (wateredSoil) watered.add(key);
-          result.wateredTiles = watered.size;
-        },
-        destroy: () => this.removeCloud(cloud),
+        rainEvent: result,
       };
+      this.bindCloud(cloud, result);
       this.clouds.set(cloud.id, cloud);
       result.clouds.push(cloud);
     }

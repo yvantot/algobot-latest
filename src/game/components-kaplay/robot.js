@@ -28,7 +28,13 @@ export function botact(id, farm_grid_index) {
     bot_action_result: true,
     bot_move_timer: null,
 
-    add() { this.inbox = joinBotInbox(farm_grid_index, id); this.botJump(this.grid_x, this.grid_y); },
+    add() {
+      this.inbox = joinBotInbox(farm_grid_index, id);
+      if (farm_grid_index.restoring) {
+        const tile = farm_grid_index.get(`${this.grid_y}-${this.grid_x}`);
+        tile.bots ??= []; tile.bots.push(this);
+      } else this.botJump(this.grid_x, this.grid_y);
+    },
 
     sendMessage(target, value) { return this.inbox.send(target, value); },
     hasMessage() { return this.inbox.hasMessage(); },
@@ -194,8 +200,9 @@ export function botact(id, farm_grid_index) {
     botKillBug(callback = null, x = this.grid_x, y = this.grid_y) {
       const bug = farm_grid_index.get(`${y}-${x}`)?.bug;
       if (!bug || bug.is_dying) return this.rejectAction(SAY_DATA.farm.error.no_bug, callback);
-      if (!farm_grid_index.isDemonstration && bug.spawned_at) telemetry.recordEventResponse(Date.now() - bug.spawned_at);
+      if (!farm_grid_index.isDemonstration && bug.spawned_at) telemetry.recordEventResponse((bug.exposureAge ?? 0) * 1000);
       bug.bugDestroy();
+      callback?.commit?.(true);
       this.showIcon(IconTypes.SPARK, this.botact_duration);
       play_sfx("bot_kill");
       return this.performAct(true, this.botact_duration, callback, true);
@@ -205,6 +212,7 @@ export function botact(id, farm_grid_index) {
       const soil = farm_grid_index.get(`${y}-${x}`)?.soil;
       if (!soil) return this.rejectAction(SAY_DATA.farm.error.out_of_bounds, callback);
       if (!soil.till()) return this.rejectAction(SAY_DATA.farm.error.till_tilled, callback);
+      callback?.commit?.(true);
       this.showIcon(IconTypes.HOE, this.botact_duration);
       if (!farm_grid_index.isDemonstration) triggerDidYouKnow("soil");
       play_sfx("bot_till");
@@ -215,7 +223,7 @@ export function botact(id, farm_grid_index) {
       if (!tile?.fire?.isBurning()) return false;
       const fire = tile.fire;
       const result = fire.extinguish("bot");
-      if (!farm_grid_index.isDemonstration && result && fire.spawned_at) telemetry.recordEventResponse(Date.now() - fire.spawned_at);
+      if (!farm_grid_index.isDemonstration && result && fire.spawned_at) telemetry.recordEventResponse((fire.age ?? 0) * 1000);
       return result;
     },
 
@@ -225,6 +233,7 @@ export function botact(id, farm_grid_index) {
       const extinguished = this.extinguishTile(tile);
       const watered = tile.soil.water();
       if (!extinguished && !watered) return this.rejectAction(tile.soil.soil_state === SoilStates.INITIAL ? SAY_DATA.farm.error.water_initial : SAY_DATA.farm.error.water_watered, callback);
+      callback?.commit?.(true);
       this.showIcon(IconTypes.DROPLET, this.botact_duration);
       play_sfx("bot_water");
       return this.performAct(true, this.botact_duration, callback, true);
@@ -232,6 +241,7 @@ export function botact(id, farm_grid_index) {
 
     botExtinguish(callback = null, x = this.grid_x, y = this.grid_y) {
       if (!this.extinguishTile(farm_grid_index.get(`${y}-${x}`))) return this.rejectAction("There is no fire here.", callback);
+      callback?.commit?.(true);
       this.showIcon(IconTypes.DROPLET, this.botact_duration);
       play_sfx("bot_water");
       return this.performAct(true, this.botact_duration, callback, true);
@@ -247,6 +257,7 @@ export function botact(id, farm_grid_index) {
       if (!farm_grid_index.isDemonstration && !(INVENTORY.crops[type] > 0)) return this.rejectAction(SAY_DATA.farm.error.insufficient_resources, callback);
       tile.crop = addCrop(farm_grid_index, type, x, y);
       if (!farm_grid_index.isDemonstration) INVENTORY.changeCrops(type, -1);
+      callback?.commit?.(true);
       this.showIcon(IconTypes.SEEDPACK, this.botact_duration);
       play_sfx("plant");
       return this.performAct(true, this.botact_duration, callback, true);
@@ -259,7 +270,10 @@ export function botact(id, farm_grid_index) {
       if (crop.crop_state !== CropStates.HARVESTABLE || crop.is_harvesting) return this.rejectAction(SAY_DATA.farm.error.harvest_not_ready, callback);
       this.performAct(true, this.botact_duration, callback, crop.crop_type, true);
       const version = this.bot_action_version;
-      const started = crop.harvest(success => this.settleBotAction(success ? crop.crop_type : false, version));
+      const started = crop.harvest(success => {
+        if (success && !this.bot_removed && version === this.bot_action_version) callback?.commit?.(crop.crop_type);
+        this.settleBotAction(success ? crop.crop_type : false, version);
+      });
       if (!started) this.settleBotAction(false, version);
       play_sfx("plant");
       return started ? crop.crop_type : false;
@@ -268,6 +282,7 @@ export function botact(id, farm_grid_index) {
     botDestroy(callback = null, x = this.grid_x, y = this.grid_y) {
       const crop = farm_grid_index.get(`${y}-${x}`)?.crop;
       if (!crop || !crop.cropDestroy("bot")) return this.rejectAction(SAY_DATA.farm.error.no_plant, callback);
+      callback?.commit?.(true);
       this.showIcon(IconTypes.ANGEL, this.botact_duration);
       play_sfx("plant");
       return this.performAct(true, this.botact_duration, callback, true);

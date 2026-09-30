@@ -140,9 +140,9 @@ export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
       this.angle = 0;
       this.animate("scale", [k.vec2(1), k.vec2(1.2, 0.8), k.vec2(1)], { duration: 0.5, loops: 1 });
       if (this.crop_type !== CropTypes.SUGARCANE) this.animate("opacity", [1, 0], { duration: 0.5, loops: 1 });
-      const dropSeed = Math.random() < this.crop_seed_drop_chance;
       // Rewards commit together only when this crop survives the harvest.
       this.cropWait(1, () => {
+        const dropSeed = (farm_grid_index.random ?? Math.random)() < this.crop_seed_drop_chance;
         if (farm_grid_index.isDemonstration) {
           const visuals = [
             ...(this.dropOrbs(this, this.crop_exp / (fresh ? 1 : 2), OrbTypes.EXP) || []),

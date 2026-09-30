@@ -1,5 +1,20 @@
 const farms = new WeakMap();
 
+export function snapshotInboxes(farm) {
+  const channel = farms.get(farm);
+  return channel ? { nextId: channel.nextId, inboxes: [...channel.inboxes].map(([id, queue]) => [id, queue.map(message => ({ ...message }))]) } : { nextId: 0, inboxes: [] };
+}
+export function restoreInboxes(farm, state) {
+  const channel = farms.get(farm);
+  if (!channel) return;
+  channel.nextId = state.nextId;
+  for (const [id, entries] of state.inboxes) {
+    const queue = channel.inboxes.get(id);
+    if (!queue || entries.length > 32) throw Error("Invalid saved bot inbox.");
+    queue.splice(0, queue.length, ...entries.map(entry => ({ ...entry })));
+  }
+}
+
 export function joinBotInbox(farm, id) {
   let channel = farms.get(farm);
   if (!channel) farms.set(farm, channel = {inboxes:new Map(),nextId:0});

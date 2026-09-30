@@ -2,7 +2,8 @@
 // No crop/soil ownership, scene graph, global farm map, or interpreter state is
 // accessed here. Robot actions complete with callback(result), or a Promise:
 // bool for actions/checks and a crop-type string (or false) for harvesting.
-// Immediate return values only indicate acceptance; they never award quests.
+// Immediate return values indicate acceptance. Real components report logical
+// commits separately from animation completion so saves include action credit.
 import { CROP_READINGS } from "./crop-inspection.js";
 import { captureQuestAction } from "./quest-program.js";
 
@@ -58,7 +59,14 @@ export function createCommandAPI({
       const capture = captureQuestAction(robot, "bot." + name, values);
       if (robot.questTrace) robot.questTrace.size = farmSize();
       let settled = false;
+      let committed = false;
       let context;
+      const commit = result => {
+        if (committed || !result) return;
+        committed = true;
+        robot.actionReceipt = { id: globalThis.crypto.randomUUID(), action: name, result };
+        observe(after, result, context, values);
+      };
       const finish = (value, failed = false) => {
         if (settled) return;
         settled = true;
@@ -70,11 +78,12 @@ export function createCommandAPI({
           const frame = robot.conditionTestFrame;
           if (frame) emptyTileChecks.set(frame, lastPlantCheck === false ? { x:robot.grid_x, y:robot.grid_y } : null);
         }
-        if (result) observe(after, result, context, values);
+        if (result) commit(result);
         // A disposed editor's continuation must not create an unhandled Promise
         // rejection after an otherwise completed robot action.
         try { callback(result); } catch (error) { reportError(error); }
       };
+      finish.commit = commit;
       const fail = error => {
         if (settled) return;
         reportError(error);

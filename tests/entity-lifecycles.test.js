@@ -15,6 +15,7 @@ import { cropReading } from "../src/game/global/crop-inspection.js";
 import { prepareLesson, releaseLesson } from "../src/game/global/quest-setup.js";
 import { QUEST_DATA } from "../src/game/global/quests.js";
 import { scenarioSolutions } from "./scenario-solutions.js";
+import { createCommandAPI } from "../src/game/global/command-api.js";
 import { CropStates, CropTypes, FreshnessStates, SoilStates, IconTypes, OrbTypes } from "../src/game/global/enum.js";
 
 const dataHook = registerHooks({
@@ -131,6 +132,31 @@ function harness() {
   }
   return { context, make, k, farm, timers, roots, rewards, visualDrops, addSoil, plant, bot, advance };
 }
+
+test("ACTION-1/2 real plant/till/water credit commits before animation and cannot repeat", () => {
+  const h = harness(); h.addSoil(0, 0, SoilStates.INITIAL);
+  const robot = h.bot(); h.advance(1);
+  const observations = [];
+  const api = createCommandAPI({ robot, onQuestEvent: (key, amount, action) => observations.push([key, action]) });
+  api.bot.till();
+  assert.deepEqual(observations, [["tut_2", "till"]]);
+  h.advance(1); api.bot.plant("wheat");
+  assert.ok(h.farm.get("0-0").crop);
+  assert.deepEqual(observations.at(-1), ["tut_2", "plant"]);
+  h.advance(1); api.bot.water();
+  assert.equal(h.farm.get("0-0").soil.water_remaining, 1);
+  assert.deepEqual(observations.at(-1), ["tut_2", "water"]);
+  h.advance(1); assert.equal(observations.length, 3);
+  api.bot.plant("wheat"); h.advance(1); assert.equal(observations.length, 3);
+});
+
+test("ACTION-3 abandoned harvest consumes no RNG draw or reward", () => {
+  const h = harness(); h.addSoil(); const crop = h.plant(CropTypes.WHEAT, CropStates.HARVESTABLE);
+  let draws = 0; h.farm.random = () => { draws++; return 0; };
+  crop.harvest(); assert.equal(draws, 0);
+  crop.cropDestroy(); h.advance(2);
+  assert.equal(draws, 0); assert.equal(h.rewards.coins, 0);
+});
 
 test("live demonstration plants and harvests without changing player rewards", () => {
   const h = harness();

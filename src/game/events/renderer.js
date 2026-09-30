@@ -164,6 +164,7 @@ export function getFarmEventRuntime(grid) {
   if (existing && existing.owner.exists()) return existing;
   let renderer;
   const simulation = new FarmEventSimulation(grid, {
+    random: () => (grid.random ?? Math.random)(),
     onFireRemoved: fire => renderer?.addSmoke(fire),
   });
   const owner = k.add([

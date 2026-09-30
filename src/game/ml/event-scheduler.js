@@ -22,14 +22,24 @@ export class EventScheduler {
     this.lastCheckTime = 0;
     this.eventsTriggered = 0;
     this.shouldRun = () => true;
+    this.clock = 1;
+    this.checkRemaining = this._intervalMs();
+  }
+
+  snapshot() { return { clock: this.clock, checkRemaining: this.checkRemaining, lastEventTime: this.lastEventTime, lastCheckTime: this.lastCheckTime, eventsTriggered: this.eventsTriggered }; }
+  restore(state) { this.stop(); Object.assign(this, state); }
+  reset() { this.restore({ clock: 1, checkRemaining: this._intervalMs(), lastEventTime: 0, lastCheckTime: 0, eventsTriggered: 0 }); }
+  advance(milliseconds) {
+    if (!this.shouldRun()) return;
+    this.clock += milliseconds;
+    this.checkRemaining -= milliseconds;
+    if (this.checkRemaining <= 0) { this._check(); this.checkRemaining = this._intervalMs(); }
   }
 
   start({ shouldRun = () => true } = {}) {
     if (this.isRunning) return;
     this.shouldRun = shouldRun;
-    this.lastEventTime = 0;
-    this.lastCheckTime = 0;
-    this.eventsTriggered = 0;
+    this.lastTick = Date.now();
     this.isRunning = true;
     this._scheduleNext();
   }
@@ -50,15 +60,17 @@ export class EventScheduler {
     // Re-read mode each tick in case inference fell back after initialization.
     this.intervalId = setTimeout(() => {
       try {
-        this._check();
+        const now = Date.now();
+        this.advance(Math.min(1000, Math.max(0, now - this.lastTick)));
+        this.lastTick = now;
       } finally {
         this._scheduleNext();
       }
-    }, this._intervalMs());
+    }, 250);
   }
 
   _check() {
-    this.lastCheckTime = Date.now();
+    this.lastCheckTime = this.clock;
     if (!this.shouldRun()) return { triggered: false, reason: "gameplay_paused" };
     return mlAgent.mode === "bootstrap" ? this._bootstrapCheck() : this._mlCheck();
   }
@@ -84,7 +96,7 @@ export class EventScheduler {
   }
 
   isCooldownActive() {
-    return this.lastEventTime > 0 && Date.now() - this.lastEventTime < COOLDOWN_MS;
+    return this.lastEventTime > 0 && this.clock - this.lastEventTime < COOLDOWN_MS;
   }
 
   computeSpawnChance() {
@@ -92,7 +104,7 @@ export class EventScheduler {
   }
 
   _markEvent(type, result) {
-    this.lastEventTime = Date.now();
+    this.lastEventTime = this.clock;
     this.eventsTriggered++;
     telemetry.recordScheduledEvent(type, { mode: mlAgent.mode, actionId: mlAgent.lastAction,
       severity_points: this.eventSeverity(), planted_crops: this.countPlantedCrops(), total_tiles: this.getTotalTiles() });
@@ -137,18 +149,18 @@ export class EventScheduler {
   }
 
   forceCheck() {
-    this.lastCheckTime = Date.now();
+    this.lastCheckTime = this.clock;
     return mlAgent.mode === "bootstrap" ? this._bootstrapCheck(true) : this._mlCheck();
   }
 
   getState() {
     const intervalMs = this._intervalMs();
-    const cooldownRemaining = this.isCooldownActive() ? COOLDOWN_MS - (Date.now() - this.lastEventTime) : 0;
+    const cooldownRemaining = this.isCooldownActive() ? COOLDOWN_MS - (this.clock - this.lastEventTime) : 0;
     return {
       isRunning: this.isRunning,
       mode: mlAgent.mode,
       intervalMs,
-      nextCheckIn: this.lastCheckTime ? Math.max(0, intervalMs - (Date.now() - this.lastCheckTime)) : intervalMs,
+      nextCheckIn: this.checkRemaining,
       lastCheckTime: this.lastCheckTime,
       lastEventTime: this.lastEventTime,
       cooldownRemaining,
