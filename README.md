@@ -112,6 +112,8 @@ npx wrangler deploy --config upload-worker/wrangler.toml
 
 The Worker serves `upload.algobot.fun` and stores archives in the `algobot-data` R2 bucket. It requires the `STUDY_TOKEN` and `ADMIN_TOKEN` secrets. Keep existing values when redeploying; see the [upload setup guide](upload-worker/README.md) for initial configuration, limits, and verification.
 
+Storage keeps one gzip JSON file per participant per collection round (`round3/participant/data.json.gz`). Uploads merge sessions into that file; retries and simultaneous sessions preserve newer records. This is research data storage. Continue still loads the farm saved in the current browser.
+
 The browser upload token is public in the built JavaScript. `ADMIN_TOKEN` is for researcher downloads only and must never be placed in a `VITE_` variable.
 
 ## Research data and adaptive difficulty

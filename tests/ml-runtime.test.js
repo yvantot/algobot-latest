@@ -682,6 +682,17 @@ test("rule window forgets old mistakes without changing LSTM features", () => {
   assert.equal(recentPolicyState(events,181000).frustrationScore,0);
 });
 
+test("upload revisions advance across exports, logger recreation and durable assessment updates", () => {
+  const logger = new DataLogger();
+  let stored = [];
+  logger.persistence = { sessions: () => stored };
+  const first = logger.buildSessionExport(), second = logger.buildSessionExport();
+  assert.equal(second.upload_revision, first.upload_revision + 1);
+  stored = [{ ...second, upload_revision: second.upload_revision + 10 }];
+  const recreated = new DataLogger(); recreated.persistence = logger.persistence;
+  assert.equal(recreated.buildSessionExport().upload_revision, stored[0].upload_revision + 1);
+});
+
 test("IndexedDB logger adapter retries earlier sessions after a failed asynchronous write", async () => {
   const logger = new DataLogger(), stored = new Map();
   let fail = true;

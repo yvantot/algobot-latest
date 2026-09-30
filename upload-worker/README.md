@@ -43,15 +43,26 @@ this Worker. The config supplies `ROUND=round3` and allows the apex, www, and
 current Workers.dev game origins. Add the exact origin if the student link
 changes. Changing a frontend build does **not** deploy this separate Worker.
 
-Snapshots use `round/participant/session--sha256.json.gz`. Identical retries
-deduplicate; distinct versions remain available even when requests arrive out
-of order. SHA-256 validates transport consistency, not who authored the data.
-Whole-browser archives overlap; the collection pipeline merges sessions by ID.
-Storage grows with distinct snapshots, so retain/download a round before any
-separate retention cleanup. Existing `session.json.gz` objects remain readable.
+Each player has one file per collection round: `round/participant/data.json.gz`.
+It contains the player's sessions, merged by session ID. Later uploads replace
+that file, retaining sessions absent from a particular browser. Other participants
+in a shared browser's export are excluded. Unreadable legacy backup bytes remain
+available through the game's local JSON download; the cloud archive contains
+validated session records.
+
+Session revisions reject conflicting or history-dropping updates. Older clients
+use export timestamps and history checks. R2 conditional writes retry concurrent
+merges, so simultaneous sessions and late retries cannot erase newer data.
+Unchanged session content skips the storage write. SHA-256 validates transport
+consistency, not who authored the data. Historical snapshot keys remain readable
+by the download script but are no longer created.
 
 Uploads are limited to 20 MiB compressed and 16 MiB decompressed. Invalid gzip,
 invalid v4 manifests, mismatched session identity, and bad checksums are rejected.
+The combined player archive has the same limits. Exceeding them fails without
+replacing existing cloud data; download locally and start a new collection round
+before a participant approaches this limit. One file grows with recorded activity,
+not with repeated copies of the same sessions.
 The game makes at most three attempts, with a 30-second deadline per attempt;
 manual download remains available while sending. Background attempts run once
 per interval and can recover on the next interval after a failure.

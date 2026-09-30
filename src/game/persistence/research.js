@@ -4,6 +4,7 @@ const copy = value => JSON.parse(JSON.stringify(value));
 export function mergeSession(previous, incoming) {
   if (!previous) return copy(incoming);
   const result = { ...previous, ...copy(incoming) };
+  if (previous.upload_revision || incoming.upload_revision) result.upload_revision = Math.max(previous.upload_revision ?? 0, incoming.upload_revision ?? 0);
   const attempts = new Map((previous.challenge_attempts ?? []).map(a => [a.assessment_id, a]));
   for (const attempt of incoming.challenge_attempts ?? []) {
     const old = attempts.get(attempt.assessment_id);
@@ -32,6 +33,7 @@ export function recordTransition(research, { id, assessment, session, playthroug
   stored.challenge_attempts ??= [];
   const index = stored.challenge_attempts.findIndex(a => a.assessment_id === assessment.assessment_id);
   if (index < 0) stored.challenge_attempts.push(copy(assessment)); else stored.challenge_attempts[index] = copy(assessment);
+  stored.upload_revision = (stored.upload_revision ?? 0) + 1;
   research.operations[id] = { id, kind, participantId: assessment.student_id, sessionId: assessment.session_id, assessmentId: assessment.assessment_id, playthroughId, revision, recoveryGeneration, delivered: false };
   if (exposureKey) research.exposures[exposureKey] = true;
   return true;

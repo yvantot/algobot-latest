@@ -16,7 +16,7 @@ const server = createServer((req, res) => {
 });
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const mf = new Miniflare(convertV4MiniflareOptions({ modules: ['index.js','dataset.js'].map(file => ({type:'ESModule',path:resolve('upload-worker',file)})),
+const mf = new Miniflare(convertV4MiniflareOptions({ modules: ['index.js','dataset.js','player-data.js'].map(file => ({type:'ESModule',path:resolve('upload-worker',file)})),
   compatibilityDate:'2026-09-01',r2Buckets:['DATA'],bindings:{ROUND:'fixture',STUDY_TOKEN:'study',ADMIN_TOKEN:'admin',ALLOWED_ORIGINS:origin} }));
 let browser;
 try {
@@ -27,21 +27,33 @@ try {
   const receipt = await page.evaluate(async base => {
     const {uploadDataset} = await import('/client.js');
     const {sealDataset} = await import('/seal.js');
-    const data = await sealDataset({dataset_version:'v4',session_count:1,sessions:[{student_id:'QA_LOCAL',session_id:'browser',raw_events:[{event:'fixture'}]}]});
+    const data = await sealDataset({dataset_version:'v4',session_count:1,sessions:[{student_id:'QA_LOCAL',session_id:'browser',upload_revision:1,raw_events:[{event:'fixture'}]}]});
     const options = {participant:'QA_LOCAL',session:'browser',config:{url:new URL('/upload',base).href,token:'study'}};
     const first = await uploadDataset(data,options);
     const retry = await uploadDataset(data,options);
     if (!retry.duplicate || retry.key !== first.key) throw Error('Retry did not deduplicate');
+    await Promise.all(Array.from({length:4}, async (_,i) => {
+      const session='parallel-'+i;
+      const other=await sealDataset({dataset_version:'v4',session_count:1,sessions:[{student_id:'QA_LOCAL',session_id:session,upload_revision:1,raw_events:[{event:session}]}]});
+      return uploadDataset(other,{...options,session});
+    }));
+    const newer=await sealDataset({...data,sessions:[{...data.sessions[0],upload_revision:2,raw_events:[{event:'fixture'},{event:'updated'}]}]});
+    await uploadDataset(newer,options);
+    await uploadDataset(data,options);
     return first;
   },base);
   assert.equal(receipt.ok,true);
   const saved = await mf.dispatchFetch('https://w.dev/admin/file?key='+encodeURIComponent(receipt.key),{headers:{Authorization:'Bearer admin'}});
   const data = await new Response(new Blob([await saved.arrayBuffer()]).stream().pipeThrough(new DecompressionStream('gzip'))).json();
   assert.equal(data.sessions[0].student_id,'QA_LOCAL');
+  assert.equal(data.session_count,5);
+  assert.equal(data.sessions.find(s=>s.session_id==='browser').raw_events.length,2);
+  const listing=await mf.dispatchFetch('https://w.dev/admin/list',{headers:{Authorization:'Bearer admin'}});
+  assert.equal((await listing.json()).objects.length,1);
   const denied = await page.evaluate(async base => {
     const r = await fetch(new URL('/upload',base), {method:'POST',headers:{'X-Study-Token':'wrong','X-Participant':'QA_LOCAL','X-Session':'browser'},body:'invalid'});
     return r.status;
   },base);
   assert.equal(denied,403);
-  console.log('PASS: Chromium real cross-origin preflight, CompressionStream upload, workerd validation, local R2 storage and authenticated readback');
+  console.log('PASS: Chromium preflight/gzip, workerd validation, concurrent R2 conditional merges, stale retry protection, single file and authenticated readback');
 } finally { await browser?.close();await mf.dispose();await new Promise(r=>server.close(r)); }

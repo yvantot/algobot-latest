@@ -40,7 +40,9 @@ test("RESEARCH-2 reload interrupts the original assessment only once without sco
 test("RESEARCH-3 stale logger upserts cannot undo a paid reward", () => {
   const { research, assessment, session } = opened();
   recordTransition(research, { id: "reward:a", kind: "reward", assessment: { ...assessment, status: "scored", reward_claimed: true }, session, playthroughId: "farm-a", revision: 2 });
+  const revision = research.sessions[session.session_id].upload_revision;
   saveResearchSession(research, session);
+  assert.equal(research.sessions[session.session_id].upload_revision, revision);
   assert.equal(research.sessions["session-a"].challenge_attempts[0].reward_claimed, true);
   assert.equal(recordTransition(research, { id: "reward:a", assessment }), false);
 });
