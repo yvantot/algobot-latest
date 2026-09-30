@@ -40,6 +40,12 @@ export function interruptAssessments(research, playthroughId, now = Date.now()) 
     if (assessment.playthroughId !== playthroughId || assessment.status !== "in_progress") continue;
     const id = `interrupted:${assessment.assessment_id}`;
     if (research.operations[id] || research.tombstones[assessment.session_id]) continue;
+    const latest = research.sessions[assessment.session_id]?.challenge_attempts?.find(attempt => attempt.assessment_id === assessment.assessment_id);
+    if (latest) {
+      if (latest.student_id !== assessment.student_id || latest.session_id !== assessment.session_id) throw new SaveError("owner", "Assessment ownership changed.");
+      Object.assign(assessment, copy(latest));
+    }
+    if (assessment.status !== "in_progress") continue;
     assessment.status = "abandoned";
     assessment.recovered_at = new Date(now).toISOString();
     assessment.finished_at = assessment.last_active_at ?? assessment.started_at;
@@ -52,6 +58,7 @@ export function clearResearch(research, sessionIds = Object.keys(research.sessio
   for (const [id, assessment] of Object.entries(research.assessments)) if (research.tombstones[assessment.session_id]) delete research.assessments[id];
   research.epoch++;
   research.rawCleared = true;
+  research.legacyBackups = [];
 }
 export function importResearch(research, sessions, exposures) {
   if (research.imported) return;
@@ -67,7 +74,10 @@ export async function projectResearch(root, storage, locks = globalThis.navigato
       persistence_operations: Object.values(root.research.operations).filter(operation => operation.sessionId === session.session_id).map(operation => operation.id) }));
     storage.setItem("algobot_sessions", JSON.stringify(sessions));
     storage.setItem("algobot_challenge_exposure_v1", JSON.stringify(root.research.exposures));
-    if (root.research.rawCleared) storage.removeItem("algobot_raw_sessions");
+    if (root.research.rawCleared) {
+      storage.removeItem("algobot_raw_sessions");
+      storage.removeItem("algobot_replay_buffer");
+    }
   });
   return true;
 }

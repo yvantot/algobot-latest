@@ -327,3 +327,89 @@ test("20 by 20 farm with 20 bots records capture and commit costs", async ({ pag
   await testInfo.attach("performance.json", { body: JSON.stringify(result, null, 2), contentType: "application/json" });
   console.log("SAVE_PERFORMANCE", JSON.stringify(result));
 });
+
+test("the same writer can save and heartbeat after a ten-minute suspension", async ({ page }) => {
+  await fresh(page, true); await closeDemo(page);
+  const result = await page.evaluate(async () => {
+    const t = window.saveTesting, p = t.persistence; t.k.debug.timeScale = 0;
+    const now = Date.now(); p.storage.now = () => now + 600000;
+    t.INVENTORY.coins = 99;
+    await p.checkpoint({ required: true });
+    p.storage.now = () => now + 1200000;
+    await p.storage.heartbeat(p.writer);
+    return { ready: p.ready, coins: (await p.storage.read()).active.payload.economy.coins, phase: p.status.phase };
+  });
+  expect(result).toEqual({ ready: true, coins: 99, phase: "saved" });
+});
+
+test("Retry save reports an unavailable writer instead of silently succeeding", async ({ page }) => {
+  await fresh(page, true); await closeDemo(page);
+  await page.evaluate(() => {
+    const p = window.saveTesting.persistence; p.ready = false; p.report("error", Error("Writer lost"));
+  });
+  await page.getByRole("button", { name: "Retry save", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Writer lost" })).toContainText("The farm could not be saved");
+});
+
+test("a stopped challenge submission survives Continue and remains attached to its original session", async ({ page }) => {
+  await fresh(page, true); await closeDemo(page);
+  const original = await page.evaluate(async () => {
+    const t = window.saveTesting;
+    const { assessment } = await t.assessmentTransition("opened", () => ({ assessment: t.openChallenge(t.telemetry, t.CHALLENGES[0], true) }));
+    t.interruptChallenge(t.telemetry, assessment, "bot.moveRight();", "text");
+    t.dataLogger.saveSessionLight(); await t.persistence.tail;
+    return structuredClone(assessment);
+  });
+  await expect.poll(async () => (await readSave(page)).research.sessions[original.session_id].challenge_attempts[0].submissions.length).toBe(1);
+  await page.reload(); await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("button", { name: "New Game", exact: true })).toHaveCount(0);
+  const root = await readSave(page), restored = root.research.assessments[original.assessment_id];
+  expect(restored.status).toBe("abandoned"); expect(restored.session_id).toBe(original.session_id);
+  expect(restored.submissions).toEqual(original.submissions);
+  expect(root.research.sessions[original.session_id].challenge_attempts[0].submissions).toEqual(original.submissions);
+});
+
+test("persistent Clear Data removes replay records from storage and memory", async ({ page }) => {
+  await fresh(page, true); await closeDemo(page);
+  const result = await page.evaluate(async () => {
+    const t = window.saveTesting;
+    await t.persistence.research(research => { research.exposures['["old","task"]'] = true; });
+    localStorage.setItem("algobot_replay_buffer", '[{"student_id":"old"}]');
+    t.mlAgent.replayBuffer = [{ sessionId: "old" }]; t.mlAgent.prevState = [1]; t.mlAgent.prevAction = 1; t.mlAgent.pendingCompletionReward = 7;
+    await t.dataLogger.clearAllData();
+    return { replay: localStorage.getItem("algobot_replay_buffer"), memory: t.mlAgent.replayBuffer,
+      state: t.mlAgent.prevState, action: t.mlAgent.prevAction, reward: t.mlAgent.pendingCompletionReward,
+      exposure: t.persistence.root.research.exposures['["old","task"]'] };
+  });
+  expect(result).toEqual({ replay: null, memory: [], state: null, action: null, reward: 0, exposure: true });
+});
+
+for (const key of ["algobot_sessions", "algobot_challenge_exposure_v1"]) test(`legacy recovery preserves malformed ${key} and allows farming`, async ({ page }, testInfo) => {
+  await page.goto("/tests/ui/persistence.html");
+  const bytes = " { broken legacy bytes\n";
+  await page.evaluate(({ key, bytes }) => localStorage.setItem(key, bytes), { key, bytes });
+  await page.getByRole("button", { name: "New Game", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("research records are unreadable");
+  expect(await page.evaluate(key => localStorage.getItem(key), key)).toBe(bytes);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const exportButton = page.getByRole("button", { name: "Export research records", exact: true });
+  await exportButton.focus();
+  const download = page.waitForEvent("download"); await page.keyboard.press("Enter");
+  const stream = await (await download).createReadStream(); let body = ""; for await (const chunk of stream) body += chunk.toString();
+  expect(JSON.parse(body)[key]).toBe(bytes);
+  const recovery = page.getByRole("button", { name: "Back up records and continue", exact: true });
+  const box = await recovery.boundingBox(); expect(box.y).toBeGreaterThanOrEqual(0); expect(box.y + box.height).toBeLessThanOrEqual(844);
+  await page.screenshot({ path: testInfo.outputPath("legacy-recovery-mobile.png") });
+  await recovery.click();
+  await expect(page.getByRole("button", { name: "New Game", exact: true })).toHaveCount(0);
+  const recovered = await page.evaluate(key => {
+    const t = window.saveTesting; let blocked = false;
+    try { t.wasExposed("someone", "task"); } catch (error) { blocked = error.code === "research_history"; }
+    return { backup: t.persistence.root.research.legacyBackups[0].bytes[key], exported: t.dataLogger.buildDatasetExport().legacy_research_backups[0].bytes[key], blocked };
+  }, key);
+  expect(recovered.backup).toBe(bytes); expect(recovered.exported).toBe(bytes);
+  expect(recovered.blocked).toBe(key === "algobot_challenge_exposure_v1");
+  await page.reload(); await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("button", { name: "New Game", exact: true })).toHaveCount(0);
+  expect((await readSave(page)).research.legacyBackups[0].bytes[key]).toBe(bytes);
+});

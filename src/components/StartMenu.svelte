@@ -8,7 +8,7 @@
 
   const displayVersion = version.replace(/\.0$/, "");
 
-  let { onStart, onContinue, onRecover, onRetry, onExport, savedFarm = null, hasSave = false, loading = false, error = "", canRecover = false } = $props();
+  let { onStart, onContinue, onRecover, onRetry, onExport, onExportResearch, onRecoverResearch, canRecoverResearch = false, savedFarm = null, hasSave = false, loading = false, error = "", canRecover = false } = $props();
   let chapter = $derived(savedFarm ? Object.entries(QUEST_DATA).find(([id, quest]) => !quest.optional && !savedFarm.payload.quests[id]?.is_claimed)?.[1].chapter : null);
   let overwriteDialog;
   function newGame() {
@@ -68,13 +68,13 @@
 
   <!-- Main Content Overlay -->
   <div
-    class="relative z-10 flex flex-col items-center justify-center gap-6 h-full w-full p-6 mt-[30vh] transition-all duration-380 ease-out"
+    class="relative z-10 flex flex-col items-center gap-6 h-full w-full p-6 transition-all duration-380 ease-out {error ? 'overflow-y-auto' : 'justify-center mt-[30vh]'}"
     class:translate-y-8={isExiting}
     class:scale-90={isExiting}
     class:opacity-0={isExiting}
   >
     <!-- Vertical 2.5D Wood Buttons -->
-    <div class="flex flex-col gap-4 w-64">
+    <div class="flex flex-col gap-4 w-64 shrink-0">
       <button
         onclick={onContinue}
         disabled={loading || !savedFarm}
@@ -92,6 +92,10 @@
           <button onclick={onRetry} disabled={loading} class="underline mt-2">Retry</button>
           {#if hasSave}<button onclick={onExport} disabled={loading} class="underline mt-2 ml-3">Export save</button>{/if}
           {#if canRecover}<button onclick={onRecover} disabled={loading} class="underline mt-2 ml-3">Recover previous save</button>{/if}
+          {#if canRecoverResearch}
+            <button onclick={onExportResearch} disabled={loading} class="underline mt-2 min-h-11">Export research records</button>
+            <button onclick={onRecoverResearch} disabled={loading} class="underline mt-2 min-h-11">Back up records and continue</button>
+          {/if}
         </div>
       {/if}
 

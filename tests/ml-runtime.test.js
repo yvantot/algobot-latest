@@ -233,6 +233,21 @@ test("cleared current sessions cannot silently return through autosave or export
   assert.equal(logger.buildDatasetExport().sessions.length, 1);
 });
 
+test("persistent Clear Data removes replay storage and memory while retaining exposure history", async () => {
+  const logger = new DataLogger();
+  let cleared = false;
+  logger.persistence = { clear: async () => { cleared = true; }, sessions: () => [] };
+  localStorage.setItem("algobot_replay_buffer", '[{"student_id":"old"}]');
+  localStorage.setItem("algobot_challenge_exposure_v1", '{"[\\"old\\",\\"task\\"]":true}');
+  mlAgent.replayBuffer = [{ sessionId: "old" }]; mlAgent.prevState = [1]; mlAgent.prevAction = 1; mlAgent.pendingCompletionReward = 7;
+  await logger.clearAllData();
+  assert.equal(cleared, true); assert.equal(localStorage.getItem("algobot_replay_buffer"), null);
+  assert.deepEqual(mlAgent.replayBuffer, []); assert.equal(mlAgent.prevState, null); assert.equal(mlAgent.prevAction, null);
+  assert.equal(mlAgent.pendingCompletionReward, 0);
+  assert.ok(localStorage.getItem("algobot_challenge_exposure_v1"));
+  assert.equal(logger.buildDatasetExport().session_count, 0);
+});
+
 test("challenge records and developer-test provenance survive the canonical export", () => {
   telemetry.challengeAttempts.push({assessment_id:"a",status:"abandoned",score:null,submissions:[]});
   const logger=new DataLogger();

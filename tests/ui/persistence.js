@@ -11,9 +11,11 @@ import { robots_state, Personalize, QUEST_STATE, TUTORIAL, ONBOARDING } from "..
 import { QUEST_DATA } from "../../src/game/global/quests.js";
 import { telemetry } from "../../src/game/ml/telemetry.js";
 import { dataLogger } from "../../src/game/ml/data-logger.js";
-import { openChallenge, submitChallenge, claimChallengeReward, farmChallengeRewards } from "../../src/game/challenges/records.js";
+import { openChallenge, submitChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards } from "../../src/game/challenges/records.js";
+import { mlAgent } from "../../src/game/ml/agent.js";
+import { wasExposed } from "../../src/game/persistence/runtime.svelte.js";
 import { CHALLENGES } from "../../src/game/challenges/catalog.js";
 window.saveTesting = { get k() { return k; }, persistence, captureWorld, restoreWorld, newWorld, farm_grid_index, addCrop,
   INVENTORY, PLAYER_DATA, robots_state, Personalize, QUEST_DATA, QUEST_STATE, TUTORIAL, ONBOARDING, assessmentTransition,
-  telemetry, dataLogger, openChallenge, submitChallenge, claimChallengeReward, farmChallengeRewards, CHALLENGES };
+  telemetry, dataLogger, openChallenge, submitChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards, CHALLENGES, mlAgent, wasExposed };
 mount(App, { target: document.getElementById("app") });

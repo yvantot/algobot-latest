@@ -70,6 +70,20 @@ test("a successful commit never depends on a later read succeeding", async () =>
   h.storage.close();
 });
 
+test("explicit saving rejects disabled writers instead of pretending to save", async () => {
+  const h = setup();
+  await assert.rejects(h.controller.checkpoint({ required: true }), { code: "not_ready" });
+  await h.controller.start(saveFixture().owner, { newGame: true });
+  h.world().economy.coins = 99;
+  await h.storage.release(h.controller.writer);
+  await h.storage.acquire("replacement");
+  await assert.rejects(h.controller.checkpoint({ required: true }), { code: "conflict" });
+  assert.equal(h.controller.ready, false);
+  await assert.rejects(h.controller.checkpoint({ required: true }), { code: "not_ready" });
+  assert.equal((await h.storage.read()).active.payload.economy.coins, 50);
+  h.storage.close();
+});
+
 test("100 seeded mutation/reload sequences retain the last committed logical state", async () => {
   for (let seed = 0; seed < 100; seed++) {
     const h = setup(), random = createRandom(seed), sequence = [];

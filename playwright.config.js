@@ -5,7 +5,5 @@ export default defineConfig({
   webServer: process.env.SAVE_TEST_URL ? undefined : { command: "npm run dev -- --host 127.0.0.1 --port 5174 --strictPort", url: "http://127.0.0.1:5174", env: { PLAYWRIGHT_TEST: "1" } },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "firefox", use: { ...devices["Desktop Firefox"] } },
-    { name: "webkit", use: { ...devices["Desktop Safari"] } },
   ],
 });

@@ -27,6 +27,25 @@ test("RESEARCH-3 stale logger upserts cannot undo a paid reward", () => {
   assert.equal(research.sessions["session-a"].challenge_attempts[0].reward_claimed, true);
   assert.equal(recordTransition(research, { id: "reward:a", assessment }), false);
 });
+
+test("reload preserves stopped submissions saved after the assessment opened", () => {
+  const { research, assessment, session } = opened();
+  assessment.submissions = [{ status: "stopped", source: "bot.moveRight();", submitted_at: "2026-09-30T00:01:00.000Z" }];
+  saveResearchSession(research, session);
+  assert.equal(research.assessments[assessment.assessment_id].submissions, undefined);
+  interruptAssessments(research, "farm-a");
+  assert.deepEqual(research.sessions[session.session_id].challenge_attempts[0].submissions, assessment.submissions);
+  assert.deepEqual(research.assessments[assessment.assessment_id].submissions, assessment.submissions);
+  const recovered = structuredClone(research);
+  interruptAssessments(research, "farm-a");
+  assert.deepEqual(research, recovered);
+});
+
+test("interruption recovery refuses a mismatched session owner", () => {
+  const { research, session } = opened();
+  research.sessions[session.session_id].challenge_attempts[0].student_id = "B";
+  assert.throws(() => interruptAssessments(research, "farm-a"), { code: "owner" });
+});
 test("RESEARCH-4/6 tombstones survive reload and prevent delivery or legacy reimport", async () => {
   const { research, session } = opened();
   clearResearch(research);

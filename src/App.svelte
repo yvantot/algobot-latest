@@ -11,6 +11,7 @@
   import { k } from "./lib/kaplay.js";
   import { persistence, startPlaythrough, saveStatus } from "./game/persistence/runtime.svelte.js";
   import { validateSave } from "./game/persistence/schema.js";
+  import { legacyResearchBytes } from "./game/persistence/legacy-research.js";
 
   let currentView = $state("MENU"); // 'MENU' | 'GAME'
   let savedFarm = $state(null);
@@ -19,6 +20,7 @@
   let menuError = $state("");
   let canRecover = $state(false);
   let isNewFarm = $state(false);
+  let researchRecovery = $state(null);
 
   onMount(() => {
     initGlobalUISounds();
@@ -28,7 +30,7 @@
 
   async function inspectSave() {
     loading = true;
-    savedFarm = null; menuError = "";
+    savedFarm = null; menuError = ""; researchRecovery = null;
     try {
       const root = await persistence.inspect();
       hasSave = !!root.active;
@@ -45,17 +47,28 @@
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) { menuError = error.message; }
   }
-  async function startGame(newGame = false, recover = false) {
+  function exportResearch() {
+    try {
+      const url = URL.createObjectURL(new Blob([JSON.stringify(legacyResearchBytes(localStorage), null, 2)], { type: "application/json" }));
+      const link = document.createElement("a"); link.href = url; link.download = "algobot-research-backup.json"; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) { menuError = error.message; }
+  }
+  async function startGame(newGame = false, recover = false, recoverResearch = false) {
     if (loading) return;
     loading = true; menuError = "";
     try {
       isNewFarm = newGame;
-      await startPlaythrough({ newGame, recover });
+      await startPlaythrough({ newGame, recover, recoverResearch });
+      researchRecovery = null;
       currentView = "GAME";
       k.debug.timeScale = 1;
       play_music_farm();
       if (!newGame) saveStatus.notice = "Farm restored. Programs are stopped; press Start when you are ready.";
-    } catch (error) { menuError = error.message; }
+    } catch (error) {
+      menuError = error.message;
+      if (error.code === "legacy_research") researchRecovery = { newGame, recover };
+    }
     finally { loading = false; }
   }
 
@@ -64,7 +77,7 @@
     const speed = k.debug.timeScale;
     k.debug.timeScale = 0;
     try {
-      if (!discard) await persistence.checkpoint();
+      if (!discard) await persistence.checkpoint({ required: true });
       persistence.ready = false;
       currentView = "MENU";
       play_music_menu();
@@ -78,7 +91,7 @@
 
 <div class="flex justify-center align-middle gap-4 h-screen">
   {#if currentView === "MENU"}
-    <StartMenu onStart={() => startGame(true)} onContinue={() => startGame()} onRecover={() => startGame(false, true)} onRetry={inspectSave} onExport={exportSave} {savedFarm} {hasSave} {loading} error={menuError} {canRecover} />
+    <StartMenu onStart={() => startGame(true)} onContinue={() => startGame()} onRecover={() => startGame(false, true)} onRetry={inspectSave} onExport={exportSave} onExportResearch={exportResearch} canRecoverResearch={!!researchRecovery} onRecoverResearch={() => startGame(researchRecovery.newGame, researchRecovery.recover, true)} {savedFarm} {hasSave} {loading} error={menuError} {canRecover} />
   {:else}
     <Game onReturnMenu={returnToMenu} {isNewFarm} />
   {/if}

@@ -12,6 +12,7 @@ import { STUDY_PROTOCOL } from "../ml/study-protocol.js";
 import { k } from "../../lib/kaplay.js";
 import { version } from "../../../package.json";
 import { onPersistenceChange } from "./signals.js";
+import { inspectLegacyResearch } from "./legacy-research.js";
 
 export const saveStatus = $state({ phase: "loading", savedAt: null, error: null, notice: "" });
 export const persistence = new PersistenceController({
@@ -42,7 +43,7 @@ export async function startPlaythrough(options = {}) {
   try {
   await holdLock();
   await persistence.acquire();
-  await initializeResearch();
+  await initializeResearch({ recover: !!options.recoverResearch });
   if (!options.newGame) await reconcileIdentity();
   const owner = currentOwner({ create: options.newGame });
   if (!owner) throw Error("Restore this farm's participant identity, or choose New Game.");
@@ -54,7 +55,8 @@ export async function startPlaythrough(options = {}) {
   clearInterval(autosave); clearInterval(heartbeat);
   autosave = setInterval(() => persistence.checkpoint().catch(() => {}), 2000);
   heartbeat = setInterval(() => persistence.storage.heartbeat(persistence.writer).catch(error => {
-    persistence.ready = false; persistence.pause(); persistence.report("error", error);
+    if (error.code === "conflict") { persistence.ready = false; persistence.pause(); }
+    persistence.report("error", error);
   }), 5000);
   return save;
   } catch (error) {
@@ -75,20 +77,22 @@ async function reconcileIdentity() {
   localStorage.setItem("algobot_participant_id_source", intent.owner.identityKind);
   await persistence.research(research => { delete research.identityIntent; });
 }
-async function initializeResearch() {
+async function initializeResearch({ recover = false } = {}) {
   if (!persistence.root.research.imported) {
-    const raw = JSON.parse(localStorage.getItem("algobot_sessions") || "[]");
-    if (!Array.isArray(raw)) throw Error("Research records are unreadable. Export them before continuing.");
-    const exposures = JSON.parse(localStorage.getItem("algobot_challenge_exposure_v1") || "{}");
-    if (!exposures || typeof exposures !== "object" || Array.isArray(exposures) || raw.some(session => !session || typeof session !== "object")) throw Error("Research records are unreadable. Export them before continuing.");
-    await persistence.research(research => importResearch(research, raw.map((session, index) => {
-      const normalized = normalizeStoredSession(session);
-      normalized.session_id ??= `legacy-import-${index}`;
-      return normalized;
-    }), exposures));
+    const legacy = inspectLegacyResearch(localStorage, normalizeStoredSession);
+    if (legacy.errors.length && !recover) throw new SaveError("legacy_research", "Some research records are unreadable. Export them, or back them up here and continue. The original records will be kept.");
+    await persistence.research(research => {
+      if (legacy.errors.length) {
+        research.legacyBackups ??= [];
+        research.legacyBackups.push({ id: crypto.randomUUID(), savedAt: Date.now(), bytes: legacy.bytes, errors: legacy.errors });
+        research.exposureHistoryUnavailable = legacy.exposureHistoryUnavailable;
+      }
+      importResearch(research, legacy.sessions, legacy.exposures);
+    });
   }
   dataLogger.persistence = {
     sessions: () => Object.values(persistence.root.research.sessions),
+    backups: () => persistence.root.research.legacyBackups ?? [],
     save: session => persistence.research(research => saveResearchSession(research, session)).then(syncResearch),
     clear: async () => {
       await persistence.research(research => clearResearch(research));
@@ -106,7 +110,10 @@ async function syncResearch() {
   }
   catch (error) { saveStatus.notice = `Farm saved. Research compatibility storage could not sync: ${error.message}`; }
 }
-export function wasExposed(participant, task) { return !!persistence.root?.research.exposures[JSON.stringify([participant, task])]; }
+export function wasExposed(participant, task) {
+  if (persistence.root?.research.exposureHistoryUnavailable) throw new SaveError("research_history", "Challenge history needs repair before starting challenges. You can keep farming and export the backed-up records from Dev Tools.");
+  return !!persistence.root?.research.exposures[JSON.stringify([participant, task])];
+}
 export async function assessmentTransition(kind, mutate) {
   if (!persistence.ready || persistence.busy) throw new SaveError("busy", "Wait for the current save to finish.");
   const before = captureWorld(), attempts = structuredClone(telemetry.challengeAttempts), raw = [...telemetry.rawEvents];
@@ -140,6 +147,6 @@ if (typeof window !== "undefined") {
   window.addEventListener("pagehide", () => {
     persistence.checkpoint().catch(() => {});
     persistence.storage.release(persistence.writer).catch(() => {});
-    lockRelease?.(); lockRelease = null;
+    lockRelease?.(); lockRelease = null; persistence.exclusiveLock = false;
   });
 }

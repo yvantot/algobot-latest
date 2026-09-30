@@ -43,3 +43,20 @@ test("expired writer cannot overwrite replacement and unavailable storage is not
   await assert.rejects(new SaveStorage({ indexedDB: null }).read(), { code: "storage" });
   a.close(); b.close();
 });
+
+test("the current writer renews after suspension but a superseded writer cannot renew", async () => {
+  let now = 100;
+  const store = new SaveStorage({ indexedDB: new IDBFactory(), now: () => now });
+  let revision = await store.acquire("one");
+  revision = await store.checkpoint("one", revision, saveFixture(), { replace: true });
+  now += 600000;
+  await store.heartbeat("one");
+  assert.equal((await store.read()).lease.until, now + 15000);
+  now += 600000;
+  revision = await store.checkpoint("one", revision, { ...saveFixture(), revision: 2 });
+  now += 600000;
+  await store.acquire("two");
+  await assert.rejects(store.heartbeat("one"), { code: "conflict" });
+  await assert.rejects(store.checkpoint("one", revision, { ...saveFixture(), revision: 3 }), { code: "conflict" });
+  store.close();
+});

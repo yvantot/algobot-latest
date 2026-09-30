@@ -59,7 +59,9 @@ export class SaveStorage {
   release(writer) { return this.transaction(root => { if (root.lease?.writer === writer) root.lease = null; }); }
   update(writer, revision, change, onCommit = null) {
     return this.transaction(root => {
-      if (root.revision !== revision || root.lease?.writer !== writer || root.lease.until <= this.now()) throw new SaveError("conflict", "Another tab changed this farm. Reload before continuing.");
+      // A competing acquisition is serialized by this same transaction; expiry
+      // alone does not invalidate the still-current writer after suspension.
+      if (root.revision !== revision || root.lease?.writer !== writer) throw new SaveError("conflict", "Another tab changed this farm. Reload before continuing.");
       change(root);
       root.revision++;
       root.lease.until = this.now() + 15000;
@@ -67,7 +69,7 @@ export class SaveStorage {
     }, onCommit);
   }
   heartbeat(writer) { return this.transaction(root => {
-    if (root.lease?.writer !== writer || root.lease.until <= this.now()) throw new SaveError("conflict", "The farm writer expired. Reload before continuing.");
+    if (root.lease?.writer !== writer) throw new SaveError("conflict", "Another tab owns this farm. Reload before continuing.");
     root.lease.until = this.now() + 15000;
   }); }
   checkpoint(writer, revision, save, { replace = false, boundary = false, research = null, onCommit = null } = {}) {

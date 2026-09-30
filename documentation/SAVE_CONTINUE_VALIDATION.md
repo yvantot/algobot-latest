@@ -3,6 +3,29 @@
 September 30, 2026. Windows development host; KAPLAY pinned to
 `4000.0.0-alpha.27`. Implemented on `codex/farm-lifecycles-weather`; not deployed.
 
+Latest follow-up: the user requires Chromium only. All four findings from the
+subsequent implementation review have been fixed and checked:
+
+1. A current writer can renew an expired lease after suspension. Revision and
+   writer checks still reject superseded tabs. Explicit Retry/save-and-return
+   requests now reject when saving is unavailable instead of reporting success.
+2. Interruption recovery uses the latest durable session attempt, retaining
+   stopped submissions and checking participant/session ownership.
+3. Clear Data removes persisted replay records and the agent's replay memory,
+   prior state/action, and pending reward. Exposure history remains separate.
+4. Malformed legacy research now offers export and explicit backup-and-continue
+   from the menu. Recovery stores original bytes atomically in IndexedDB and
+   includes them in research exports. Valid records are imported separately.
+   Unreadable exposure history blocks assessments, rather than falsely marking
+   later attempts as first exposures; ordinary farming remains available.
+
+Follow-up results: **386 unit tests**, **24 Chromium browser tests**, and
+**6 production smoke tests** passed; two additional Chromium production probes
+passed malformed-session and malformed-exposure recovery followed by reload.
+The production build passed. The new recovery screen was inspected at 390 × 844;
+its export action works from the keyboard and recovery controls fit the viewport.
+The earlier counts and measurements below document the initial implementation.
+
 ## Behavior implemented
 
 - One saved playthrough in IndexedDB, plus a previous checkpoint. Continue
@@ -99,15 +122,11 @@ About, and in-game UI were not comprehensively audited.
 
 ## Remaining release gates and limits
 
-- **Firefox is unverified:** installed Playwright Firefox fails to launch on
-  this host with `spawn UNKNOWN`.
-- **WebKit is unverified:** this Windows runner fails when importing KAPLAY
-  with `ReferenceError: Can't find variable: AudioBuffer`, before App mounts.
-  No audio stub was substituted to manufacture a passing result. Run the suite
-  on a supported WebKit host and a working Firefox runner before broad release.
+- Chromium is the supported target for this work. Firefox and WebKit are outside
+  the user's requested scope and are no longer release gates.
 - The feature is enabled in this development branch. The plan's production
   rollout flag is not implemented; this branch should not be treated as an
-  approved production rollout while cross-browser gates remain open.
+  approved production rollout merely because the Chromium suite passes.
 - The full design matrix is broader than the executed suite: exhaustive
   browser action/claim/purchase boundary combinations, all animation offsets,
   listener/timer leak instrumentation, and low-end performance still need
@@ -126,8 +145,6 @@ About, and in-game UI were not comprehensively audited.
 ```powershell
 npm test
 npm run test:e2e:chromium
-npm run test:e2e -- --project=firefox
-npm run test:e2e -- --project=webkit
 npm run build
 npm run preview -- --host 127.0.0.1 --port 4173 --strictPort
 ```

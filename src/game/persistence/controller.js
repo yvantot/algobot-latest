@@ -68,8 +68,10 @@ export class PersistenceController {
       this.report("error", error); throw error;
     } finally { this.busy = false; }
   }
-  checkpoint() {
-    if (!this.ready || this.busy) return this.tail;
+  checkpoint({ required = false } = {}) {
+    if (!this.ready || this.busy) return required
+      ? Promise.reject(new SaveError(this.busy ? "busy" : "not_ready", "The farm could not be saved. Finish the current transition or reload before continuing."))
+      : this.tail;
     try { this.pendingPayload = this.capture(); }
     catch (error) { this.report("error", error); return Promise.reject(error); }
     if (this.checkpointPromise) return this.checkpointPromise;

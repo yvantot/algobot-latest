@@ -391,7 +391,7 @@
   {saveStatus.phase === "saving" ? "Saving…" : saveStatus.phase === "error" ? `Save failed: ${saveStatus.error?.message}` : "Farm saved"}
   {#if saveStatus.notice}<p>{saveStatus.notice}</p><button class="underline" onclick={() => saveStatus.notice = ""}>Dismiss</button>{/if}
   {#if saveStatus.phase === "error"}
-    <button class="underline p-2" onclick={() => persistence.checkpoint().catch(() => {})}>Retry save</button>
+    <button class="underline p-2" onclick={() => persistence.checkpoint({ required: true }).catch(error => { saveStatus.notice = error.message; })}>Retry save</button>
     <button class="underline p-2" onclick={() => { if (confirm("Return to the menu without saving recent changes? Your last saved farm will be kept.")) onReturnMenu({ discard: true }); }}>Leave without saving</button>
   {/if}
 </div>

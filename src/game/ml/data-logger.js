@@ -237,6 +237,7 @@ export class DataLogger {
       },
       ...(unparsedStoredSessions !== null ? { unparsed_stored_sessions_backup: unparsedStoredSessions } : {}),
       ...(unconvertedRecords.length ? { unconverted_stored_records: unconvertedRecords } : {}),
+      ...(this.persistence?.backups ? { legacy_research_backups: structuredClone(this.persistence.backups()) } : {}),
       sessions: records,
     };
   }
@@ -284,6 +285,11 @@ export class DataLogger {
 
   clearAllData() {
     if (this.persistence) return this.persistence.clear().then(() => {
+      localStorage.removeItem("algobot_replay_buffer");
+      mlAgent.replayBuffer = [];
+      mlAgent.prevState = null;
+      mlAgent.prevAction = null;
+      mlAgent.pendingCompletionReward = 0;
       this.pendingSessions.clear(); this.clearedSessionIds.add(telemetry.sessionId);
       clearParticipant(localStorage);
       return "Research data and participant ID cleared. Reload to start with a new participant.";

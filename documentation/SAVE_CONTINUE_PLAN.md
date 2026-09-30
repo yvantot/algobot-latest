@@ -6,6 +6,9 @@ review fixes, and release gates that remain unverified. The design and test
 matrix below remain the target; implementation does not imply every release
 gate has passed.
 
+Browser scope was subsequently narrowed by the user to Chromium only. Firefox
+and WebKit are outside the acceptance criteria below.
+
 The player must be able to reload, choose Continue, and recover a consistent
 farm, quest progress, and programs. Saving must never leave money, rewards,
 crops, and quest flags from different points in time.
@@ -506,8 +509,8 @@ real component methods and should remain part of the release suite.
   may pass merely because Restore throws or silently starts a fresh farm.
 - Every ACTION, OWNER, RESEARCH, and HAZARD regression above passes, including
   real transaction/reload boundaries. Bind the test report to these IDs.
-- Run Chromium, Firefox, and WebKit browser suites, including a mobile-size
-  viewport and restricted-storage cases. Investigate platform differences.
+- Run the Chromium browser suite, including a mobile-size viewport and
+  restricted-storage cases.
 - Production build passes. Repeat smoke tests against the production preview,
   not only the Vite development server.
 - Round-trip equality and uninterrupted-versus-restored deterministic scenarios
