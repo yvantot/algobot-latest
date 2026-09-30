@@ -260,7 +260,10 @@ export class DataLogger {
   // while the integrity hashes are being computed.
   async uploadAllSessionsJSON(options) {
     const participant = telemetry.participantId, session = telemetry.sessionId;
-    const dataset = await sealDataset(this.buildDatasetExport());
+    const exported = this.buildDatasetExport();
+    const sessions = exported.sessions.filter(s => s.student_id === participant);
+    const dataset = await sealDataset({ dataset_version: this.datasetVersion, session_count: sessions.length,
+      participant_count: 1, sessions });
     await uploadDataset(dataset, { ...options, participant, session });
     return `${dataset.session_count} sessions uploaded`;
   }

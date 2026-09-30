@@ -77,6 +77,20 @@ test("legacy clients update the same archive and late retries cannot replace new
   assert.deepEqual((await read(env)).sessions[0].raw_events, [1, 2]);
 });
 
+test("scored challenge provenance, submissions and QA exclusions cannot disappear", async () => {
+  const env = fakeEnv();
+  const attempt = {assessment_id:"a",task_id:"first-harvest-v1",status:"scored",score:2,max_score:3,
+    submissions:[{score:2,source:"bot.harvest();"}]};
+  const data = await changed(await dataset(), {source_type:"developer_test",research_exclusion_reasons:["QA"],challenge_attempts:[attempt]});
+  await send(env, data);
+  for (const fields of [
+    {challenge_attempts:[{...attempt,submissions:[]}]},
+    {challenge_attempts:[{...attempt,score:3}]},
+    {challenge_attempts:[{...attempt,task_id:"different-task"}]},
+    {source_type:"recorded"}, {research_exclusion_reasons:[]},
+  ]) assert.equal((await send(env, await changed(data, {...fields,upload_revision:2}))).status,409);
+});
+
 test("legacy records without IDs deduplicate by content", async () => {
   const env = fakeEnv(), data = await dataset();
   const mixed = await seal([...data.sessions, {student_id:"P001",session_id:null,raw_events:[]}]);

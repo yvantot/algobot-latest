@@ -3,6 +3,7 @@ import uploadWorker from "../../upload-worker/index.js";
 import { fakeEnv, request, zipped } from "../helpers/upload-fixture.js";
 import { sealDataset } from "../../src/game/ml/export-integrity.js";
 import { decodeUpload } from "../../upload-worker/dataset.js";
+import { writeFileSync } from "node:fs";
 
 async function readSave(page) {
   return page.evaluate(async () => {
@@ -344,6 +345,7 @@ test("RESEARCH-1 reward failure rolls back, retry commits once and reload preser
       t.submitChallenge(t.telemetry, assessment, { score: 1, max_score: 1, passed: true, results: [] }, "test", "text");
       return { assessment };
     });
+    const scoredExport = t.dataLogger.buildDatasetExport();
     const before = t.INVENTORY.coins;
     const claim = () => t.assessmentTransition("reward", () => ({ assessment, granted: t.claimChallengeReward(t.telemetry, assessment, () => t.INVENTORY.changeCoins(90), t.farmChallengeRewards) }));
     t.persistence.storage.fault = stage => { if (stage === "after-write") throw Error("Injected failure"); };
@@ -351,7 +353,9 @@ test("RESEARCH-1 reward failure rolls back, retry commits once and reload preser
     t.persistence.storage.fault = () => {};
     const rolledBack = t.INVENTORY.coins;
     const first = await claim(), duplicate = await claim();
-    return { before, failed, rolledBack, first: first.granted, duplicate: duplicate.granted, total: t.INVENTORY.coins, id: assessment.assessment_id };
+    return { before, failed, rolledBack, first: first.granted, duplicate: duplicate.granted, total: t.INVENTORY.coins,
+      id: assessment.assessment_id, participant: t.telemetry.participantId, session: t.telemetry.sessionId,
+      scoredExport, paidExport: t.dataLogger.buildDatasetExport() };
   });
   expect(paid.failed).toBe(true); expect(paid.rolledBack).toBe(paid.before);
   expect(paid.first).toBe(true); expect(paid.duplicate).toBe(false); expect(paid.total).toBe(paid.before + 90);
@@ -360,6 +364,24 @@ test("RESEARCH-1 reward failure rolls back, retry commits once and reload preser
   const root = await readSave(page);
   expect(root.active.payload.economy.coins).toBe(paid.total);
   expect(root.research.assessments[paid.id].reward_claimed).toBe(true);
+  const env = fakeEnv();
+  const restored = await page.evaluate(() => window.saveTesting.dataLogger.buildDatasetExport());
+  if (process.env.CLOUD_REVIEW_EXPORT) writeFileSync(process.env.CLOUD_REVIEW_EXPORT, JSON.stringify({
+    participant: paid.participant, session: paid.session, assessment: paid.id,
+    datasets: [paid.scoredExport, paid.paidExport, restored, paid.scoredExport],
+  }));
+  for (const exported of [paid.scoredExport, paid.paidExport, restored, paid.scoredExport]) {
+    const response = await uploadWorker.fetch(request(await zipped(await sealDataset(exported)), {
+      "X-Participant": paid.participant, "X-Session": paid.session,
+    }), env);
+    expect(response.status, await response.text()).toBe(200);
+  }
+  expect(env.store.size).toBe(1);
+  const { data } = await decodeUpload([...env.store.values()][0]);
+  const challenge = data.sessions.find(s => s.session_id === paid.session).challenge_attempts.find(a => a.assessment_id === paid.id);
+  expect(challenge.reward_claimed).toBe(true);
+  expect(challenge.status).toBe("scored"); expect(challenge.score).toBe(1);
+  expect(challenge.submissions[0].source).toBe("test");
 });
 test("shop quest returns to menu and Continues repeatedly while preserving uploaded sessions", async ({ page }) => {
   test.setTimeout(120000);

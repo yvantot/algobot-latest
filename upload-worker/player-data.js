@@ -7,6 +7,8 @@ const comparable = ({ export_date, upload_revision, ...session }) => JSON.string
 
 function retainsHistory(previous, next) {
   if (previous.end_time && !next.end_time) return false;
+  if (previous.source_type === "developer_test" && next.source_type !== "developer_test") return false;
+  if ((previous.research_exclusion_reasons ?? []).some(reason => !(next.research_exclusion_reasons ?? []).includes(reason))) return false;
   for (const field of ["raw_events", "feature_timeseries", "dda_log"]) {
     const before = previous[field] ?? [], after = next[field] ?? [];
     if (before.length > after.length || before.some((event, i) => JSON.stringify(event) !== JSON.stringify(after[i]))) return false;
@@ -18,6 +20,12 @@ function retainsHistory(previous, next) {
     const after = (next.challenge_attempts ?? []).find(a => a.assessment_id === attempt.assessment_id);
     if (!after || (attempt.reward_claimed && !after.reward_claimed) ||
         (attempt.status !== "in_progress" && after.status === "in_progress")) return false;
+    const submissions = attempt.submissions ?? [], updated = after.submissions ?? [];
+    if (submissions.length > updated.length || submissions.some((s, i) => JSON.stringify(s) !== JSON.stringify(updated[i]))) return false;
+    for (const field of ["student_id", "session_id", "task_id", "rubric_version", "assessor_id", "started_at", "first_exposure"]) {
+      if (attempt[field] !== after[field]) return false;
+    }
+    if (attempt.status === "scored" && ["status", "score", "max_score", "finished_at", "assistance", "purpose"].some(field => attempt[field] !== after[field])) return false;
   }
   return true;
 }
