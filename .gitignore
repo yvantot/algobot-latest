@@ -82,4 +82,6 @@ training/synthetic/
 .save-build-output.txt
 test-results-production/
 .manual-save-review/
+upload-worker/.wrangler/
+training/raw/
 test-results-bug001/

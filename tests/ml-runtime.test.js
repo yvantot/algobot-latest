@@ -71,6 +71,26 @@ beforeEach(() => {
   globalThis.__mlTestRainApplied = false;
 });
 
+test("upload keeps the captured identity when telemetry resets during sealing", async () => {
+  const logger = new DataLogger();
+  telemetry.setParticipantId("upload-before");
+  const originalId = telemetry.sessionId;
+  let sent;
+  const pending = logger.uploadAllSessionsJSON({ config: { url: "https://fixture.test/upload", token: "fixture" },
+    fetchImpl: async (_url, init) => {
+      const json = await new Response(new Blob([init.body]).stream().pipeThrough(new DecompressionStream("gzip"))).json();
+      sent = { headers: init.headers, json };
+      return Response.json({ ok: true, key: "fixture-key" });
+    } });
+  telemetry.resetSession();
+  telemetry.setParticipantId("upload-after");
+  await pending;
+  assert.equal(sent.headers["X-Participant"], "upload-before");
+  assert.equal(sent.headers["X-Session"], originalId);
+  assert.equal(sent.json.sessions[0].session_id, originalId);
+  assert.equal(sent.json.sessions[0].student_id, "upload-before");
+});
+
 test("recording, autosave, canonical download and preparation CLI preserve six fixture participants",async()=>{
   // These fabricated sessions test transport and validation, not model accuracy.
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'algobot-roundtrip-'));

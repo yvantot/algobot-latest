@@ -1,9 +1,12 @@
 <script>
   import { onMount } from "svelte";
   import { fly, fade } from "svelte/transition";
-  let { check, download, onClose } = $props();
+  let { check, download, upload = null, onClose } = $props();
   const reducedMotion = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   let status = $state(null), error = $state(""), busy = $state(false), downloaded = $state(false), panel;
+  // idle | sending | sent | failed. Only used when this build has an upload server.
+  let sending = $state("idle");
+  const canSave = () => status?.ready || status?.canDownload;
   function refresh() {
     try { status = check(); error = ""; }
     catch { status = {ready:false,message:"We could not check your data. Keep this page open and tell your researcher."}; }
@@ -11,11 +14,20 @@
   onMount(() => {
     const previous = document.activeElement;
     refresh(); panel.focus();
+    if (upload && canSave()) send();
     return () => previous?.focus?.();
   });
+  async function send() {
+    if (!upload || sending === "sending") return;
+    refresh();
+    if (!canSave()) return;
+    sending = "sending";
+    try { await upload(); sending = "sent"; }
+    catch { sending = "failed"; }
+  }
   async function save() {
     refresh();
-    if (!(status?.ready || status?.canDownload) || busy) return;
+    if (!canSave() || busy) return;
     busy = true;
     try { await download(); downloaded = true; }
     catch { error = "The download could not start. Please try again. Your data has not been cleared."; }
@@ -33,12 +45,21 @@
 
 <div class="backdrop" transition:fade={{duration:reducedMotion?0:150}}>
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="finish-title" aria-describedby="finish-status" tabindex="-1" bind:this={panel} onkeydown={keys} transition:fly={{y:18,duration:reducedMotion?0:220}}>
-    <h2 id="finish-title">{downloaded ? "Check your downloads" : status?.ready ? "Your data is ready" : status?.canDownload ? "Your data needs review" : "Not ready yet"}</h2>
-    <p id="finish-status">{downloaded ? "The download was requested. Check that the JSON file is saved, then send it to your researcher. Your data has not been cleared." : status?.message ?? "Checking your data…"}</p>
+    {#if upload && canSave() && !downloaded}
+      <h2 id="finish-title">{sending === "sent" ? "Data sent ✓" : sending === "failed" ? "Not sent yet" : "Sending your data…"}</h2>
+      <p id="finish-status" aria-live="polite">{sending === "sent" ? "Your researcher has received your data. You can close this window. Your data has not been cleared."
+        : sending === "failed" ? "Your data could not be sent. Check the internet connection and try again, or download the file and give it to your researcher. Do not clear your data."
+        : "Please keep this page open for a moment."}</p>
+      {#if !status?.ready}<p>{status.message}</p>{/if}
+    {:else}
+      <h2 id="finish-title">{downloaded ? "Check your downloads" : status?.ready ? "Your data is ready" : status?.canDownload ? "Your data needs review" : "Not ready yet"}</h2>
+      <p id="finish-status">{downloaded ? "The download was requested. Check that the JSON file is saved, then send it to your researcher. Your data has not been cleared." : status?.message ?? "Checking your data…"}</p>
+    {/if}
     {#if error}<p role="alert">{error}</p>{/if}
     <div class="actions">
-      <button disabled={busy} onclick={onClose}>{downloaded ? "Close" : "Keep playing"}</button>
-      {#if status?.ready || status?.canDownload}<button class="download" disabled={busy} onclick={save}>{busy ? "Preparing…" : downloaded ? "Download again" : status?.ready ? "Download data" : "Download for review"}</button>{/if}
+      <button disabled={busy} onclick={onClose}>{downloaded || sending === "sent" ? "Close" : "Keep playing"}</button>
+      {#if upload && canSave() && sending === "failed"}<button class="download" onclick={send}>Try sending again</button>{/if}
+      {#if canSave()}<button class={upload ? "" : "download"} disabled={busy} onclick={save}>{busy ? "Preparing…" : downloaded ? "Download again" : status?.ready ? "Download data" : "Download for review"}</button>{/if}
     </div>
   </div>
 </div>

@@ -1,0 +1,21 @@
+name = "algobot-upload"
+main = "index.js"
+compatibility_date = "2026-09-01"
+routes = [{ pattern = "upload.algobot.fun", custom_domain = true }]
+# Only the custom domain serves uploads.
+workers_dev = false
+preview_urls = false
+
+[vars]
+# Folder inside the bucket for this collection round. Change it before each new round.
+ROUND = "round3"
+# The game's public addresses, comma-separated. Browsers refuse uploads from any other site.
+ALLOWED_ORIGINS = "https://algobot.fun,https://www.algobot.fun,https://algobot-latest.jidalman-work.workers.dev"
+
+[[r2_buckets]]
+binding = "DATA"
+bucket_name = "algobot-data"
+
+# Secrets (set with `npx wrangler secret put <NAME>`, never written here):
+#   STUDY_TOKEN - sent by the game with every upload
+#   ADMIN_TOKEN - used only by `npm run pull-data` on the researcher's computer

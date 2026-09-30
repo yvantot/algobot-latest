@@ -6,6 +6,7 @@ import { FEATURE_NAMES } from "./model-input.js";
 import { COLLECTION_INTERVAL_MS } from "./collection.js";
 import { inspectCollection } from "./collection-quality.js";
 import { sealDataset } from "./export-integrity.js";
+import { uploadDataset } from "./cloud-upload.js";
 import { COLLECTION_SCHEMA, COLLECTION_FEATURES } from "./research-features.js";
 import { clearParticipant } from "./participant.js";
 import { CHALLENGE_STORAGE } from "../challenges/catalog.js";
@@ -247,6 +248,15 @@ export class DataLogger {
     this._downloadFile(JSON.stringify(dataset, null, 2),
       `algobot_dataset_${this.datasetVersion}_${Date.now()}.json`, "application/json");
     return `${dataset.session_count} sessions exported in one JSON file`;
+  }
+
+  // Session identity must travel with the snapshot even if Continue resets telemetry
+  // while the integrity hashes are being computed.
+  async uploadAllSessionsJSON(options) {
+    const participant = telemetry.participantId, session = telemetry.sessionId;
+    const dataset = await sealDataset(this.buildDatasetExport());
+    await uploadDataset(dataset, { ...options, participant, session });
+    return `${dataset.session_count} sessions uploaded`;
   }
 
   buildQuestCSV() {

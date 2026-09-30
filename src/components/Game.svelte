@@ -49,6 +49,7 @@
   import { eventScheduler } from "../game/ml/event-scheduler.js";
   import { mlAgent } from "../game/ml/agent.js";
   import { dataLogger } from "../game/ml/data-logger.js";
+  import { uploadConfig } from "../game/ml/cloud-upload.js";
   import FinishDataPrompt from "./FinishDataPrompt.svelte";
   import { downloadReadiness } from "../game/ml/download-readiness.js";
   import { dda, DDA_ACTIONS } from "../game/ml/dda.js";
@@ -256,7 +257,7 @@
       getFarm:() => CONFIG.FARM, getZoom:() => camera_scale, setZoom:value => camera_scale=value});
     const hintNotice = createTransientNotice(message => activeHint = message);
     let predictionTimer;
-    let saveTimer;
+    let saveTimer, uploadTimer;
     const entryScreen = PLAYTHROUGH_UI.entryScreen;
     showIntroduction = entryScreen === "demonstration";
     showOnboarding = entryScreen === "onboarding";
@@ -317,6 +318,10 @@
     saveTimer = setInterval(() => {
       if (!dataLogger.saveSessionLight()) storageWarning = "Research data could not be saved. Export it before closing this page.";
     }, 30000);
+    // Builds with an upload server also send a quiet backup every few minutes, so
+    // data arrives even if the player never presses Finish. Failures are retried next time.
+    const backgroundUpload = () => { if (!dataLogger.clearedSessionIds.has(telemetry.sessionId)) dataLogger.uploadAllSessionsJSON({ attempts: 1 }).catch(console.warn); };
+    if (uploadConfig()) uploadTimer = setInterval(backgroundUpload, 180000);
     // Returning the cleanup synchronously is required by Svelte onMount.
     mlAgent.init().then(() => {
       if (disposed) return;
@@ -339,6 +344,7 @@
       hintNotice.dispose();
       clearInterval(predictionTimer);
       clearInterval(saveTimer);
+      clearInterval(uploadTimer);
       stopCollection();
       document.removeEventListener("visibilitychange", refreshCollectionContext);
       refreshCollectionContext = () => {};
@@ -346,6 +352,7 @@
       eventScheduler.stop();
       configureFarmEvents(farm_grid_index, { shouldRun: () => false });
       saveSession();
+      if (uploadTimer) backgroundUpload();
       ONBOARDING.isModalOpen = false;
     };
   });
@@ -652,7 +659,7 @@
             </button>
           {/if}
           {#if !TUTORIAL.active && QUEST_STATE.tut_2?.is_claimed}
-            <button class="finish-data" onclick={() => showFinishData=true}>Finish &amp; Download Data</button>
+            <button class="finish-data" onclick={() => showFinishData=true}>Finish &amp; {uploadConfig() ? "Send" : "Download"} Data</button>
           {/if}
         </div>
       </div>
@@ -753,7 +760,7 @@
 
 <!-- Return to Start Menu Confirmation Modal -->
 {#if showFinishData}
-  <FinishDataPrompt check={checkDownload} download={() => dataLogger.exportAllSessionsJSON()} onClose={() => showFinishData=false}/>
+  <FinishDataPrompt check={checkDownload} download={() => dataLogger.exportAllSessionsJSON()} upload={uploadConfig() ? () => dataLogger.uploadAllSessionsJSON() : null} onClose={() => showFinishData=false}/>
 {/if}
 {#if showConfirmReturn}
   <div
