@@ -1,7 +1,10 @@
 # New Game and Continue implementation plan
 
-Status: revised after design review, September 30, 2026. This document specifies
-the feature and its required tests; it does not claim persistence is implemented.
+Status: implemented in the development branch, September 30, 2026. See
+[implementation verification](SAVE_CONTINUE_VALIDATION.md) for measured results,
+review fixes, and release gates that remain unverified. The design and test
+matrix below remain the target; implementation does not imply every release
+gate has passed.
 
 The player must be able to reload, choose Continue, and recover a consistent
 farm, quest progress, and programs. Saving must never leave money, rewards,

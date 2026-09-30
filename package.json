@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "test": "node --test tests/*.test.js",
+    "test:e2e": "playwright test",
+    "test:e2e:chromium": "playwright test --project=chromium",
     "verify:artifacts": "node scripts/verify-research-artifacts.js",
     "audit:collection": "node scripts/audit-collection.js",
     "model": "node scripts/model-workflow.js",

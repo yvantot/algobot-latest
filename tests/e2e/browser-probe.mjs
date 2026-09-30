@@ -1,0 +1,11 @@
+import { chromium, firefox, webkit } from "@playwright/test";
+const name = process.argv[2] || "chromium";
+const browser = await ({ chromium, firefox, webkit }[name]).launch();
+const page = await browser.newPage();
+page.on("pageerror", error => console.log("PAGE ERROR", error.stack));
+page.on("console", message => { if (message.type() === "error") console.log("CONSOLE", message.text()); });
+page.on("requestfailed", request => console.log("REQUEST", request.url(), request.failure()));
+await page.goto(process.env.SAVE_TEST_URL || "http://127.0.0.1:5173");
+await page.waitForTimeout(3000);
+console.log((await page.locator("body").innerText()).slice(0, 3000));
+await browser.close();

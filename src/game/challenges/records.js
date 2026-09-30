@@ -2,7 +2,7 @@ import { activeGameplayWindow } from "../ml/research-features.js";
 import { studyWindowStart, studyTaskTitle } from "../ml/study-protocol.js";
 import { challengeMaxScore } from "./catalog.js";
 
-// Like the main farm, this survives a trip to the start menu but not a page reload.
+// Included in the farm checkpoint so Continue cannot award a challenge twice.
 export const farmChallengeRewards = new Set();
 
 // Under the study protocol, only gameplay after the previous challenge can fill the window.

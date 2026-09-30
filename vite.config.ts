@@ -13,5 +13,6 @@ try {
 
 export default defineConfig({
 	plugins: [tailwindcss(), svelte()],
+  server: { hmr: process.env.PLAYWRIGHT_TEST === "1" ? false : undefined },
   define: { __BUILD_PROVENANCE__: JSON.stringify({ ...provenance, ...sourceFingerprint(fileURLToPath(new URL(".", import.meta.url))) }) },
 });

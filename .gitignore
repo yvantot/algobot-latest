@@ -48,6 +48,9 @@ python311/
 # Derived participant-level research files stay local alongside original exports.
 training/prepared/
 coverage/
+test-results/
+playwright-report/
+.save-test-output.txt
 .nyc_output/
 
 # IDE & Editor Files
@@ -75,3 +78,6 @@ desktop.ini
 training/data/**/*.json
 # Explicitly labeled experimental augmentations remain separate from collected exports.
 training/synthetic/
+.save-browser-output.txt
+.save-build-output.txt
+test-results-production/

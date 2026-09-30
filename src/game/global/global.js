@@ -796,7 +796,7 @@ export const DOCUMENT_DATA = {
       type:"function", arguments:"bot.send(botNumber, message)", is_unlocked:true, tier:0,
       definition:"Sends text, a number, or true/false to another bot on this farm. Bot numbers start at 0.",
       example:'bot.send(1, "Ready!");',
-      note:"Run both bots with Start All. Each bot has its own inbox (32 messages). A message stays until received; sending to a missing bot fails. Messages reset when the farm reloads.",
+      note:"Run both bots with Start All. Each bot has its own inbox (32 messages). A message stays until received; sending to a missing bot fails. Continue restores saved messages; New Game clears them.",
     },
     receive: {
       type:"function", arguments:"bot.receive()", is_unlocked:true, tier:0,

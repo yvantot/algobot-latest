@@ -629,6 +629,26 @@ test("rule window forgets old mistakes without changing LSTM features", () => {
   assert.equal(recentPolicyState(events,181000).frustrationScore,0);
 });
 
+test("IndexedDB logger adapter retries earlier sessions after a failed asynchronous write", async () => {
+  const logger = new DataLogger(), stored = new Map();
+  let fail = true;
+  logger.persistence = { sessions: () => [...stored.values()], save: async session => {
+    if (fail) throw Error("aborted transaction");
+    stored.set(session.session_id, structuredClone(session));
+  } };
+  const settle = () => new Promise(resolve => setImmediate(resolve));
+  const first = telemetry.getSessionId();
+  logger.saveSessionLight(); await settle();
+  assert.equal(logger.pendingSessions.size, 1);
+  assert.equal(logger.lastPersistenceError, "aborted transaction");
+  telemetry.resetSession(); mlAgent.resetSession();
+  const second = telemetry.getSessionId(); fail = false;
+  logger.saveSessionLight(); await settle();
+  assert.ok(stored.has(first)); assert.ok(stored.has(second));
+  assert.equal(logger.pendingSessions.size, 0);
+  assert.equal(logger.lastPersistenceError, null);
+});
+
 test("difficulty recovers after confirmed improvement and does not immediately escalate", () => {
   const policy=new StableDifficultyPolicy();
   const struggling={errorCount:7,resetCount:4,frustrationScore:.6,flowScore:.2,successfulRuns:0};
