@@ -50,7 +50,10 @@ Restore the existing test credentials securely when updating this environment fr
 
 The deployment command validates test resource names and the upload URL before building. It sends secrets through Wrangler's protected file input and does not print their values. Config files contain no secrets. The Vite output goes to ignored `dist-staging/`, leaving production `dist/` independent.
 
-Test records are kept until explicitly removed. The retained production QA record documented in `documentation/CLOUDFLARE_UPLOAD_VERIFICATION_2026-10-01.md` stays in the production bucket and must not be deleted without the user's instruction.
+The user authorized removal of all test records on October 1. Both buckets were
+cleared, including the formerly retained QA objects documented below. New uploads
+use one `testing/participant/data.json.gz` file per participant. See the
+[collection readiness review](../../documentation/PRECOLLECTION_REVIEW_2026-10-01.md).
 
 ## Verification — October 1, 2026 (Taipei)
 
@@ -62,7 +65,8 @@ Authenticated readback from `algobot-data-test` confirmed a valid gzip v4 archiv
 testing/QA_STAGING_20261001_KEEP/5616cfac-e335-4796-bcf1-0f609f018f8c--f028d1b233a21bbfcf0da458ff5436898a56b08233a7d4525fafe779022b89e0.json.gz
 ```
 
-It contains one short QA session with four recorded events (2,329 compressed bytes), not a completed study playthrough. Later snapshots may share this participant prefix. Keep these records until the user asks to remove them.
+It contained one short QA session with four recorded events (2,329 compressed bytes),
+not a completed study playthrough. It was subsequently removed in the authorized cleanup.
 
 Validation also passed: 18 targeted tests; Vite staging build and upload-configuration verification; both Wrangler dry runs; exact CORS origins for the hosted test game and localhost/127.0.0.1 port 5173; denial of production-origin requests to the test API; denial of unauthenticated admin reads; absence of production credentials and test admin credentials from the frontend bundle. Localhost CORS was checked by HTTP preflight; the end-to-end browser upload was performed on the hosted test game.
 

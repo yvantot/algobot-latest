@@ -1,5 +1,9 @@
 # Production upload verification
 
+Historical verification record: the user explicitly authorized removal of all
+test objects later on October 1. The QA object below was deleted, along with all
+other test data. See [the collection readiness review](PRECOLLECTION_REVIEW_2026-10-01.md).
+
 Verified October 1, 2026 (Asia/Taipei) using the live game at `https://algobot.fun`.
 
 ## Result
