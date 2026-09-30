@@ -14,7 +14,15 @@ quest progress is earned through the editors and the game's controls.
   required onboarding quests in Blockly, then 39 quests using text programs or
   shop controls. All 39 reachable completed-unclaimed states survived reload;
   each subsequent claim paid the exact coin and EXP reward. The five automatic
-  onboarding awards were tested immediately after claiming. C has not started.
+  onboarding awards were tested immediately after claiming.
+- Campaign C completed all 44 quests on `c6ff644`, mixing Blockly and text,
+  switching bots, interleaving optional crops, and playing at desktop and phone
+  viewport sizes. Post-claim checks passed across 15 reloads, 15 tab reopens,
+  and 14 persistent-browser restarts. All three campaign quest matrices are
+  complete (132 quest continuity checks); the targeted minimums remain separate.
+- Campaign C found UI-003: enlarging a phone-sized viewport leaves the game
+  canvas at its initial dimensions. Reload restores the layout. This P2 UI
+  defect remains open; no new save/load defect was found in Campaign C.
 - During the first farming quest, till, plant, and water progress survived
   separate reloads. Continued watering grew the same wheat to harvestable.
 - Reloading the introduction restored onboarding and the unchanged main farm.
@@ -44,7 +52,7 @@ quest progress is earned through the editors and the game's controls.
 - M08 has one confirmed replacement and two cancellations (Cancel and Escape).
   An unfinished Move right block marked the old farm; cancellation retained it,
   while replacement reset the program, quests, economy and playthrough ID.
-- Campaign C, the remaining targeted minimums, and endurance batches remain outstanding.
+- The remaining targeted minimums and endurance batches remain outstanding.
   None of the previously automated checks count toward those manual totals.
 
 Authoritative case records: [journal.jsonl](journal.jsonl). Large evidence and
@@ -121,15 +129,104 @@ Bot 1 is at (2,1), with default action duration 0.8. Text mode and Bot 0 are
 selected. Their programs say distinct Campaign B messages, then jump to their
 respective saved tiles. Lesson protection is inactive.
 
-Next player-track work: create a separate persistent Campaign C profile at the
-same production origin and begin New Game. Alternate editors after onboarding,
-interleave optional quests, and test reload/tab reopen/browser restart after
-claims. Preserve both completed profiles for targeted scenarios.
+Campaign C is closed at the main menu in
+`.manual-save-review/profiles/profile-c`. Final root:
+`.manual-save-review/campaign-c-final-root.json`, revision 2655, playthrough
+`888a6ee3-67a3-42ce-b965-b566eaa4fc46`. All 44 quests are claimed, with 920 coins,
+1,897 EXP, four columns and three rows. Seeds: wheat 12, corn 1, rice 0,
+potato 0, sugarcane 0, tomato 1. Bot 0 is at (3,2), with default move duration
+0.7; Bot 1 is at (0,0), upgraded to 0.6. Both have action duration 0.8 and check
+duration 0.5. Text mode selects Bot 1; Blockly selects Bot 0. Bot 0 retains the
+text fire patrol and a Blockly Boolean-returning function; Bot 1 retains its
+distinct Say message. All twelve tiles have no lesson owner, and lesson
+protection, pests, and fires are inactive. Preserve all three developed
+profiles for the remaining targeted scenarios.
 
 The separate `new-game-batch` profile contains a fresh replacement in its intro.
 It is not campaign B or C. Remaining M08 minimums: 49 replacements and 18
 cancellations. M09 endurance has not started. M01 needs four more complete
 repetitions; the rest of the targeted/fault matrix remains outstanding.
+
+## Batch 5: Campaign C completed
+
+Campaign C began from New Game in a fresh persistent profile on unchanged
+production build `c6ff644`. Its 44 quest checks span 12:34–13:19 UTC on September
+30, including tool and observation time. All progression came from normal
+editor, shop, and quest controls. No developer completion or storage injection
+was used. The five onboarding awards are automatic; the other 39 rewards were
+claimed through the UI before leaving. Each committed claim survived Continue.
+
+The interruptions alternated throughout: 15 reloads, 15 tab reopens, and 14
+full Chromium restarts using the same persistent profile and origin. An
+independent audit of all 44 before/after pairs found matching playthrough and
+owner identity, economy, quests, bots and both program sources, dimensions,
+unlocks, editor selections, and lesson state. The final root has 44 claim flags.
+Local audit: `.manual-save-review/campaign-c-expanded-audit.json`.
+
+Thirty-nine pairs match the entire payload. Five have simulation-timer
+differences: hazard accumulator phase, scheduler clock/cooldown, and (in the
+return-value quest) corn synergy phase. The four advancing scheduler clocks
+increased by 1.549–1.993 seconds, with matching cooldown decreases. Gameplay
+continues while the screenshot and exit are processed; these are comparisons
+with a subsequently committed revision, not a claim of exact paused simulation.
+No crop identity, state, health, growth, water ownership, inventory, or reward
+changed in these pairs. Offline-time coverage remains the separately recorded
+M06 case and its outstanding minimums.
+
+- Blockly was used for onboarding and later loops, watering, crop checks,
+  cleanup, row count, variables, wait conditions, and the optional returning
+  function. Text covered other conditions, loops, crop farming, functions,
+  arguments, arrays, and patrols. Both saved forms remained independently
+  editable and survived switching editors.
+- Optional corn, rice, potato, sugarcane, and tomato harvests were interleaved
+  immediately after their respective unlocks. The return-value practice was
+  completed before the crop-list lesson. All crops were grown through ordinary
+  programs; longer runs used the game's 400% speed control.
+- Shop purchases added a fourth column, a second bot, and a movement upgrade
+  for Bot 1. The restore comparisons retained the purchases and deductions.
+  A distinct Bot 1 text message survived reopening with Bot 1 selected and ran
+  again after Continue. Blockly and text have separate bot selections: the
+  count-up test selected Blockly Bot 1 but ran text on Bot 0. The journal was
+  corrected to reflect the saved selections, rather than the operator's initial
+  assumption. Later Bot 1 text execution was explicitly selected and verified.
+- Seed buying and two-tile planting were played at 390×844, alongside desktop
+  play at 1440×1000. Two continuity checks crossed viewport sizes: intro_loop
+  reopened at the browser context's phone default, and loop_row_0 restarted at
+  desktop size. Their journal entries record both actual viewports. These
+  passed data continuity while exposing the separate canvas-resize defect.
+- Pest and fire patrols completed across all twelve tiles. After Continue,
+  pests and fires remained absent, lesson protection was false, and every
+  tile's lesson owner was null. The final restored Bot 1 message ran and saved
+  successfully before returning to the menu and closing the browser.
+
+Teaching tips paused and resumed programs normally. Blockly connection and
+selection mistakes were corrected through the UI before the affected quest
+passed. A controller alias briefly referred to a closed tab early in the run;
+reattaching to the live tab preserved its checkpoint. No such tooling issue is
+counted as a game failure or an additional pass.
+
+This batch changes review records only. Automated tests were not rerun for
+documentation changes. Campaign quest checks are not counted again toward M01–M11
+or fault-laboratory minimums; those remaining scenarios are still outstanding.
+
+## UI-003 — Canvas retains phone dimensions after window enlargement
+
+Severity: P2. Status: open. Found and reproduced on `c6ff644`; this is a viewport
+layout defect, with no observed save-data loss.
+
+1. Load the game at 390×844 and choose Continue.
+2. Enlarge the viewport to 1440×1000 without reloading.
+3. The HTML controls resize, but the farm canvas remains 392×848 in both its
+   intrinsic dimensions and CSS bounds. The rest of the farm area is black.
+4. Reload at desktop size and Continue. The canvas becomes 1440×1000 and the
+   same completed farm and programs return. Running Bot 1 and saving still work.
+
+`src/lib/kaplay.js` initializes explicit width/height from the initial window
+dimensions. A resize fix was not made during this fixed-build campaign.
+Evidence: `.manual-save-review/C-viewport-geometry.json`,
+`C-viewport-phone.png`, `C-viewport-desktop-stale.png`, and
+`C-viewport-desktop-recovered.png`. The earlier observed reproduction is also
+retained as `C-viewport-return-desktop.png`.
 
 ## Batch 4: Campaign B completed
 
