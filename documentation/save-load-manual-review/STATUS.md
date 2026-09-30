@@ -3,13 +3,18 @@
 Operator: Codex. Chromium `153.0.8010.12` (headless, rendered UI, persistent
 profiles). Production origin: `http://127.0.0.1:4175`. Initial tested source:
 `56c74ba`, app `1.3.13`. Browser interactions use Playwright as an input tool;
-quest progress is earned by dragging blocks and pressing the game's controls.
+quest progress is earned through the editors and the game's controls.
 
 ## Current progress
 
 - Campaign A completed and claimed all 44 quests through Blockly, including
   every optional quest. Each has a real reload/Continue check. The per-quest record is
-  [quest-matrix.csv](quest-matrix.csv); B and C have not started.
+  [quest-matrix.csv](quest-matrix.csv).
+- Campaign B also completed all 44 quests on production build `c6ff644`: five
+  required onboarding quests in Blockly, then 39 quests using text programs or
+  shop controls. All 39 reachable completed-unclaimed states survived reload;
+  each subsequent claim paid the exact coin and EXP reward. The five automatic
+  onboarding awards were tested immediately after claiming. C has not started.
 - During the first farming quest, till, plant, and water progress survived
   separate reloads. Continued watering grew the same wheat to harvestable.
 - Reloading the introduction restored onboarding and the unchanged main farm.
@@ -23,10 +28,12 @@ quest progress is earned by dragging blocks and pressing the game's controls.
   Crops absorbed water and grew under protection. Completion cleared lesson
   ownership; spoilage counted down and the former lesson crop died normally
   after Continue. An ordinary tile at (1,1) also absorbed water and grew. This
-  supplementary control used the text editor; all 44 quest completions used
+  supplementary control used the text editor; all 44 Campaign A quest completions used
   Blockly. Evidence includes the lifecycle and ordinary-tile snapshots.
-- One M04 edit/Continue case passed: both source forms persisted, and the restored
-  text remained editable and executable. Other M04 minimums remain outstanding.
+- Three M04 cases passed: the earlier dual-source edit/Continue check, a saved
+  unfinished text program repaired and executed after Continue, and separate
+  programs on two bots with selected-bot persistence and independent execution.
+  Nine more minimum reload cases and the other M04 scenario requirements remain.
 - One M02 sugarcane regrowth reload passed: three dry, previously harvested
   plants retained their IDs and exact growth progress. Rewatering the restored
   plants produced three more harvests and exactly 12 coins. Other lifecycle
@@ -37,7 +44,7 @@ quest progress is earned by dragging blocks and pressing the game's controls.
 - M08 has one confirmed replacement and two cancellations (Cancel and Escape).
   An unfinished Move right block marked the old farm; cancellation retained it,
   while replacement reset the program, quests, economy and playthrough ID.
-- Campaigns B/C, the targeted minimums, and endurance batches remain outstanding.
+- Campaign C, the remaining targeted minimums, and endurance batches remain outstanding.
   None of the previously automated checks count toward those manual totals.
 
 Authoritative case records: [journal.jsonl](journal.jsonl). Large evidence and
@@ -103,14 +110,78 @@ The exact final root is `.manual-save-review/batch-3-final-root.json`, revision
 7646, playthrough `fd4dc4ba-de62-4270-b53a-c41e2c33347b`. All 44 claimed flags
 agree with the quest matrix. Earlier batch roots are retained. Campaign A has
 no remaining quests; preserve this developed profile for targeted scenarios.
-Next player-track work: create a separate persistent Campaign B profile at the
-same origin, use New Game, and begin onboarding. B uses text after it unlocks
-and reloads completed-but-unclaimed quests where that state is reachable.
+
+Campaign B is also closed at the main menu in
+`.manual-save-review/profiles/profile-b`. Final root:
+`.manual-save-review/campaign-b-final-root.json`, revision 2317, playthrough
+`a08a646b-768a-4cf1-a9fd-9e911dfc69fd`. It has all 44 quests claimed, 920 coins,
+1,897 EXP, three columns and four rows. Seeds: wheat 12, corn 2, rice 2,
+potato 3, sugarcane 0, tomato 0. Bot 0 is at (0,1), with action duration 0.7;
+Bot 1 is at (2,1), with default action duration 0.8. Text mode and Bot 0 are
+selected. Their programs say distinct Campaign B messages, then jump to their
+respective saved tiles. Lesson protection is inactive.
+
+Next player-track work: create a separate persistent Campaign C profile at the
+same production origin and begin New Game. Alternate editors after onboarding,
+interleave optional quests, and test reload/tab reopen/browser restart after
+claims. Preserve both completed profiles for targeted scenarios.
 
 The separate `new-game-batch` profile contains a fresh replacement in its intro.
 It is not campaign B or C. Remaining M08 minimums: 49 replacements and 18
 cancellations. M09 endurance has not started. M01 needs four more complete
 repetitions; the rest of the targeted/fault matrix remains outstanding.
+
+## Batch 4: Campaign B completed
+
+Campaign B began from New Game in a fresh persistent profile on unchanged
+production build `c6ff644`. Its 44 quest checks span 11:52–12:29 UTC on September
+30, including tool and observation time. No storage or developer progression
+was injected. The first five quests required Blockly onboarding; subsequent
+programming was typed into the text editor. No new save/load defect was found.
+
+All 44 quest checkpoint pairs and two supplementary M04 pairs were independently
+audited. Playthrough/owner identity, economy, quest flags, both program forms,
+farm dimensions, bot positions/upgrades, unlocks, and selected editor/bot matched
+in all 46 pairs. All 44 final claim flags agree with the matrix and journal.
+Detailed local results: `campaign-b-expanded-audit.json`.
+
+- The five onboarding quests automatically award their rewards; a completed but
+  unclaimed state is unavailable. Each was reloaded immediately after the award,
+  preserving claim and balance without another payout. Harvesting the dry
+  introductory crop and starting ordinary farming saved successfully, covering
+  the transitions that exposed BUG-001 and BUG-002 in Campaign A.
+- The other 39 quests were reloaded after committed completion and before
+  claiming. Continue preserved each unclaimed state. Each claim was checked
+  against the exact coin and EXP reward. Optional rewards remained in Mission
+  path after the main mission card regained focus.
+- Buying a row retained the 100-coin deduction and 3×3-to-3×4 expansion. A
+  50-coin action upgrade retained Bot 0's 0.8-to-0.7 duration change, and a
+  500-coin bot purchase retained Bot 1. Both purchases survived before the
+  upgrade quest's reward was claimed.
+- Text variables, conditionals, counters, dimension loops, nested loops,
+  functions, arguments, return values, and indexed arrays survived exactly.
+  Restored programs remained editable and were replaced through normal input
+  for each subsequent quest. Completed pest/fire patrols stayed cleared after
+  reload; lesson ownership and protection remained ended on all twelve tiles.
+- All six crop harvest quests were completed. The five optional crops grew on
+  ordinary tiles using purchased seeds. Longer farm and crop runs used the
+  game's 400% speed control; reload restored the usual 100% speed. Sugarcane's
+  regrowing plants survived the completed-unclaimed reload.
+- M04-B-unfinished-01 preserved an unterminated string and unfinished if block.
+  Starting it did not advance the quest. Editing it into a valid program after
+  Continue allowed planting and saving normally.
+- M04-B-two-bots-01 restored distinct text programs and Bot 1 selection, with
+  both bots stopped at their saved positions. Running Bot 1 moved only Bot 1;
+  selecting and running Bot 0 then reached its separate target. Both outcomes
+  saved successfully.
+
+Teaching dialogs paused runs and resumed after dismissal. An initial `rows`
+reference lacked the required call parentheses; correcting it to `rows()`
+completed the quest. These ordinary authoring/timing corrections were not save
+defects. Quest reloads are not counted again toward targeted/endurance totals;
+only the two distinct M04 reloads increase that targeted count. Campaign C and
+the remaining minimums are still open. This batch changed review records only;
+the prior automated-test results below were not rerun or counted as manual play.
 
 ## Batch 3: Campaign A completed
 
