@@ -153,6 +153,39 @@ async function closeDemo(page) {
   const close = page.getByRole("button", { name: "Close demo", exact: true });
   if (await close.count()) { await close.click(); await expect(close).toHaveCount(0); }
 }
+
+test("Accept challenge commits its opening after gameplay has already been saved", async ({ page }) => {
+  await fresh(page, true); await closeDemo(page);
+  await page.evaluate(async () => {
+    const t = window.saveTesting;
+    t.TUTORIAL.active = false;
+    for (const [id, quest] of Object.entries(t.QUEST_STATE)) {
+      quest.progress = t.QUEST_DATA[id].goal; quest.is_completed = true; quest.is_claimed = true;
+    }
+    t.telemetry.getCollectionContext = () => ({ phase: "gameplay", game_speed: 1, robot_count: 1 });
+    const start = Date.now() - 105000;
+    t.telemetry.collectionSnapshots = Array.from({ length: 21 }, (_, i) => ({
+      timestamp_ms: start + i * 5000, stage: 1, gameplay_segment: 1,
+      context: { phase: "gameplay", game_speed: 1, robot_count: 1 },
+      counters: { errors: 0, edits: i, completed_runs: i, failed_runs: 0, stopped_runs: 0,
+        requested_hints: 0, harvested: i, spoiled: 0, for_loops: 0, while_loops: 0, conditions: 0 }
+    }));
+    t.dataLogger.saveSessionLight(); await t.persistence.tail;
+    const notify = t.persistence.notify;
+    t.persistence.notify = status => {
+      if (status.error) t.lastFailure = { message: status.error.message, cause: String(status.error.cause), stack: status.error.cause?.stack };
+      notify(status);
+    };
+  });
+  await page.getByRole("button").filter({ has: page.getByRole("img", { name: "challenges", exact: true }) }).click();
+  await page.getByRole("button", { name: /Your first harvest/ }).click();
+  await page.getByRole("button", { name: "Accept challenge", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const t = window.saveTesting;
+    return t.lastFailure ?? Object.keys(t.persistence.root.research.assessments).length;
+  })).toBe(1);
+  await expect(page.getByRole("heading", { name: "Your first harvest", exact: true })).toBeVisible();
+});
 test("crop ownership, programs, economy and all crop types survive closure without offline growth", async ({ page }) => {
   await fresh(page, true); await closeDemo(page);
   const saved = await page.evaluate(async () => {

@@ -7,7 +7,8 @@ export function mergeSession(previous, incoming) {
   const attempts = new Map((previous.challenge_attempts ?? []).map(a => [a.assessment_id, a]));
   for (const attempt of incoming.challenge_attempts ?? []) {
     const old = attempts.get(attempt.assessment_id);
-    attempts.set(attempt.assessment_id, old?.reward_claimed && !attempt.reward_claimed || old?.status !== "in_progress" && attempt.status === "in_progress" ? old : attempt);
+    const preservePrevious = old && (old.reward_claimed && !attempt.reward_claimed || old.status !== "in_progress" && attempt.status === "in_progress");
+    attempts.set(attempt.assessment_id, preservePrevious ? old : copy(attempt));
   }
   result.challenge_attempts = [...attempts.values()];
   const events = new Map();
