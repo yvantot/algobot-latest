@@ -15,6 +15,7 @@ export function createCommandAPI({
   farmSize = () => ({ columns: 0, rows: 0 }),
   isUnlocked = () => true,
   onQuestEvent = null,
+  onCommit = null,
   random = Math.random,
 }) {
   // Optional research/UI observers cannot interrupt a student's running code.
@@ -66,6 +67,7 @@ export function createCommandAPI({
         committed = true;
         robot.actionReceipt = { id: globalThis.crypto.randomUUID(), action: name, result };
         observe(after, result, context, values);
+        observe(onCommit);
       };
       const finish = (value, failed = false) => {
         if (settled) return;

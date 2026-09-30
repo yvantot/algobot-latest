@@ -3,6 +3,7 @@ import { buyLand, buyUpgrade, buyPlants } from "./shop.js";
 import { telemetry } from "../ml/telemetry.js";
 import { createCommandAPI } from "./command-api.js";
 import { createInterpreterInit } from "./interpreter-bindings.js";
+import { persistenceChanged } from "../persistence/signals.js";
 
 // Composition boundary shared by the text and block editors. The command API
 // and interpreter adapter themselves have no scene, store or Kaplay imports.
@@ -15,6 +16,8 @@ export function createInit(robot, workspace = null, onQuestEvent = null, depende
     farmSize: () => CONFIG.FARM,
     isUnlocked: (category, key) => DOCUMENT_DATA[category]?.[key]?.is_unlocked ?? true,
     onQuestEvent,
+    onCommit: persistenceChanged,
+    random: () => robot.gameplayRandom?.() ?? Math.random(),
     ...dependencies,
   });
   return createInterpreterInit(api, workspace);

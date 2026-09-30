@@ -17,7 +17,7 @@
   import ChallengeFarm from "./ChallengeFarm.svelte";
   import { CHALLENGES, recordExposure, hasExposure } from "../game/challenges/catalog.js";
   import { canStartChallenge, challengeAccess, challengeWaitMessage, openChallenge, submitChallenge, closeChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
-  import { INVENTORY, PLAYER_DATA } from "../game/global/global.js";
+  import { INVENTORY, PLAYER_DATA, CROP_DATA } from "../game/global/global.js";
   import { QUEST_STATE } from "./global.svelte.js";
   import MenuAlert from "./MenuAlert.svelte";
   import { challengeEntryAllowed } from "../game/challenges/modes.js";
@@ -36,7 +36,8 @@
   import UnlockFlyOverlay from "./UnlockFlyOverlay.svelte";
   import EventBanner from "./EventBanner.svelte";
   import { createResizable, panelIn, panelOut } from "./interface.svelte.js";
-  import { Modals, triggerDidYouKnow, ONBOARDING, beginActiveQuest, robots_state } from "./global.svelte.js";
+  import { Modals, triggerDidYouKnow, ONBOARDING, beginActiveQuest, robots_state, PLAYTHROUGH_UI } from "./global.svelte.js";
+  import { persistence, saveStatus, assessmentTransition, wasExposed, requestSave } from "../game/persistence/runtime.svelte.js";
   import GameDevTools from "./GameDevTools.svelte";
   import DDADashboard from "./DDADashboard.svelte";
   import { k } from "../lib/kaplay.js";
@@ -131,12 +132,12 @@
   function persistChallenge() {
     if (!dataLogger.saveSessionLight()) storageWarning = "Research data could not be saved. Export it before closing this page.";
   }
-  function enterChallenge(task, playMode = "recommended") {
+  async function enterChallenge(task, playMode = "recommended") {
     if (TUTORIAL.active || !QUEST_STATE[task.prerequisite]?.is_claimed) return;
     const gate = studyGate(task);
     if (!gate.allowed) { challengeNotice = gate.reason; return; }
     let exposed;
-    try { exposed = hasExposure(localStorage, telemetry.participantId, task.id); }
+    try { exposed = wasExposed(telemetry.participantId, task.id); }
     catch (error) { challengeNotice=error.message; return; }
     if (!challengeEntryAllowed(canStartChallenge(telemetry), exposed, playMode)) {
       challengeAvailability.ready=false;
@@ -144,8 +145,10 @@
       return;
     }
     try {
-      const firstExposure = recordExposure(localStorage, telemetry.participantId, task.id);
-      challengeAttempt = openChallenge(telemetry, task, firstExposure, Date.now(), playMode);
+      await assessmentTransition("opened", () => {
+        challengeAttempt = openChallenge(telemetry, task, !exposed, Date.now(), playMode);
+        return { assessment: challengeAttempt };
+      });
       if (!exposedTasks.includes(task.id)) exposedTasks.push(task.id);
       challengeRewardAvailable = !farmChallengeRewards.has(task.id);
       ONBOARDING.isModalOpen = true;
@@ -153,29 +156,36 @@
       persistChallenge();
     } catch (error) { challengeNotice = error.message; }
   }
-  function leaveChallenge() {
-    if (!challenge) return;
-    closeChallenge(telemetry, challengeAttempt);
-    persistChallenge();
+  async function leaveChallenge() {
+    if (!challenge) return true;
+    try { await assessmentTransition("closed", () => {
+      closeChallenge(telemetry, challengeAttempt);
+      return { assessment: challengeAttempt };
+    }); } catch { return false; }
     challenge = null;
+    return true;
   }
-  onDestroy(leaveChallenge);
-  function scoreChallenge(result, source, editor) {
-    submitChallenge(telemetry, challengeAttempt, result, source, editor);
-    persistChallenge();
+  async function scoreChallenge(result, source, editor) {
+    await assessmentTransition("scored", () => {
+      submitChallenge(telemetry, challengeAttempt, result, source, editor);
+      return { assessment: challengeAttempt };
+    });
   }
   function stopChallenge(source, editor) {
     interruptChallenge(telemetry, challengeAttempt, source, editor); persistChallenge();
   }
-  function rewardChallenge() {
-    const granted = claimChallengeReward(telemetry, challengeAttempt, () => {
+  async function rewardChallenge() {
+    const result = await assessmentTransition("reward", () => {
+      const granted = claimChallengeReward(telemetry, challengeAttempt, () => {
       INVENTORY.changeCoins(challenge.coins);
       PLAYER_DATA.changeExp(challenge.exp);
-    }, farmChallengeRewards);
+      }, farmChallengeRewards);
+      return { assessment: challengeAttempt, granted };
+    });
     challengeRewardAvailable = false;
     rewardedChallenges=[...farmChallengeRewards];
     persistChallenge();
-    return granted;
+    return result.granted;
   }
   onMount(() => {
     const timer = setInterval(() => {
@@ -186,7 +196,8 @@
     }, 1000);
     return () => clearInterval(timer);
   });
-  let current_editor = $state(Editors.BLOCK);
+  let current_editor = $state(PLAYTHROUGH_UI.editor);
+  $effect(() => { PLAYTHROUGH_UI.editor = current_editor; });
   let docQuery=$state("");
   let docOpen=$state(false), docLoaded=$state(false), showDocEditor=$state(false), docPreview=$state(null);
   let blockEditor=$state(), textEditor=$state();
@@ -204,9 +215,10 @@
     current_menu=Menus.COMMAND; showDocEditor=true; await tick();
     if(editor==="text")textEditor.insertExample(example.code);else blockEditor.insertExample(example.block);
   }
-  let showOnboarding = $state(false);
-  let showIntroduction = $state(false);
-  let demoLesson = $state("basics"), completedDemos = $state([]);
+  let showOnboarding = $state(PLAYTHROUGH_UI.entryScreen === "onboarding");
+  let showIntroduction = $state(PLAYTHROUGH_UI.entryScreen === "demonstration");
+  let demoLesson = $state("basics"), completedDemos = $state([...PLAYTHROUGH_UI.completedDemos]);
+  $effect(() => { PLAYTHROUGH_UI.completedDemos = [...completedDemos]; });
   function completeDemo(lesson) {
     claimDemoReward(completedDemos, lesson, reward => { INVENTORY.changeCoins(reward.coins); PLAYER_DATA.changeExp(reward.exp); telemetry._logRawEvent("optional_demo_completed", { lesson, coins: reward.coins, exp: reward.exp }); });
   }
@@ -245,15 +257,15 @@
     const hintNotice = createTransientNotice(message => activeHint = message);
     let predictionTimer;
     let saveTimer;
-    const entryScreen = farmEntryScreen(isNewFarm, preferences);
+    const entryScreen = PLAYTHROUGH_UI.entryScreen;
     showIntroduction = entryScreen === "demonstration";
     showOnboarding = entryScreen === "onboarding";
     let participantId = `p_${crypto.randomUUID()}`;
     let participantSource = "temporary_browser_pseudonym";
     try {
-      const participant = resolveParticipant(window.location.search, localStorage);
-      participantId = participant.id;
-      participantSource = participant.source;
+      const participant = persistence.current.owner;
+      participantId = participant.participantId;
+      participantSource = participant.identityKind;
     } catch (error) {
       storageWarning = `Participant code or storage could not be saved: ${error.message} Export data before closing.`;
     }
@@ -263,8 +275,14 @@
     configureFarmEvents(farm_grid_index, { shouldRun });
     const resumedStage = telemetry.currentStage;
     telemetry.resetSession();
+    telemetry.playthroughId = persistence.current.playthroughId;
+    telemetry.recoveryGeneration = persistence.current.recoveryGeneration;
+    telemetry.researchExclusionReasons = [...persistence.current.payload.exclusions];
     telemetry.setStage(resumedStage);
     mlAgent.resetSession();
+    dda.applyAction(persistence.current.payload.difficulty);
+    mlAgent.lastAction = persistence.current.payload.difficulty;
+    for (const [type, profile] of Object.entries(persistence.current.payload.cropData)) Object.assign(CROP_DATA[type], profile);
     telemetry.setParticipantId(participantId);
     telemetry.participantIdSource = participantSource;
     const protocol = studyProtocolFor(participantSource);
@@ -272,7 +290,7 @@
     telemetry.studyProtocol = protocol;
     mlAgent.setFixedDifficulty(studyProtocol ? DDA_ACTIONS.NORMAL : null);
     if (studyProtocol && !studySpeedAllowed(studyProtocol, game_speed)) game_speed = studyProtocol.game_speed;
-    try { exposedTasks = CHALLENGES.filter(task=>hasExposure(localStorage,participantId,task.id)).map(task=>task.id); } catch { exposedTasks=[]; }
+    try { exposedTasks = CHALLENGES.filter(task=>wasExposed(participantId,task.id)).map(task=>task.id); } catch { exposedTasks=[]; }
     const collectionContext = () => ({
       phase: challenge ? "challenge" : showIntroduction || !!docPreview ? "demonstration"
         : document.hidden ? "hidden" : ONBOARDING.isModalOpen ? "modal"
@@ -345,6 +363,7 @@
   $effect(() => {
     ONBOARDING.isModalOpen = showFinishData || !!challenge || showOnboarding || showIntroduction || !!docPreview || QUEST_FEEDBACK.hazardsPending || !!QUEST_FEEDBACK.queue[0]?.milestone;
   });
+  $effect(() => { PLAYTHROUGH_UI.entryScreen = showIntroduction ? "demonstration" : showOnboarding ? "onboarding" : null; });
 
   function toggleEditor() {
     if (TUTORIAL.active) return;
@@ -368,6 +387,14 @@
 </script>
 
 <svelte:window onkeydown={e=>{if(e.key==="Escape"&&!docPreview&&docOpen){e.preventDefault();closeDocumentation();}}}/>
+<div class="fixed bottom-2 left-2 z-[10001] max-w-sm rounded border border-slate-500 bg-slate-900 p-2 text-white text-xs" role="status">
+  {saveStatus.phase === "saving" ? "Saving…" : saveStatus.phase === "error" ? `Save failed: ${saveStatus.error?.message}` : "Farm saved"}
+  {#if saveStatus.notice}<p>{saveStatus.notice}</p><button class="underline" onclick={() => saveStatus.notice = ""}>Dismiss</button>{/if}
+  {#if saveStatus.phase === "error"}
+    <button class="underline p-2" onclick={() => persistence.checkpoint().catch(() => {})}>Retry save</button>
+    <button class="underline p-2" onclick={() => { if (confirm("Return to the menu without saving recent changes? Your last saved farm will be kept.")) onReturnMenu({ discard: true }); }}>Leave without saving</button>
+  {/if}
+</div>
 <div inert={!!challenge||showFinishData} class:challenge-hidden={!!challenge} class:cutscene={showIntroduction||!!docPreview} class="fixed h-[97vh] top-2 right-2 bottom-2 overflow-hidden rounded-lg">
   {#if storageWarning}
     <div role="alert" class="fixed top-4 left-1/2 -translate-x-1/2 max-w-sm rounded-lg border-2 border-red-400 bg-white p-3 text-sm text-red-900 shadow-lg">{storageWarning}</div>
@@ -751,7 +778,7 @@
       <p
         class="text-sm text-slate-600 leading-relaxed bg-white p-3 rounded-lg border border-slate-300"
       >
-        Return to the Start Menu? Your farm will pause and can be resumed here. Reloading the page starts a new farm. Research data is stored separately when browser storage is available.
+        Save your farm and return to the Start Menu? You can choose Continue here or after reloading. Your programs will be stopped.
       </p>
 
       <div class="flex justify-end gap-2 pt-1">

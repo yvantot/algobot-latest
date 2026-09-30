@@ -97,6 +97,8 @@ export class DataLogger {
       export_date: new Date().toISOString(),
       feature_schema_version: "10f",
       telemetry_revision: "v5-context-segmented-gameplay",
+      playthrough_id: telemetry.playthroughId ?? null,
+      recovery_generation: telemetry.recoveryGeneration ?? 0,
       build: typeof __BUILD_PROVENANCE__ === "undefined" ? { commit: "unknown", dirty: null } : __BUILD_PROVENANCE__,
       research_features: { schema: COLLECTION_SCHEMA, names: COLLECTION_FEATURES, intervals_required: 20, lookback_minutes: 15 },
       source_type: telemetry.researchExclusionReasons.length ? "developer_test" : "recorded",
@@ -144,6 +146,7 @@ export class DataLogger {
   }
 
   _readStoredSessions() {
+    if (this.persistence) return structuredClone(this.persistence.sessions());
     const stored = JSON.parse(localStorage.getItem(this.storageKey) || "[]");
     if (!Array.isArray(stored) || stored.some(session => !session || typeof session !== "object")) {
       throw new Error("Saved session data is malformed; existing storage was preserved");
@@ -158,6 +161,14 @@ export class DataLogger {
     try {
       const current = this.buildSessionExport();
       this.pendingSessions.set(current.session_id, structuredClone(current));
+      if (this.persistence) {
+        const pending = [...this.pendingSessions.values()];
+        Promise.all(pending.map(session => this.persistence.save(session))).then(() => {
+          for (const session of pending) if (this.pendingSessions.get(session.session_id) === session) this.pendingSessions.delete(session.session_id);
+          this.lastPersistenceError = null;
+        }).catch(error => { this.lastPersistenceError = error.message; });
+        return true;
+      }
       const stored = this._readStoredSessions();
       for (const pending of this.pendingSessions.values()) {
         const index = stored.findIndex(session => (session.session_id ?? session.summary?.sessionId) === pending.session_id);
@@ -272,6 +283,11 @@ export class DataLogger {
   }
 
   clearAllData() {
+    if (this.persistence) return this.persistence.clear().then(() => {
+      this.pendingSessions.clear(); this.clearedSessionIds.add(telemetry.sessionId);
+      clearParticipant(localStorage);
+      return "Research data and participant ID cleared. Reload to start with a new participant.";
+    });
     localStorage.removeItem(this.storageKey);
     localStorage.removeItem(this.rawStorageKey);
     localStorage.removeItem("algobot_replay_buffer");

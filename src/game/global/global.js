@@ -1,4 +1,5 @@
-import { lerp } from "../utils/math.js";
+import { lerp } from "../utils/scalar-math.js";
+import { persistenceChanged } from "../persistence/signals.js";
 import { RewardTypes, CropTypes } from "./enum.js";
 import { getWeatherArtwork } from "../events/artwork.js";
 
@@ -148,6 +149,7 @@ export const PLAYER_DATA = {
   },
   changeExp(amount) {
     this.exp += amount;
+    persistenceChanged();
     this.updateUI();
   },
   updateUI() {
@@ -187,6 +189,7 @@ export const INVENTORY = {
     [CropTypes.TOMATO]: null,
   },
   changeCoins(amount) {
+    persistenceChanged();
     const start_value = this.coins;
     const end_value = this.coins + amount;
     this.coins = end_value;
@@ -223,6 +226,7 @@ export const INVENTORY = {
   },
   changeCrops(type, amount) {
     this.crops[type] += amount;
+    persistenceChanged();
 
     this.updateUI();
   },

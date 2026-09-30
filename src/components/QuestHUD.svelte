@@ -46,6 +46,10 @@
   $effect(() => {
     const id = key;
     untrack(() => {
+      if (farm_grid_index.lessonQuest === id && farm_grid_index.lessonActive && !QUEST_STATE[id]?.is_completed) {
+        setupAttempted = id;
+        return;
+      }
       releaseLesson(farm_grid_index);
       setupAttempted = null;
       setupMessage = "";
@@ -106,7 +110,7 @@
       idle++;
       if (idle >= 35 || errors - lastErrors >= 2) { offered = true; lastErrors = errors; }
     }, 1000);
-    return () => { clearInterval(timer); releaseLesson(farm_grid_index); window.removeEventListener("pointerdown", resetIdle); window.removeEventListener("keydown", resetIdle); };
+    return () => { clearInterval(timer); window.removeEventListener("pointerdown", resetIdle); window.removeEventListener("keydown", resetIdle); };
   });
 </script>
 

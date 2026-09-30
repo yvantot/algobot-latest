@@ -1,5 +1,5 @@
 <script>
-  import { robots, robots_state, ONBOARDING } from "./global.svelte.js";
+  import { robots, robots_state, ONBOARDING, PLAYTHROUGH_UI } from "./global.svelte.js";
   import { createInit } from "../game/global/interpreter.js";
   import { trackQuest, beginActiveQuest } from "./global.svelte.js";
   import { telemetry } from "../game/ml/telemetry.js";
@@ -33,7 +33,8 @@
     });
   }
 
-  let selected_robot = $state(0);
+  let selected_robot = $state(PLAYTHROUGH_UI.textBot);
+  $effect(() => { PLAYTHROUGH_UI.textBot = selected_robot; });
 
   // Create interpreter for every robots
   $effect(() => {
@@ -57,7 +58,7 @@
     setTimeout(() => (is_command_ready = true), 2000);
     view = createBotTextEditor({
       parent: document.getElementById("editor-container"),
-      doc: robots_state[selected_robot]?.text_code || 'bot.say("Hello World!")',
+      doc: robots_state[selected_robot]?.text_code ?? 'bot.say("Hello World!")',
       onChange(code) {
         if (robots_state[selected_robot]) { telemetry.recordCodeEdit(); robots_state[selected_robot].text_code=code; }
       },

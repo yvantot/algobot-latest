@@ -27,6 +27,7 @@ export function botact(id, farm_grid_index) {
     bot_action_elapsed: false,
     bot_action_result: true,
     bot_move_timer: null,
+    gameplayRandom() { return (farm_grid_index.random ?? Math.random)(); },
 
     add() {
       this.inbox = joinBotInbox(farm_grid_index, id);

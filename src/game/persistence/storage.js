@@ -28,48 +28,49 @@ export class SaveStorage {
       };
     });
   }
-  async transaction(change = null) {
+  async transaction(change = null, onCommit = null) {
     const db = await this.open();
     return new Promise((resolve, reject) => {
       const tx = db.transaction("state", change ? "readwrite" : "readonly");
       const store = tx.objectStore("state");
       const read = store.get("root");
-      let result, failure;
+      let result, failure, committedRoot;
       read.onsuccess = () => {
         try {
           this.fault("read", tx);
           const root = read.result ?? emptyDatabase();
+          committedRoot = root;
           result = change ? change(root) : root;
           if (change) { this.fault("before-write", tx); store.put(root, "root"); this.fault("after-write", tx); }
         } catch (error) { failure = error; tx.abort(); }
       };
-      tx.oncomplete = () => resolve(result);
+      tx.oncomplete = () => { onCommit?.(committedRoot); resolve(result); };
       tx.onabort = tx.onerror = () => reject(storageError(failure ?? tx.error));
     });
   }
   read() { return this.transaction(); }
-  acquire(writer) {
+  acquire(writer, { exclusiveLock = false } = {}) {
     return this.transaction(root => {
-      if (root.lease && root.lease.writer !== writer && root.lease.until > this.now()) throw new SaveError("conflict", "Another tab is using this farm. Close it before continuing.");
+      if (!exclusiveLock && root.lease && root.lease.writer !== writer && root.lease.until > this.now()) throw new SaveError("conflict", "Another tab is using this farm. Close it before continuing.");
       root.lease = { writer, until: this.now() + 15000 };
       return root.revision;
     });
   }
   release(writer) { return this.transaction(root => { if (root.lease?.writer === writer) root.lease = null; }); }
-  update(writer, revision, change) {
+  update(writer, revision, change, onCommit = null) {
     return this.transaction(root => {
       if (root.revision !== revision || root.lease?.writer !== writer || root.lease.until <= this.now()) throw new SaveError("conflict", "Another tab changed this farm. Reload before continuing.");
       change(root);
       root.revision++;
       root.lease.until = this.now() + 15000;
       return root.revision;
-    });
+    }, onCommit);
   }
   heartbeat(writer) { return this.transaction(root => {
     if (root.lease?.writer !== writer || root.lease.until <= this.now()) throw new SaveError("conflict", "The farm writer expired. Reload before continuing.");
     root.lease.until = this.now() + 15000;
   }); }
-  checkpoint(writer, revision, save, { replace = false, boundary = false, research = null } = {}) {
+  checkpoint(writer, revision, save, { replace = false, boundary = false, research = null, onCommit = null } = {}) {
     const detached = validateSave(save);
     return this.update(writer, revision, root => {
       if (!replace && root.active && (root.active.playthroughId !== detached.playthroughId || detached.revision <= root.active.revision)) throw new SaveError("conflict", "Stale farm checkpoint.");
@@ -78,7 +79,7 @@ export class SaveStorage {
       if (replace) root.floor = 0;
       if (boundary) root.floor = detached.revision;
       research?.(root.research);
-    });
+    }, onCommit);
   }
   close() { this.db?.close(); this.db = null; }
 }

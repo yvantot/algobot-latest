@@ -12,6 +12,7 @@ export const CLAIMED_REWARDS = $state([]);
 export const robots = $state([]);
 
 export const robots_state = $state([])
+export const PLAYTHROUGH_UI = $state({ editor: 0, blockBot: 0, textBot: 0, completedDemos: [], entryScreen: "demonstration" });
 
 export const ONBOARDING = $state({
 	startClicked: false,

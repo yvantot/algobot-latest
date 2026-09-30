@@ -19,7 +19,13 @@ export function createLandBackground() {
 }
 
 
-export function game() {
+let initialized = false;
+function enterFarm(build) {
+  return new Promise((resolve, reject) => k.go("farm", build, resolve, reject));
+}
+export function game(build = null) {
+  if (initialized) return enterFarm(build);
+  initialized = true;
   initKaplay();
   setGridOrigin(k, CONFIG.FARM);
   setCameraCenter(k, CAMERA);
@@ -118,8 +124,13 @@ export function game() {
 
   k.setLayers(["grass_bg", "land_bg", "soil", "entities"], "entities");
 
-  k.scene("farm", () => {
+  k.scene("farm", (build, resolve, reject) => {
+    try {
+    farm_grid_index.clear();
+    robots.splice(0);
     const farm = CONFIG.FARM;
+    setGridOrigin(k, farm);
+    setCameraCenter(k, CAMERA);
 
     // Grass background
     k.setBackground(farm.bg_grass);
@@ -135,11 +146,13 @@ export function game() {
       }
     }
     // Then add the bots
-    addFarmbot(robots.length, farm_grid_index, 0, 0);
-
+    if (build) build();
+    else addFarmbot(robots.length, farm_grid_index, 0, 0);
+    resolve?.();
+    } catch (error) { reject?.(error); }
   });
 
-  k.go("farm");
+  return enterFarm(build);
 }
 
 export function printFarmGridIndex() {

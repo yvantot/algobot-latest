@@ -75,7 +75,7 @@
         onAction:event=>{if(task.kind){work=event;updateReadings();if(event.command==="send")lastMessage=`Bot ${event.bot} sent ${String(event.args[1])} to Bot ${event.args[0]}.`;if(event.command==="pests_arrive")speech="Here come the hungry visitors! They get whatever you left behind.";}} });
       if (disposed || closing) return;
       activeSource = null;
-      onSubmit(outcome, code, mode);
+      await onSubmit(outcome, code, mode);
       result=outcome; mood=outcome.passed?"happy":"think";
       speech = task.kind ? outcome.passed ? "Now that's a plan! I might let you run MY farm next." : "The farm has a different idea! Look at the rules below to see what your plan missed."
         : outcome.passed ? "Well, look at you! Every ripe crop, every row. I may have to borrow YOUR farming plan."
@@ -92,11 +92,19 @@
     speech="Stopped! Your program is still here. Change the loop, then try again.";
     mood="think";
   }
-  function collect() { reward=onReward(); if(reward){mood="happy";speech="A deal's a deal! Your farm rewards are ready.";} }
+  async function collect() {
+    if (reward) return;
+    try { reward = await onReward(); if(reward){mood="happy";speech="A deal's a deal! Your farm rewards are ready.";} }
+    catch (error) { speech = `Reward could not be saved: ${error.message}`; }
+  }
   function exitChallenge() {
     if(closing)return;
     stop(false); closing=true; controller?.abort();
-    closingTimer=setTimeout(()=>{world?.dispose();onClose();},matchMedia("(prefers-reduced-motion: reduce)").matches?0:300);
+    closingTimer=setTimeout(async()=>{
+      try {
+        if (await onClose() === false) { closing=false; error="Could not save the challenge. Try returning to the farm again."; }
+      } catch (cause) { closing=false; error=cause.message; }
+    },matchMedia("(prefers-reduced-motion: reduce)").matches?0:300);
   }
   function keys(event) {
     if(event.defaultPrevented)return;

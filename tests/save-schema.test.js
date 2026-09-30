@@ -15,6 +15,8 @@ test("save schema detaches data and rejects invalid references, bounds and futur
     s => s.payload.economy.crops.wheat = .5, s => s.payload.quests.tut_2.is_claimed = true,
     s => s.payload.tiles[0].soil.water = 1, s => s.payload.hazards.fires.push({ cropId: "missing" }),
     s => s.payload.hazards.drops.push({ cloudId: "missing" }),
+    s => delete s.payload.cropData.wheat, s => s.payload.cropData.wheat.duration = -1,
+    s => s.payload.shop.unknown = {}, s => s.payload.lessonFires.push("0-0"),
   ]) { const bad = saveFixture(); corrupt(bad); assert.throws(() => validateSave(bad)); }
   assert.throws(() => plainData({ callback() {} }));
   assert.throws(() => plainData(new Map()));

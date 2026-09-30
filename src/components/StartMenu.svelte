@@ -4,10 +4,17 @@
   import { onMount } from "svelte";
   import { getAudioVolumes, setCategoryVolume } from "../game/utils/sound.js";
   import { version } from "../../package.json";
+  import { QUEST_DATA } from "../game/global/quests.js";
 
   const displayVersion = version.replace(/\.0$/, "");
 
-  let { onStart } = $props();
+  let { onStart, onContinue, onRecover, onRetry, onExport, savedFarm = null, hasSave = false, loading = false, error = "", canRecover = false } = $props();
+  let chapter = $derived(savedFarm ? Object.entries(QUEST_DATA).find(([id, quest]) => !quest.optional && !savedFarm.payload.quests[id]?.is_claimed)?.[1].chapter : null);
+  let overwriteDialog;
+  function newGame() {
+    if (hasSave) overwriteDialog.showModal();
+    else onStart();
+  }
 
   let activeModal = $state(null); // null | 'settings' | 'about'
   let pixelDensity = $state(1);
@@ -69,11 +76,24 @@
     <!-- Vertical 2.5D Wood Buttons -->
     <div class="flex flex-col gap-4 w-64">
       <button
-        onclick={handleStart}
+        onclick={onContinue}
+        disabled={loading || !savedFarm}
         class="wood-button-25d w-full py-3.5 text-base cursor-pointer text-center select-none"
       >
-        Start Game
+        {loading ? "Loading…" : "Continue"}
       </button>
+      {#if savedFarm}
+        <p class="rounded bg-slate-900/90 p-2 text-center text-white text-sm">{savedFarm.payload.personalize.FARM_NAME}{chapter ? ` · Chapter ${chapter}` : ""}<br />Saved {new Date(savedFarm.savedAt).toLocaleString()}</p>
+      {/if}
+      <button onclick={newGame} disabled={loading} class="wood-button-25d w-full py-3.5 text-base cursor-pointer text-center select-none">New Game</button>
+      {#if error}
+        <div role="alert" class="rounded border-2 border-red-700 bg-white p-3 text-red-900 text-sm">
+          <p>{error}</p>
+          <button onclick={onRetry} disabled={loading} class="underline mt-2">Retry</button>
+          {#if hasSave}<button onclick={onExport} disabled={loading} class="underline mt-2 ml-3">Export save</button>{/if}
+          {#if canRecover}<button onclick={onRecover} disabled={loading} class="underline mt-2 ml-3">Recover previous save</button>{/if}
+        </div>
+      {/if}
 
       <button
         onclick={() => (activeModal = "settings")}
@@ -324,6 +344,15 @@
   {/if}
 </div>
 
+<dialog bind:this={overwriteDialog} aria-labelledby="replace-save-title" class="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border-4 border-slate-600 bg-slate-100 p-6 text-slate-900 backdrop:bg-black/60">
+  <h2 id="replace-save-title" class="font-bold text-lg">Replace your saved farm?</h2>
+  <p class="mt-3 text-sm leading-relaxed">New Game will replace {savedFarm?.payload.personalize.FARM_NAME ?? "your existing farm"}. This cannot be undone. Research records and settings will be kept.</p>
+  <div class="mt-5 flex justify-end gap-3">
+    <button onclick={() => overwriteDialog.close()} class="min-h-11 rounded border-2 border-slate-500 px-4 py-2 text-sm">Cancel</button>
+    <button onclick={() => { overwriteDialog.close(); onStart(); }} class="min-h-11 rounded bg-red-700 px-4 py-2 text-sm text-white">Replace farm</button>
+  </div>
+</dialog>
+
 <style>
   .custom-scrollbar::-webkit-scrollbar {
     width: 4px;
@@ -334,7 +363,7 @@
   }
 
   .wood-button-25d {
-    background: #b8753b;
+    background: #945926;
     border-top: 2px solid #c8874a;
     border-bottom: 5px solid #6b3d1f;
     border-radius: 12px;
@@ -369,4 +398,6 @@
       0 3px 6px rgba(0, 0, 0, 0.4),
       inset 0 2px 5px rgba(0, 0, 0, 0.4);
   }
+  .wood-button-25d:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+  .wood-button-25d:focus-visible { outline: 3px solid #fff6e5; outline-offset: 4px; }
 </style>

@@ -4,7 +4,7 @@
   import "blockly/blocks";
   import { javascriptGenerator } from "blockly/javascript";
   import { CONFIG, DOCUMENT_DATA } from "../game/global/global";
-  import { robots, robots_state, UNLOCK_VERSION, ONBOARDING, TUTORIAL, currentQuest } from "./global.svelte.js";
+  import { robots, robots_state, UNLOCK_VERSION, ONBOARDING, TUTORIAL, currentQuest, PLAYTHROUGH_UI } from "./global.svelte.js";
   import { INTRO_QUESTS } from "../game/global/tutorial.js";
   import { trackQuest, beginActiveQuest } from "./global.svelte.js";
   import { createResizable } from "./interface.svelte.js";
@@ -40,7 +40,8 @@
     const category = toolbox?.getToolboxItems().find(item => item.getName?.().includes(tutorialCategory));
     if (category) toolbox.setSelectedItem(category);
   }
-  let selected_robot = $state(0);
+  let selected_robot = $state(PLAYTHROUGH_UI.blockBot);
+  $effect(() => { PLAYTHROUGH_UI.blockBot = selected_robot; });
   let is_command_ready = $state(false);
   let startBtnRef = $state(null);
   let spotlightRect = $state(null);
@@ -826,7 +827,15 @@
     prepare(index) {
       robots_state[index].onQuestEvent = trackQuest;
       beginActiveQuest();
-      if (index === selected_robot && workspace) robots_state[index].block_code = javascriptGenerator.workspaceToCode(workspace); return robots_state[index].block_code;
+      if (index === selected_robot && workspace) robots_state[index].block_code = javascriptGenerator.workspaceToCode(workspace);
+      else {
+        const savedWorkspace = new Blockly.Workspace();
+        try {
+          Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(robots_state[index].blockly_xml || "<xml></xml>"), savedWorkspace);
+          robots_state[index].block_code = javascriptGenerator.workspaceToCode(savedWorkspace);
+        } finally { savedWorkspace.dispose(); }
+      }
+      return robots_state[index].block_code;
     },
     init: (index) => createInit(robots_state[index].robot, index === selected_robot ? workspace : null, trackQuest),
     highlight(index, node) {
@@ -948,6 +957,7 @@
       TUTORIAL.sequenceBlocks = blocks.filter(block => movement.includes(block.type) &&
         (movement.includes(block.getNextBlock()?.type) || movement.includes(block.getPreviousBlock()?.type))).map(block => block.id);
       if (robots_state[selected_robot]) {
+        robots_state[selected_robot].blockly_xml = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(workspace));
         robots_state[selected_robot].block_code =
           javascriptGenerator.workspaceToCode(workspace);
       }
