@@ -1,3 +1,4 @@
+import { challengeCropData } from "./crop-profile.js";
 import { k } from "../../lib/kaplay.js";
 import { BASE_CROP_DATA, CONFIG } from "../global/global.js";
 import { CropStates, SoilStates } from "../global/enum.js";
@@ -38,6 +39,7 @@ export function startChallengeFarm(getViewport) {
   }
   function reset(layout, task = {}) {
     if (disposed) throw Error("Challenge farm has closed.");
+    farm.cropData = challengeCropData(BASE_CROP_DATA, task);
     clear(); farm.demoBounds = { columns: layout.length, rows: 1 };
     farm.freezeCropLifecycle = !["sequence", "team"].includes(task.kind);
     owned.push(...addLandBackground(k, { ...CONFIG.FARM, ...farm.demoBounds }));

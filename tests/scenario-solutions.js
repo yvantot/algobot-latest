@@ -1,6 +1,6 @@
 // Staff-only solutions for regression checks; not inserted into student editors.
 export const scenarioSolutions = {
-  sequence:'for(var x=0;x<columns();x++){bot.till();bot.plant("corn");bot.water();bot.wait(30);bot.water();bot.wait(30);bot.harvest();if(x<columns()-1)bot.right();}',
+  sequence:'for(var x=0;x<columns();x++){bot.till();bot.plant("corn");bot.water();bot.wait(5);bot.water();bot.wait(5);bot.harvest();if(x<columns()-1)bot.right();}',
   team:JSON.stringify({programs:['for(var x=0;x<columns();x++){bot.jump(x,0);bot.water();bot.wait(1);bot.water();bot.wait(1);bot.send(1,x);}','for(var n=0;n<columns();n++){while(!bot.has_message()){bot.wait(0.2);}var x=bot.receive();bot.jump(x,0);bot.harvest();}']}),
   clinic:'for(var x=0;x<columns();x++){if(bot.is_dead()){bot.destroy();}else if(bot.is_harvestable()){bot.harvest();}else{bot.water();}if(x<columns()-1)bot.right();}',
   irrigation:'for(var x=0;x<columns();x++){bot.water();if(x<columns()-1)bot.right();}',

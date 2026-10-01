@@ -1,3 +1,4 @@
+import { CORN_ARCHIVE } from "./archived-corn.js";
 import { SCENARIO_CHALLENGES } from "./archived-scenarios.js";
 import { REVIEW_ARCHIVE } from "./archived-review-scenarios.js";
 
@@ -39,5 +40,6 @@ export const HISTORICAL_CHALLENGES = [
     cases:[[1,0,1,0,1],[0,0,0,0,0,0,0],[0,1,0,1,1,0,1,0,1]],
   },
   ...SCENARIO_CHALLENGES,
+  ...CORN_ARCHIVE,
   ...REVIEW_ARCHIVE.filter(task => !SCENARIO_CHALLENGES.some(old => old.id === task.id)),
 ];

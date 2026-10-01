@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
-import {  recordExposure, challengeMaxScore } from "../src/game/challenges/catalog.js";
+import { CHALLENGES as ACTIVE_CHALLENGES, recordExposure, challengeMaxScore } from "../src/game/challenges/catalog.js";
 import { evaluateChallenge } from "../src/game/challenges/engine.js";
 import { canStartChallenge, challengeAccess, openChallenge, submitChallenge, closeChallenge, claimChallengeReward, interruptChallenge } from "../src/game/challenges/records.js";
 import { challengeSamples } from "../scripts/collection-dataset.js";
@@ -253,4 +253,13 @@ test("freestyle outcomes retain mode metadata and stay outside Recommended train
   const prepared=challengeSamples([{session_id:tracker.sessionId,student_id:tracker.participantId,source_type:'recorded',challenge_attempts:[attempt]}],attempt.task_id);
   assert.equal(prepared.samples.length,0);
   assert.equal(prepared.excluded[0].reason,'freestyle_practice_only');
+});
+
+
+test("short corn exports identify the changed crop profile",()=>{
+  const task=ACTIVE_CHALLENGES.find(t=>t.id==='corn-sequence-v3');
+  const tracker=new TelemetryTracker();
+  const attempt=openChallenge(tracker,task,true);
+  assert.equal(attempt.crop_profile,'corn-5s-v1');
+  assert.equal(attempt.rubric_version,'corn-sequence-3.0');
 });
