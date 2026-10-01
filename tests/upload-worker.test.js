@@ -42,3 +42,21 @@ test("answers the browser's CORS preflight for each game address", async () => {
   assert.equal(response.status, 204);
   assert.match(response.headers.get("Access-Control-Allow-Headers"), /X-Study-Token/);
 });
+
+
+test("upload failures log searchable identity and safe reasons without data or credentials",async t=>{
+ const logs=[];t.mock.method(console,'error',entry=>logs.push(entry));
+ await worker.fetch(upload({'X-Participant':'P017','X-Study-Token':'private-token'}),fakeEnv());
+ assert.equal(logs[0].participant_code,'P017');assert.equal(logs[0].session_id,'s-1');
+ assert.equal(logs[0].status,403);assert.equal(logs[0].reason,'invalid_upload_token');
+ assert.equal(logs[0].event,'research_upload_failed');
+ await worker.fetch(upload({'X-Participant':'../unsafe'},'private-gameplay-body'),fakeEnv());
+ assert.equal(logs[1].participant_code,null);assert.equal(logs[1].reason,'invalid_identity');
+ await worker.fetch(upload({},'private-gameplay-body'),fakeEnv());assert.equal(logs[2].reason,'invalid_dataset');
+ const env=fakeEnv();env.DATA.get=async()=>{throw Error('secret internal failure');};
+ await worker.fetch(upload({}),env);assert.equal(logs[3].reason,'storage_unavailable');
+ await worker.fetch(upload({Origin:'https://untrusted.example'}),fakeEnv());assert.equal(logs[4].reason,'origin_not_allowed');
+ assert(!/private-token|private-gameplay-body|secret internal|untrusted.example/.test(JSON.stringify(logs)));
+ assert(logs.every(entry=>Number.isFinite(Date.parse(entry.timestamp))));
+ const count=logs.length;await worker.fetch(upload({}),fakeEnv());assert.equal(logs.length,count);
+});

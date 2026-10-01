@@ -16,11 +16,24 @@ export default {
       "Access-Control-Max-Age": "86400",
       Vary: "Origin",
     };
-    const reply = (status, body) => Response.json(body, { status, headers: cors });
+    const reply = (status, body) => {
+      if (status >= 400 && request.method === "POST" && url.pathname === "/upload") {
+        const participant = request.headers.get("X-Participant") ?? "";
+        const session = request.headers.get("X-Session") ?? "";
+        console.error({ event: "research_upload_failed", participant_code: SAFE_ID.test(participant) ? participant : null,
+          session_id: SAFE_ID.test(session) ? session : null, identity_source: "request_headers",
+          round: SAFE_ID.test(env.ROUND ?? "") ? env.ROUND : null, status,
+          reason: uploadFailureReason(body.error), timestamp: new Date().toISOString() });
+      }
+      return Response.json(body, { status, headers: cors });
+    };
 
     if (origin && !allowed.includes(origin)) return reply(403, { error: "origin not allowed" });
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-    if (request.method === "POST" && url.pathname === "/upload") return upload(request, env, reply);
+    if (request.method === "POST" && url.pathname === "/upload") {
+      try { return await upload(request, env, reply); }
+      catch { return reply(503, { error: "unexpected upload failure" }); }
+    }
     if (request.method === "GET" && url.pathname.startsWith("/admin/")) return admin(request, env, url);
     return reply(404, { error: "not found" });
   },
@@ -72,4 +85,21 @@ async function admin(request, env, url) {
     return new Response(object.body, { headers: { "Content-Type": "application/gzip" } });
   }
   return Response.json({ error: "not found" }, { status: 404 });
+}
+
+function uploadFailureReason(message) {
+  const reasons = {
+    "origin not allowed": "origin_not_allowed", "bad token": "invalid_upload_token",
+    "bad participant or session id": "invalid_identity", "too large": "size_limit",
+    "empty upload": "empty_upload", "invalid sealed gzip dataset": "invalid_dataset",
+    "Conflicting session revision; existing data preserved.": "revision_conflict",
+    "Session update would lose recorded history.": "history_conflict",
+    "Unordered session update; existing data preserved.": "unordered_update",
+    "Stored participant mismatch.": "stored_identity_mismatch",
+    "Player archive exceeds size limit; existing data preserved.": "archive_size_limit",
+    "Stored archive could not be verified; existing data preserved.": "stored_archive_invalid",
+    "Archive changed during upload; retry shortly.": "concurrent_update",
+    "unexpected upload failure": "unexpected_failure",
+  };
+  return Object.hasOwn(reasons, message) ? reasons[message] : "storage_unavailable";
 }

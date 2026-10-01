@@ -108,3 +108,19 @@ created by these checks.
 References: [Cloudflare build variables](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#environment-variables),
 [Vite environment variables](https://vite.dev/guide/env-and-mode),
 [R2 conditional writes](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/#conditional-operations).
+
+
+## Find participant upload failures
+
+In the algobot-upload Worker's Observability logs, search for
+`research_upload_failed` and the participant code (for example `P017`).
+Structured fields include `participant_code`, `session_id`, `round`,
+`status`, `reason`, and `timestamp`. Codes are claimed request identities,
+not proof of who sent the request. Invalid identifiers are logged as null.
+
+Reasons distinguish invalid tokens, invalid datasets, history/revision conflicts,
+size limits, and storage failures. These application logs omit credentials,
+gameplay payloads, raw exception text, and submitted programs.
+Requests that never reach the Worker, such as a disconnected browser, cannot
+produce a server-side error log. Logging begins with this deployment and does
+not reconstruct earlier failures.
