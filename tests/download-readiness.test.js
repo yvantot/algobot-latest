@@ -95,7 +95,7 @@ test("recovery downloads preserve developer exclusions and unreadable storage, w
 });
 
 test("unstarted and unscored first harvests do not gain a normal download", () => {
-  for(const status of [null,"in_progress","abandoned"]) {
+  for(const status of [null,"in_progress"]) {
     const session=scoredSession();
     if(status) session.challenge_attempts[0].status=status;
     else session.challenge_attempts=[];
@@ -109,4 +109,11 @@ test("hours of subsequent gameplay do not expire a saved first-harvest score", (
   session.feature_timeseries.push(...Array.from({length:2160},(_,i)=>({...structuredClone(last),
     timestamp_ms:last.timestamp_ms+(i+1)*5000})));
   assert.equal(downloadReadiness(session).ready,true);
+});
+
+
+test("abandoned first harvest allows recovery without inventing a usable score",()=>{
+ const session=scoredSession();Object.assign(session.challenge_attempts[0],{status:'abandoned',score:null,submissions:[]});
+ const before=structuredClone(session),result=downloadReadiness(session);
+ assert.equal(result.ready,false);assert.equal(result.canDownload,true);assert.deepEqual(session,before);
 });

@@ -1,3 +1,4 @@
+import { uniqueEvents } from "../src/game/ml/event-history.js";
 import { challengeSamples, collectionProtocolId } from "../src/game/ml/challenge-quality.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -56,7 +57,7 @@ export function readCollection(input) {
       }
       provenance.set(session.session_id, known);
       if (old) for (const key of ["raw_events", "feature_timeseries"]) {
-        const a = old[key] ?? [], b = session[key] ?? [];
+        const a = key === "raw_events" ? uniqueEvents(old[key] ?? []) : old[key] ?? [], b = key === "raw_events" ? uniqueEvents(session[key] ?? []) : session[key] ?? [];
         for (let i = 0; i < Math.min(a.length, b.length); i++) {
           if (JSON.stringify(a[i]) !== JSON.stringify(b[i])) throw Error(`Conflicting ${key} history for ${session.session_id}; do not merge edited exports`);
         }
@@ -86,7 +87,7 @@ export function readCollection(input) {
       for (let i=0;i<Math.min(a.length,b.length);i++) {
         if(a[i].assessment_id!==b[i].assessment_id) throw Error(`Conflicting challenge order for ${session.session_id}`);
       }
-      const extent = s => [s.raw_events?.length ?? 0, s.feature_timeseries?.length ?? 0,
+      const extent = s => [uniqueEvents(s.raw_events ?? []).length, s.feature_timeseries?.length ?? 0,
         s.challenge_attempts?.length ?? 0, ...Array.from({length:Math.max(a.length,b.length)},(_,i)=>s.challenge_attempts?.[i]?.submissions?.length ?? 0)];
       const before=extent(old), after=extent(session);
       const extendsOld=after.every((n,i)=>n>=before[i]), extendsNew=before.every((n,i)=>n>=after[i]);

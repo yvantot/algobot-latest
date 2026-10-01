@@ -1,3 +1,4 @@
+import { extendEventHistory } from "../src/game/ml/event-history.js";
 import { MAX_DATASET_BYTES, MAX_UPLOAD_BYTES, decodeUpload, readLimited, sha256 } from "./dataset.js";
 
 const encode = value => new TextEncoder().encode(JSON.stringify(value));
@@ -31,6 +32,8 @@ function retainsHistory(previous, next) {
 }
 
 function newer(previous, next) {
+  const events = extendEventHistory(previous.raw_events ?? [], next.raw_events ?? []);
+  if (events) next = { ...next, raw_events: events };
   if (comparable(previous) === comparable(next)) return previous;
   const oldRevision = revision(previous), newRevision = revision(next);
   if (oldRevision && newRevision) {

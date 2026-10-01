@@ -53,5 +53,5 @@ export function downloadReadiness(session, { cleared = false, sessions = [sessio
     return recovery(exclusionExplanation(reasons), reasons);
   }
   if (attempts.some(a => a.status === "in_progress")) return { ready:false, message:'"Your first harvest" has not been scored yet. Run your program and wait for its result, then try again.' };
-  return { ready:false, message:'You left "Your first harvest" before receiving a score. Please tell your researcher; do not clear your data.' };
+  return recovery('You left "Your first harvest" before receiving a score. Please tell your researcher.', ["unfinished_challenge_not_a_zero_score"]);
 }

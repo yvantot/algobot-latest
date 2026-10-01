@@ -1,3 +1,4 @@
+import { extendEventHistory, eventPrefix } from "../ml/event-history.js";
 import { SaveError } from "./schema.js";
 
 const copy = value => JSON.parse(JSON.stringify(value));
@@ -12,6 +13,10 @@ export function mergeSession(previous, incoming) {
     attempts.set(attempt.assessment_id, preservePrevious ? old : copy(attempt));
   }
   result.challenge_attempts = [...attempts.values()];
+  const before = previous.raw_events ?? [], after = incoming.raw_events ?? [];
+  const retained = extendEventHistory(before, after);
+  if (retained) { result.raw_events = copy(retained); return result; }
+  if (eventPrefix(after, before)) { result.raw_events = copy(before); return result; }
   const events = new Map();
   for (const event of [...(previous.raw_events ?? []), ...(incoming.raw_events ?? [])]) events.set(event.operation_id ?? JSON.stringify(event), event);
   result.raw_events = [...events.values()];
@@ -75,7 +80,12 @@ export async function projectResearch(root, storage, locks = globalThis.navigato
   await locks.request("algobot-research-projection", async () => {
     const sessions = Object.values(root.research.sessions).filter(session => !root.research.tombstones[session.session_id]).map(session => ({ ...session,
       persistence_operations: Object.values(root.research.operations).filter(operation => operation.sessionId === session.session_id).map(operation => operation.id) }));
-    storage.setItem("algobot_sessions", JSON.stringify(sessions));
+    try { storage.setItem("algobot_sessions", JSON.stringify(sessions)); }
+    catch (error) {
+      if (error.name !== "QuotaExceededError") throw error;
+      // IndexedDB already committed these records; this legacy mirror is optional.
+      storage.removeItem("algobot_sessions");
+    }
     storage.setItem("algobot_challenge_exposure_v1", JSON.stringify(root.research.exposures));
     if (root.research.rawCleared) {
       storage.removeItem("algobot_raw_sessions");
