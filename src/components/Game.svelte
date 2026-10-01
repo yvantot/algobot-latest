@@ -49,6 +49,7 @@
   import { eventScheduler } from "../game/ml/event-scheduler.js";
   import { mlAgent } from "../game/ml/agent.js";
   import { dataLogger } from "../game/ml/data-logger.js";
+  import { startAutoUpload } from "../game/ml/auto-upload.js";
   import { uploadConfig } from "../game/ml/cloud-upload.js";
   import FinishDataPrompt from "./FinishDataPrompt.svelte";
   import { downloadReadiness } from "../game/ml/download-readiness.js";
@@ -318,10 +319,16 @@
     saveTimer = setInterval(() => {
       if (!dataLogger.saveSessionLight()) storageWarning = "Research data could not be saved. Export it before closing this page.";
     }, 30000);
-    // Builds with an upload server also send a quiet backup every few minutes, so
-    // data arrives even if the player never presses Finish. Failures are retried next time.
-    const backgroundUpload = () => { if (!dataLogger.clearedSessionIds.has(telemetry.sessionId)) dataLogger.uploadAllSessionsJSON({ attempts: 1 }).catch(console.warn); };
-    if (uploadConfig()) uploadTimer = setInterval(backgroundUpload, 180000);
+    let uploadNotice = "";
+    const backgroundUpload = () => dataLogger.uploadAllSessionsJSON({ attempts: 2 });
+    const uploadFailed = error => {
+      console.warn(error);
+      uploadNotice = "Cloud upload has not succeeded: " + error.message + ". Retrying automatically. Use Finish & Send Data or keep a local download before closing.";
+      saveStatus.notice = uploadNotice;
+    };
+    if (uploadConfig()) uploadTimer = startAutoUpload({ upload: backgroundUpload,
+      enabled: () => !dataLogger.clearedSessionIds.has(telemetry.sessionId), onError: uploadFailed,
+      onSuccess: () => { if (saveStatus.notice === uploadNotice) saveStatus.notice = ""; } });
     // Returning the cleanup synchronously is required by Svelte onMount.
     mlAgent.init().then(() => {
       if (disposed) return;
@@ -344,7 +351,7 @@
       hintNotice.dispose();
       clearInterval(predictionTimer);
       clearInterval(saveTimer);
-      clearInterval(uploadTimer);
+      uploadTimer?.stop();
       stopCollection();
       document.removeEventListener("visibilitychange", refreshCollectionContext);
       refreshCollectionContext = () => {};
@@ -352,7 +359,7 @@
       eventScheduler.stop();
       configureFarmEvents(farm_grid_index, { shouldRun: () => false });
       saveSession();
-      if (uploadTimer) backgroundUpload();
+      if (uploadTimer && !dataLogger.clearedSessionIds.has(telemetry.sessionId)) backgroundUpload().catch(uploadFailed);
       ONBOARDING.isModalOpen = false;
     };
   });

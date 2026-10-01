@@ -19,3 +19,7 @@ bucket_name = "algobot-data"
 # Secrets (set with `npx wrangler secret put <NAME>`, never written here):
 #   STUDY_TOKEN - sent by the game with every upload
 #   ADMIN_TOKEN - used only by `npm run pull-data` on the researcher's computer
+
+[observability]
+enabled = true
+head_sampling_rate = 1
