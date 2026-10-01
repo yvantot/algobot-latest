@@ -46,28 +46,26 @@ changes. Changing a frontend build does **not** deploy this separate Worker.
 Each player has one file per collection round: `round/participant/data.json.gz`.
 It contains the player's sessions from the latest successful upload. Every upload
 replaces that file completely, including when it has fewer sessions or an older
-revision. There are no reads, comparisons, or merges with the stored file. Other participants
-in a shared browser's export are excluded. Unreadable legacy backup bytes remain
-available through the game's local JSON download; the cloud archive contains
-validated session records.
+revision. The Worker streams the request body directly into R2. It does not read
+old data, decompress, parse JSON, verify checksums, validate gameplay, filter,
+compare, merge, or recompress. The game selects the current participant's sessions
+before sending; the Worker trusts the routing headers and stores the exact bytes.
 
 The last completed storage write wins. Use one browser/device per participant
-code: another device or a delayed retry can replace more complete data. A valid
-single-participant upload is stored byte for byte without recompression. Mixed
-browser exports are filtered and recompressed, retaining validated checksums.
-Even unchanged uploads write the file. SHA-256 validates transport
-consistency, not who authored the data. Historical snapshot keys remain readable
+code: another device or a delayed retry can replace more complete data.
+Even unchanged, malformed, or empty uploads replace the file. Authentication,
+allowed origins and safe routing identifiers are still checked. Checksums generated
+by the browser can be checked offline. Historical snapshot keys remain readable
 by the download script but are no longer created.
 
-Uploads are limited to 20 MiB compressed and 16 MiB decompressed. Invalid gzip,
-invalid v4 manifests, mismatched session identity, and bad checksums are rejected.
-Exceeding these limits fails without
-replacing existing cloud data; download locally and start a new collection round
-before a participant approaches this limit. One file grows with recorded activity,
-not with repeated copies of the same sessions.
+The Worker imposes no dataset size or validity checks; Cloudflare's platform
+request/storage limits still apply. The offline training import retains its
+20 MiB compressed and 16 MiB decompressed validation limits.
 The game makes at most three attempts, with a 30-second deadline per attempt;
-manual download remains available while sending. Background attempts run once
-per interval and can recover on the next interval after a failure.
+manual download remains available while sending. The background timer runs every
+60 seconds with at most two attempts and skips overlapping uploads. Browsers may
+suspend timers while closed or asleep; reconnecting or returning to the tab also
+triggers a send.
 
 ## Downloading and verification
 
@@ -120,11 +118,12 @@ Structured fields include `participant_code`, `session_id`, `round`,
 `status`, `reason`, and `timestamp`. Codes are claimed request identities,
 not proof of who sent the request. Invalid identifiers are logged as null.
 
-Reasons distinguish invalid tokens, invalid datasets,
-size limits, and storage failures. These application logs omit credentials,
+Reasons distinguish invalid tokens, routing identifiers, origins, and storage
+failures. These application logs omit credentials,
 gameplay payloads, raw exception text, and submitted programs.
 Requests that never reach the Worker, such as a disconnected browser, cannot
 produce a server-side error log. Logging begins with this deployment and does
 not reconstruct earlier failures. Authenticated requests with valid identifiers
-also log `research_upload_started` before decoding the body. Correlate that entry
+also log `research_upload_started` before storing the body and
+`research_upload_stored` after a successful write. Correlate the start entry
 with platform CPU-limit failures using the request ID to identify the participant.

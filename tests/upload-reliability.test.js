@@ -36,21 +36,25 @@ test("simultaneous identical uploads update one player object", async () => {
   assert(receipts.every(r => r.ok && !r.duplicate));
 });
 
-test("Worker rejects malformed gzip, JSON, schema, checksum and routing identity", async () => {
+test("Worker stores malformed gzip, JSON, schema, checksum and mismatched payload identity unchanged", async () => {
   const env = fakeEnv(), data = await dataset();
   const edited = structuredClone(data); edited.sessions[0].raw_events.push(999);
   for (const bytes of [new TextEncoder().encode("plain text"), gzipSync("{"), gzipSync("{}"), await zipped(edited)]) {
-    assert.equal((await worker.fetch(request(bytes), env)).status, 400);
+    assert.equal((await worker.fetch(request(bytes), env)).status, 200);
+    assert.deepEqual(env.store.get('round3/P001/data.json.gz'), new Uint8Array(bytes));
   }
-  assert.equal((await worker.fetch(request(await zipped(data), { "X-Participant": "other" }), env)).status, 400);
-  assert.equal(env.store.size, 0);
+  assert.equal((await worker.fetch(request(await zipped(data), { "X-Participant": "other" }), env)).status, 200);
+  assert.equal(env.store.size, 2);
 });
 
-test("compressed expansion is bounded before JSON parsing", async () => {
+test("Worker never decompresses uploads, including files beyond the offline validation limit", async () => {
   const env = fakeEnv();
   const bomb = gzipSync(Buffer.alloc(MAX_DATASET_BYTES + 1, 32));
-  assert.equal((await worker.fetch(request(bomb), env)).status, 413);
-  assert.equal(env.store.size, 0);
+  assert.equal((await worker.fetch(request(bomb), env)).status, 200);
+  assert.deepEqual([...env.store.values()][0], new Uint8Array(bomb));
+});
+
+test("offline dataset reader retains its size bound", async () => {
   let cancelled = false;
   const stream = new ReadableStream({ pull(c) { c.enqueue(new Uint8Array(8)); }, cancel() { cancelled = true; } });
   await assert.rejects(readLimited(stream, 10), /size limit/);

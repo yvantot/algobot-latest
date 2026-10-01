@@ -13,11 +13,10 @@ test("stores an upload under one stable player key", async () => {
   assert.equal([...env.store.keys()][0], "round3/P001/data.json.gz");
 });
 
-test("rejects a wrong token, unsafe IDs and empty bodies", async () => {
+test("rejects a wrong token and unsafe routing IDs", async () => {
   const env = fakeEnv();
   assert.equal((await worker.fetch(upload({ "X-Study-Token": "nope" }), env)).status, 403);
   assert.equal((await worker.fetch(upload({ "X-Participant": "../P1" }), env)).status, 400);
-  assert.equal((await worker.fetch(upload({}, ""), env)).status, 413);
   assert.equal(env.store.size, 0);
 });
 
@@ -52,10 +51,10 @@ test("upload failures log searchable identity and safe reasons without data or c
  assert.equal(logs[0].event,'research_upload_failed');
  await worker.fetch(upload({'X-Participant':'../unsafe'},'private-gameplay-body'),fakeEnv());
  assert.equal(logs[1].participant_code,null);assert.equal(logs[1].reason,'invalid_identity');
- await worker.fetch(upload({},'private-gameplay-body'),fakeEnv());assert.equal(logs[2].reason,'invalid_dataset');
+ await worker.fetch(upload({},'private-gameplay-body'),fakeEnv());assert.equal(logs.length,2);
  const env=fakeEnv();env.DATA.put=async()=>{throw Error('secret internal failure');};
- await worker.fetch(upload({}),env);assert.equal(logs[3].reason,'storage_unavailable');
- await worker.fetch(upload({Origin:'https://untrusted.example'}),fakeEnv());assert.equal(logs[4].reason,'origin_not_allowed');
+ await worker.fetch(upload({}),env);assert.equal(logs[2].reason,'storage_unavailable');
+ await worker.fetch(upload({Origin:'https://untrusted.example'}),fakeEnv());assert.equal(logs[3].reason,'origin_not_allowed');
  assert(!/private-token|private-gameplay-body|secret internal|untrusted.example/.test(JSON.stringify(logs)));
  assert(logs.every(entry=>Number.isFinite(Date.parse(entry.timestamp))));
  const count=logs.length;await worker.fetch(upload({}),fakeEnv());assert.equal(logs.length,count);
