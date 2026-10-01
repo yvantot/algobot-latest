@@ -3,11 +3,17 @@ export const AUTO_UPLOAD_INTERVAL_MS = 60000;
 export function startAutoUpload({ upload, onError, onSuccess = () => {}, enabled = () => true,
   windowTarget = globalThis.window, documentTarget = globalThis.document,
   schedule = setInterval, cancel = clearInterval }) {
-  let pending = null, stopped = false;
-  function send() {
+  let pending = null, stopped = false, queued = false;
+  function send({ fresh = false } = {}) {
     if (stopped || !enabled()) return Promise.resolve();
-    if (pending) return pending;
-    pending = Promise.resolve().then(upload).then(onSuccess, onError).finally(() => { pending = null; });
+    if (pending) { if (fresh) queued = true; return pending; }
+    pending = Promise.resolve().then(async () => {
+      do {
+        queued = false;
+        try { await upload(); onSuccess(); }
+        catch (error) { onError(error); }
+      } while (queued && !stopped && enabled());
+    }).finally(() => { pending = null; });
     return pending;
   }
   const visible = () => { if (documentTarget.visibilityState === 'visible') void send(); };
