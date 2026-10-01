@@ -31,7 +31,7 @@ try {
     const options = {participant:'QA_LOCAL',session:'browser',config:{url:new URL('/upload',base).href,token:'study'}};
     const first = await uploadDataset(data,options);
     const retry = await uploadDataset(data,options);
-    if (!retry.duplicate || retry.key !== first.key) throw Error('Retry did not deduplicate');
+    if (!retry.ok || retry.key !== first.key) throw Error('Retry did not replace the same key');
     await Promise.all(Array.from({length:4}, async (_,i) => {
       const session='parallel-'+i;
       const other=await sealDataset({dataset_version:'v4',session_count:1,sessions:[{student_id:'QA_LOCAL',session_id:session,upload_revision:1,raw_events:[{event:session}]}]});
@@ -46,8 +46,8 @@ try {
   const saved = await mf.dispatchFetch('https://w.dev/admin/file?key='+encodeURIComponent(receipt.key),{headers:{Authorization:'Bearer admin'}});
   const data = await new Response(new Blob([await saved.arrayBuffer()]).stream().pipeThrough(new DecompressionStream('gzip'))).json();
   assert.equal(data.sessions[0].student_id,'QA_LOCAL');
-  assert.equal(data.session_count,5);
-  assert.equal(data.sessions.find(s=>s.session_id==='browser').raw_events.length,2);
+  assert.equal(data.session_count,1);
+  assert.equal(data.sessions.find(s=>s.session_id==='browser').raw_events.length,1);
   const listing=await mf.dispatchFetch('https://w.dev/admin/list',{headers:{Authorization:'Bearer admin'}});
   assert.equal((await listing.json()).objects.length,1);
   const denied = await page.evaluate(async base => {
@@ -55,5 +55,5 @@ try {
     return r.status;
   },base);
   assert.equal(denied,403);
-  console.log('PASS: Chromium preflight/gzip, workerd validation, concurrent R2 conditional merges, stale retry protection, single file and authenticated readback');
+  console.log('PASS: Chromium preflight/gzip, workerd validation, last upload replaces older storage, single file and authenticated readback');
 } finally { await browser?.close();await mf.dispose();await new Promise(r=>server.close(r)); }

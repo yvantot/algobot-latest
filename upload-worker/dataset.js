@@ -60,5 +60,5 @@ export async function decodeUpload(body, identity) {
   const bytes = await readLimited(stream, MAX_DATASET_BYTES);
   const data = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
   await validateDataset(data, identity);
-  return { data, hash: await sha256(bytes) };
+  return { data };
 }

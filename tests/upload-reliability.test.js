@@ -11,7 +11,7 @@ import { pullData } from "../scripts/pull-data.js";
 import { dataset, zipped, fakeEnv, request } from "./helpers/upload-fixture.js";
 
 const config = { url: "https://w.dev/upload", token: "study" };
-test("an old retry cannot erase a newer successful snapshot; retries deduplicate", async () => {
+test("a delayed retry replaces the stored file under last-write-wins semantics", async () => {
   const env = fakeEnv();
   let release, started, calls = 0;
   const waiting = new Promise(r => started = r), gate = new Promise(r => release = r);
@@ -26,14 +26,14 @@ test("an old retry cannot erase a newer successful snapshot; retries deduplicate
     fetchImpl: (url, init) => worker.fetch(new Request(url, init), env) });
   release(); await old;
   assert.equal(env.store.size, 1);
-  assert.deepEqual([...env.store.values()].map(v => JSON.parse(gunzipSync(v)).sessions[0].raw_events.length), [3]);
+  assert.deepEqual([...env.store.values()].map(v => JSON.parse(gunzipSync(v)).sessions[0].raw_events.length), [1]);
 });
 
 test("simultaneous identical uploads update one player object", async () => {
   const env = fakeEnv(), body = await zipped();
   const receipts = await Promise.all(Array.from({ length: 5 }, async () => (await worker.fetch(request(body), env)).json()));
   assert.equal(env.store.size, 1);
-  assert.equal(receipts.filter(r => r.duplicate).length, 4);
+  assert(receipts.every(r => r.ok && !r.duplicate));
 });
 
 test("Worker rejects malformed gzip, JSON, schema, checksum and routing identity", async () => {
