@@ -55,6 +55,9 @@
       <h2 id="finish-title">{downloaded ? "Check your downloads" : status?.ready ? "Your data is ready" : status?.canDownload ? "Your data needs review" : "Not ready yet"}</h2>
       <p id="finish-status">{downloaded ? "The download was requested. Check that the JSON file is saved, then send it to your researcher. Your data has not been cleared." : status?.message ?? "Checking your data…"}</p>
     {/if}
+    {#if downloaded && upload}
+      <p role="status" aria-live="polite">{sending === "sent" ? "Cloud upload confirmed." : sending === "sending" ? "Cloud upload is still in progress. Please keep this window open." : "Cloud upload is not confirmed. The download is a separate local copy."}</p>
+    {/if}
     {#if error}<p role="alert">{error}</p>{/if}
     <div class="actions">
       <button disabled={busy} onclick={onClose}>{downloaded || sending === "sent" ? "Close" : "Keep playing"}</button>

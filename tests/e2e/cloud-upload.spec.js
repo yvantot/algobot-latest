@@ -7,6 +7,7 @@ test("Finish keeps download available during a stalled upload", async ({ page })
   await page.getByRole("button", { name: "Download data", exact: true }).click();
   await expect(page.getByText("Test download requests: 1", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Check your downloads", exact: true })).toBeVisible();
+  await expect(page.getByText("Cloud upload is still in progress. Please keep this window open.", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
