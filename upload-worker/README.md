@@ -7,6 +7,11 @@ the local game save or clear research data. Closing a browser is not a reliable
 network flush; students should wait for Finish to confirm success, or download
 their file if upload fails.
 
+Saving a challenge score or claiming its reward also requests an immediate upload.
+If a background upload is already running, the latest challenge state is sent as
+soon as it finishes, without overlapping those requests. A failed send retains
+local data and the minute timer continues retrying.
+
 ## Frontend (the link students visit)
 
 In the game project's **Settings → Build → Build variables and secrets**, set:

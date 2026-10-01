@@ -131,6 +131,7 @@
   let challengeInvite = $state(null), challengeRewardAvailable = $state(true);
   let rewardedChallenges=$state([...farmChallengeRewards]);
   let challengeAttempt, invitedChallenges = new Set();
+  let uploadChallenge = () => {};
   function persistChallenge() {
     if (!dataLogger.saveSessionLight()) storageWarning = "Research data could not be saved. Export it before closing this page.";
   }
@@ -172,6 +173,7 @@
       submitChallenge(telemetry, challengeAttempt, result, source, editor);
       return { assessment: challengeAttempt };
     });
+    uploadChallenge();
   }
   function stopChallenge(source, editor) {
     interruptChallenge(telemetry, challengeAttempt, source, editor); persistChallenge();
@@ -187,6 +189,7 @@
     challengeRewardAvailable = false;
     rewardedChallenges=[...farmChallengeRewards];
     persistChallenge();
+    uploadChallenge();
     return result.granted;
   }
   onMount(() => {
@@ -329,6 +332,7 @@
     if (uploadConfig()) uploadTimer = startAutoUpload({ upload: backgroundUpload,
       enabled: () => !dataLogger.clearedSessionIds.has(telemetry.sessionId), onError: uploadFailed,
       onSuccess: () => { if (saveStatus.notice === uploadNotice) saveStatus.notice = ""; } });
+    uploadChallenge = () => { void uploadTimer?.send({ fresh: true }); };
     // Returning the cleanup synchronously is required by Svelte onMount.
     mlAgent.init().then(() => {
       if (disposed) return;
