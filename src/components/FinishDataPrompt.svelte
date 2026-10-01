@@ -48,7 +48,7 @@
     {#if upload && canSave() && !downloaded}
       <h2 id="finish-title">{sending === "sent" ? "Data sent ✓" : sending === "failed" ? "Not sent yet" : "Sending your data…"}</h2>
       <p id="finish-status" aria-live="polite">{sending === "sent" ? "Your researcher has received your data. You can close this window. Your data has not been cleared."
-        : sending === "failed" ? "Your data could not be sent. Check the internet connection and try again, or download the file and give it to your researcher. Do not clear your data."
+        : sending === "failed" ? "Your data could not be sent. Try sending again, or download the file and give it to your researcher. Do not clear your data."
         : "Please keep this page open for a moment."}</p>
       {#if !status?.ready}<p>{status.message}</p>{/if}
     {:else}

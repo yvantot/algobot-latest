@@ -121,3 +121,16 @@ test("combined archive size is bounded even when each individual upload fits", a
   assert.equal((await send(env, b, "s-2")).status, 413);
   assert.equal([...env.store.values()][0], before);
 });
+
+
+test("legacy duplicate collapse can extend history without dropping the archived events", async()=>{
+ const env=fakeEnv(), event={t:10,event:'code_edit'}, later={t:11,event:'code_edit'};
+ const old=await dataset([event,event,later]);await send(env,old);
+ const next=await changed(old,{upload_revision:4,raw_events:[event,later,{t:12,event:'code_run'}]});
+ assert.equal((await send(env,next)).status,200);
+ assert.deepEqual((await read(env)).sessions[0].raw_events,[event,event,later,{t:12,event:'code_run'}]);
+ assert.equal((await send(env,next)).status,200,'identical retry remains idempotent');
+ for(const events of [[{...event,t:9},later],[later,event],[event,{...later,event:'harvest'}]]){
+  assert.equal((await send(env,await changed(old,{upload_revision:5,raw_events:events}))).status,409);
+ }
+});

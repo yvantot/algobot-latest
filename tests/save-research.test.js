@@ -78,3 +78,22 @@ test("RESEARCH-4/6 tombstones survive reload and prevent delivery or legacy reim
   assert.deepEqual(JSON.parse(values.get("algobot_sessions")), []);
   await projectResearch(root, { setItem() { assert.fail("Mirror requires Web Locks"); } }, null);
 });
+
+
+test("repeated saves preserve identical events rather than collapsing their positions",()=>{
+ const {research,session}=opened();const event={t:10,event:'code_edit'};
+ session.raw_events=[event,event,{t:11,event:'code_edit'}];
+ saveResearchSession(research,session);saveResearchSession(research,session);
+ assert.deepEqual(research.sessions[session.session_id].raw_events,session.raw_events);
+ session.raw_events.push({t:12,event:'code_run'});saveResearchSession(research,session);
+ assert.deepEqual(research.sessions[session.session_id].raw_events,session.raw_events);
+});
+
+test("full localStorage mirror does not fail a committed IndexedDB research save",async()=>{
+ const {research}=opened(),before=structuredClone(research),values=new Map([['algobot_sessions','old mirror']]);
+ const storage={setItem(k,v){if(k==='algobot_sessions')throw Object.assign(Error('full'),{name:'QuotaExceededError'});values.set(k,v);},removeItem:k=>values.delete(k)};
+ assert.equal(await projectResearch({research},storage,{request:(_k,fn)=>fn()}),true);
+ assert.equal(values.has('algobot_sessions'),false);
+ assert.equal(values.has('algobot_challenge_exposure_v1'),true);
+ assert.deepEqual(research,before);
+});
