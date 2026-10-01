@@ -1,3 +1,4 @@
+import { challengeCropData } from "../src/game/challenges/crop-profile.js";
 import { addLandBackground } from "../src/game/land-background.js";
 import { isolateScene } from "../src/game/challenges/scene-session.js";
 import test from "node:test";
@@ -794,6 +795,7 @@ function scenarioHarness() {
     for(const object of [...h.roots])object.destroy();h.farm.clear();
     h.farm.freezeCropLifecycle=!["sequence","team"].includes(task.kind);
     h.farm.isChallenge=true;
+    h.farm.cropData=challengeCropData(BASE_CROP_DATA,task);
     h.farm.demoBounds={rows:1,columns:layout.length};
     layout.forEach((value,x)=>{
       const spec=typeof value==='object'?value:{type:'wheat',state:value?'ready':'young'};
@@ -851,9 +853,9 @@ test("new rubrics reject wrong ordering, blind treatment, unrolled watering and 
 
 test("corn grows and consumes water during checks without any bot.wait command",async()=>{
   const {h,run}=scenarioHarness();let absorbing=false;
-  const task=CHALLENGES.find(task=>task.id==='corn-sequence-v2');
+  const task=CHALLENGES.find(task=>task.id==='corn-sequence-v3');
   const outcome=await run('bot.till();bot.plant("corn");while(!bot.is_harvestable()){if(!bot.is_watered()){bot.water();}}bot.harvest();',task,{
-    onAction(){const tile=h.farm.get('0-0');if(tile.crop){assert.equal(tile.crop.crop_duration,30);if(tile.soil.water_remaining>0&&tile.soil.water_remaining<.9)absorbing=true;}}
+    onAction(){const tile=h.farm.get('0-0');if(tile.crop){assert.equal(tile.crop.crop_duration,5);if(tile.soil.water_remaining>0&&tile.soil.water_remaining<.9)absorbing=true;}}
   });
   assert.equal(outcome.passed,true,JSON.stringify(outcome));assert.equal(absorbing,true);
 });
@@ -876,7 +878,7 @@ test("live challenge factory keeps real soil after harvest and real pests destro
   Object.assign(h.k,{get:()=>[...h.roots],debug:{timeScale:1},getCamPos:()=>h.k.vec2(),getCamScale:()=>h.k.vec2(1),setCamPos(){},setCamScale(){},
     onUpdate(fn){const object=h.make([{update:fn}]);return {cancel:()=>object.destroy()};}});
   let farm;
-  Object.assign(h.context,{document:{getElementById:()=>null},isolateScene,addLandBackground,BASE_CROP_DATA,
+  Object.assign(h.context,{challengeCropData,document:{getElementById:()=>null},isolateScene,addLandBackground,BASE_CROP_DATA,
     addFarmbot(id,map,x,y){farm=map;return h.make([{display_obj:{},setDisplayColor(){},sayText(){},showIcon(){}},h.context.gridpos(x,y),h.context.gridmove(),h.context.botact(id,map)]);}});
   vm.runInContext(fs.readFileSync('src/game/challenges/live-farm.js','utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export function','function'),h.context);
   const world=h.context.startChallengeFarm(()=>null),greedy=CHALLENGES.find(t=>t.kind==='greedy');
@@ -893,11 +895,11 @@ test("live challenge factory keeps real soil after harvest and real pests destro
   assert.deepEqual(tips,[]);
   assert.equal([...farm.values()].filter(tile=>tile.crop).length,0);
   assert.equal([...farm.values()].filter(tile=>tile.soil?.exists()).length,4);
-  const corn=CHALLENGES.find(t=>t.id==='corn-sequence-v2');
+  const corn=CHALLENGES.find(t=>t.id==='corn-sequence-v3');
   h.context.CROP_DATA.corn.duration=21;h.context.CROP_DATA.corn.spoilage_time=19.5;
   world.reset(corn.cases[0],corn);h.advance(1);
   world.robot.botTill();h.advance(1);world.robot.botPlant('corn');h.advance(1);
-  assert.equal(farm.get('0-0').crop.crop_duration,30);
+  assert.equal(farm.get('0-0').crop.crop_duration,5);
   assert.equal(farm.get('0-0').crop.crop_spoilage_time,13);
   world.dispose();assert.equal(farm.size,0);assert.equal(h.roots.size,0);
   assert.equal(h.context.CROP_DATA.corn.duration,21);
@@ -953,4 +955,22 @@ test("freestyle supports extra bot commands and preserves every challenge's rule
     assert.equal(result.passed,true,task.id+JSON.stringify(result));
   }
   assert.deepEqual(h.rewards,{coins:0,exp:0,seeds:0,spoiled:0});
+});
+
+
+test("short corn stages require two water doses and stay five seconds beside corn",()=>{
+  for(const count of [1,2]) {
+    const h=harness();h.farm.isDemonstration=true;h.farm.isChallenge=true;
+    h.farm.cropData=challengeCropData(BASE_CROP_DATA,{cropProfile:"corn-5s-v1"});
+    const crops=[];
+    for(let x=0;x<count;x++){h.addSoil(x);crops.push(h.plant(CropTypes.CORN,CropStates.YOUNG,x));h.farm.get('0-'+x).soil.water();}
+    h.advance(4.9);for(const crop of crops)assert.equal(crop.crop_state,CropStates.YOUNG);
+    h.advance(.1);for(const crop of crops){assert.equal(crop.crop_state,CropStates.GROWING);assert.equal(crop.crop_grow_duration,5);}
+    h.advance(5);for(const crop of crops)assert.equal(crop.crop_state,CropStates.GROWING,'dry crops must wait for water');
+    for(let x=0;x<count;x++)h.farm.get('0-'+x).soil.water();
+    h.advance(4.9);for(const crop of crops)assert.equal(crop.crop_state,CropStates.GROWING);
+    h.advance(.1);for(const crop of crops)assert.equal(crop.crop_state,CropStates.HARVESTABLE);
+    assert.equal(BASE_CROP_DATA.corn.duration,30);
+    assert.equal(challengeCropData(BASE_CROP_DATA,{}),BASE_CROP_DATA);
+  }
 });

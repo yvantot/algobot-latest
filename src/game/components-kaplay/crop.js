@@ -214,8 +214,8 @@ export function crop(farm_grid_index, type, state = CropStates.YOUNG) {
         this.crop_synergy_elapsed += seconds;
         if (this.crop_synergy_elapsed >= 1) {
           this.crop_synergy_elapsed = 0;
-          const count = this.countAdjacentCrop(this.grid_x, this.grid_y, type);
-          this.crop_grow_duration = Math.max(1, this.crop_duration - count * 6);
+          const count = data.adjacency_growth_reduction === 0 ? 0 : this.countAdjacentCrop(this.grid_x, this.grid_y, type);
+          this.crop_grow_duration = Math.max(1, this.crop_duration - count * (data.adjacency_growth_reduction ?? 6));
           this.effectsEnabled(count > 0);
           if (count > 0) {
             if (!farm_grid_index.isDemonstration) triggerDidYouKnow("corn_synergy");
