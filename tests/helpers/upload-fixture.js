@@ -14,7 +14,8 @@ export function fakeEnv() {
       put: async (key, body, options) => {
         if (options?.onlyIf?.etagDoesNotMatch === "*" && store.has(key)) return null;
         if (options?.onlyIf?.etagMatches && options.onlyIf.etagMatches !== etags.get(key)) return null;
-        store.set(key, new Uint8Array(body)); etags.set(key, String(++version)); return { key };
+        const bytes = body instanceof ReadableStream ? new Uint8Array(await new Response(body).arrayBuffer()) : new Uint8Array(body);
+        store.set(key, bytes); etags.set(key, String(++version)); return { key };
       },
       get: async key => store.has(key) ? { body: new Blob([store.get(key)]).stream(), etag: etags.get(key) } : null,
       list: async ({ prefix }) => ({ truncated: false,

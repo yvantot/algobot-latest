@@ -1,8 +1,7 @@
 // Receives research dataset uploads from the game and stores them in R2.
 // Students can only write. Listing and downloading require ADMIN_TOKEN, which
 // never ships in the game.
-import { MAX_UPLOAD_BYTES, SAFE_ID, readLimited, decodeUpload } from "./dataset.js";
-import { storePlayerData } from "./player-data.js";
+const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 export default {
   async fetch(request, env) {
@@ -50,20 +49,17 @@ async function upload(request, env, reply) {
   }
   console.info({ event: "research_upload_started", participant_code: participant, session_id: session,
     identity_source: "request_headers", round: env.ROUND, timestamp: new Date().toISOString() });
-  if (Number(request.headers.get("Content-Length") ?? 0) > MAX_UPLOAD_BYTES) return reply(413, { error: "too large" });
-  let body, data;
-  try {
-    body = await readLimited(request.body, MAX_UPLOAD_BYTES);
-    if (!body.byteLength) return reply(413, { error: "empty upload" });
-    ({ data } = await decodeUpload(body, { participant, session }));
-  } catch (error) { return reply(error.status === 413 ? 413 : 400, { error: error.status === 413 ? "too large" : "invalid sealed gzip dataset" }); }
-
   const key = `${env.ROUND}/${participant}/data.json.gz`;
   try {
-    const receipt = await storePlayerData(env.DATA, key, data, participant, body);
-    return reply(200, { ok: true, key, ...receipt });
-  } catch (error) {
-    return reply(error.status ?? 503, { error: error.status ? error.message : "Storage temporarily unavailable; retry shortly." });
+    await env.DATA.put(key, request.body, {
+      httpMetadata: { contentType: "application/gzip" },
+      customMetadata: { receivedAt: new Date().toISOString(), storageFormat: "raw_player_upload_v1" },
+    });
+    console.info({ event: "research_upload_stored", participant_code: participant, session_id: session,
+      identity_source: "request_headers", round: env.ROUND, timestamp: new Date().toISOString() });
+    return reply(200, { ok: true, key });
+  } catch {
+    return reply(503, { error: "Storage temporarily unavailable; retry shortly." });
   }
 }
 
@@ -92,8 +88,7 @@ async function admin(request, env, url) {
 function uploadFailureReason(message) {
   const reasons = {
     "origin not allowed": "origin_not_allowed", "bad token": "invalid_upload_token",
-    "bad participant or session id": "invalid_identity", "too large": "size_limit",
-    "empty upload": "empty_upload", "invalid sealed gzip dataset": "invalid_dataset",
+    "bad participant or session id": "invalid_identity",
     "unexpected upload failure": "unexpected_failure",
   };
   return Object.hasOwn(reasons, message) ? reasons[message] : "storage_unavailable";

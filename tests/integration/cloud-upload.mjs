@@ -16,7 +16,7 @@ const server = createServer((req, res) => {
 });
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const mf = new Miniflare(convertV4MiniflareOptions({ modules: ['index.js','dataset.js','player-data.js'].map(file => ({type:'ESModule',path:resolve('upload-worker',file)})),
+const mf = new Miniflare(convertV4MiniflareOptions({ modules: ['index.js'].map(file => ({type:'ESModule',path:resolve('upload-worker',file)})),
   compatibilityDate:'2026-09-01',r2Buckets:['DATA'],bindings:{ROUND:'fixture',STUDY_TOKEN:'study',ADMIN_TOKEN:'admin',ALLOWED_ORIGINS:origin} }));
 let browser;
 try {
@@ -48,6 +48,14 @@ try {
   assert.equal(data.sessions[0].student_id,'QA_LOCAL');
   assert.equal(data.session_count,1);
   assert.equal(data.sessions.find(s=>s.session_id==='browser').raw_events.length,1);
+  for (const raw of ['not valid gzip or JSON', '']) {
+    const status = await page.evaluate(async ({base, raw}) => (await fetch(new URL('/upload',base), {
+      method:'POST',headers:{'X-Study-Token':'study','X-Participant':'QA_LOCAL','X-Session':'browser'},body:raw,
+    })).status, {base, raw});
+    assert.equal(status,200);
+    const stored = await mf.dispatchFetch('https://w.dev/admin/file?key='+encodeURIComponent(receipt.key),{headers:{Authorization:'Bearer admin'}});
+    assert.equal(await stored.text(),raw);
+  }
   const listing=await mf.dispatchFetch('https://w.dev/admin/list',{headers:{Authorization:'Bearer admin'}});
   assert.equal((await listing.json()).objects.length,1);
   const denied = await page.evaluate(async base => {
@@ -55,5 +63,5 @@ try {
     return r.status;
   },base);
   assert.equal(denied,403);
-  console.log('PASS: Chromium preflight/gzip, workerd validation, last upload replaces older storage, single file and authenticated readback');
+  console.log('PASS: Chromium preflight/gzip, raw streaming including malformed and empty data, last upload replaces storage, authenticated readback');
 } finally { await browser?.close();await mf.dispose();await new Promise(r=>server.close(r)); }

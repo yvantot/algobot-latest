@@ -31,19 +31,17 @@ test("single participant upload is stored byte for byte without reading existing
   assert.deepEqual([...env.store.values()][0], new Uint8Array(body));
 });
 
-test("participant files exclude other students and retain valid checksums and challenge records", async () => {
+test("stores mixed data unchanged under the claimed participant key without inspecting it", async () => {
   const env = fakeEnv();
   const a = (await dataset()).sessions[0], b = (await dataset([2], 'P002', 's-2')).sessions[0];
   a.challenge_attempts = [{assessment_id:'a',status:'scored',score:3,reward_claimed:true}];
   const mixed = await seal([a, b]);
   assert.equal((await send(env, mixed)).status, 200);
   const stored = await read(env);
-  assert.deepEqual(stored.sessions, [a]);
-  assert.equal(stored.participant_count, 1);
-  assert.equal(stored.session_count, 1);
+  assert.deepEqual(stored, mixed);
   await send(env, mixed, 's-2', 'P002');
   assert.equal(env.store.size, 2);
-  assert.deepEqual((await decodeUpload(env.store.get('round3/P002/data.json.gz'))).data.sessions, [b]);
+  assert.deepEqual((await decodeUpload(env.store.get('round3/P002/data.json.gz'))).data, mixed);
 });
 
 test("valid upload replaces corrupt old bytes", async () => {
@@ -53,12 +51,13 @@ test("valid upload replaces corrupt old bytes", async () => {
   assert.deepEqual(await read(env), data);
 });
 
-test("invalid incoming checksum leaves the previous file untouched", async () => {
+test("invalid incoming checksum still replaces the previous file byte for byte", async () => {
   const env = fakeEnv(), data = await dataset();
-  await send(env, data); const previous = [...env.store.values()][0];
+  await send(env, data);
   data.sessions[0].raw_events.push(999);
-  assert.equal((await send(env, data)).status, 400);
-  assert.equal([...env.store.values()][0], previous);
+  const bytes = await zipped(data);
+  assert.equal((await worker.fetch(request(bytes), env)).status, 200);
+  assert.deepEqual([...env.store.values()][0], bytes);
 });
 
 test("storage failure cannot return a successful receipt", async () => {
