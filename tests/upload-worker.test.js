@@ -53,7 +53,7 @@ test("upload failures log searchable identity and safe reasons without data or c
  await worker.fetch(upload({'X-Participant':'../unsafe'},'private-gameplay-body'),fakeEnv());
  assert.equal(logs[1].participant_code,null);assert.equal(logs[1].reason,'invalid_identity');
  await worker.fetch(upload({},'private-gameplay-body'),fakeEnv());assert.equal(logs[2].reason,'invalid_dataset');
- const env=fakeEnv();env.DATA.get=async()=>{throw Error('secret internal failure');};
+ const env=fakeEnv();env.DATA.put=async()=>{throw Error('secret internal failure');};
  await worker.fetch(upload({}),env);assert.equal(logs[3].reason,'storage_unavailable');
  await worker.fetch(upload({Origin:'https://untrusted.example'}),fakeEnv());assert.equal(logs[4].reason,'origin_not_allowed');
  assert(!/private-token|private-gameplay-body|secret internal|untrusted.example/.test(JSON.stringify(logs)));

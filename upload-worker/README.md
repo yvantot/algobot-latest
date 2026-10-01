@@ -1,7 +1,7 @@
 # Gameplay data uploads
 
 The frontend and upload Worker are separate deployments. The game seals and
-gzips the browser's research archive, sends a backup every three minutes, and
+gzips the browser's research archive, sends a backup every minute, and
 sends when Finish opens or the player returns to the menu. Uploads do not replace
 the local game save or clear research data. Closing a browser is not a reliable
 network flush; students should wait for Finish to confirm success, or download
@@ -44,22 +44,24 @@ current Workers.dev game origins. Add the exact origin if the student link
 changes. Changing a frontend build does **not** deploy this separate Worker.
 
 Each player has one file per collection round: `round/participant/data.json.gz`.
-It contains the player's sessions, merged by session ID. Later uploads replace
-that file, retaining sessions absent from a particular browser. Other participants
+It contains the player's sessions from the latest successful upload. Every upload
+replaces that file completely, including when it has fewer sessions or an older
+revision. There are no reads, comparisons, or merges with the stored file. Other participants
 in a shared browser's export are excluded. Unreadable legacy backup bytes remain
 available through the game's local JSON download; the cloud archive contains
 validated session records.
 
-Session revisions reject conflicting or history-dropping updates. Older clients
-use export timestamps and history checks. R2 conditional writes retry concurrent
-merges, so simultaneous sessions and late retries cannot erase newer data.
-Unchanged session content skips the storage write. SHA-256 validates transport
+The last completed storage write wins. Use one browser/device per participant
+code: another device or a delayed retry can replace more complete data. A valid
+single-participant upload is stored byte for byte without recompression. Mixed
+browser exports are filtered and recompressed, retaining validated checksums.
+Even unchanged uploads write the file. SHA-256 validates transport
 consistency, not who authored the data. Historical snapshot keys remain readable
 by the download script but are no longer created.
 
 Uploads are limited to 20 MiB compressed and 16 MiB decompressed. Invalid gzip,
 invalid v4 manifests, mismatched session identity, and bad checksums are rejected.
-The combined player archive has the same limits. Exceeding them fails without
+Exceeding these limits fails without
 replacing existing cloud data; download locally and start a new collection round
 before a participant approaches this limit. One file grows with recorded activity,
 not with repeated copies of the same sessions.
@@ -107,7 +109,7 @@ created by these checks.
 
 References: [Cloudflare build variables](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#environment-variables),
 [Vite environment variables](https://vite.dev/guide/env-and-mode),
-[R2 conditional writes](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/#conditional-operations).
+[R2 writes](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/#bucket-method-definitions).
 
 
 ## Find participant upload failures
@@ -118,9 +120,11 @@ Structured fields include `participant_code`, `session_id`, `round`,
 `status`, `reason`, and `timestamp`. Codes are claimed request identities,
 not proof of who sent the request. Invalid identifiers are logged as null.
 
-Reasons distinguish invalid tokens, invalid datasets, history/revision conflicts,
+Reasons distinguish invalid tokens, invalid datasets,
 size limits, and storage failures. These application logs omit credentials,
 gameplay payloads, raw exception text, and submitted programs.
 Requests that never reach the Worker, such as a disconnected browser, cannot
 produce a server-side error log. Logging begins with this deployment and does
-not reconstruct earlier failures.
+not reconstruct earlier failures. Authenticated requests with valid identifiers
+also log `research_upload_started` before decoding the body. Correlate that entry
+with platform CPU-limit failures using the request ID to identify the participant.

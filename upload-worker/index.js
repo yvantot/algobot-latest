@@ -48,6 +48,8 @@ async function upload(request, env, reply) {
   if (!SAFE_ID.test(participant) || !SAFE_ID.test(session)) {
     return reply(400, { error: "bad participant or session id" });
   }
+  console.info({ event: "research_upload_started", participant_code: participant, session_id: session,
+    identity_source: "request_headers", round: env.ROUND, timestamp: new Date().toISOString() });
   if (Number(request.headers.get("Content-Length") ?? 0) > MAX_UPLOAD_BYTES) return reply(413, { error: "too large" });
   let body, data;
   try {
@@ -58,7 +60,7 @@ async function upload(request, env, reply) {
 
   const key = `${env.ROUND}/${participant}/data.json.gz`;
   try {
-    const receipt = await storePlayerData(env.DATA, key, data, participant);
+    const receipt = await storePlayerData(env.DATA, key, data, participant, body);
     return reply(200, { ok: true, key, ...receipt });
   } catch (error) {
     return reply(error.status ?? 503, { error: error.status ? error.message : "Storage temporarily unavailable; retry shortly." });
@@ -92,13 +94,6 @@ function uploadFailureReason(message) {
     "origin not allowed": "origin_not_allowed", "bad token": "invalid_upload_token",
     "bad participant or session id": "invalid_identity", "too large": "size_limit",
     "empty upload": "empty_upload", "invalid sealed gzip dataset": "invalid_dataset",
-    "Conflicting session revision; existing data preserved.": "revision_conflict",
-    "Session update would lose recorded history.": "history_conflict",
-    "Unordered session update; existing data preserved.": "unordered_update",
-    "Stored participant mismatch.": "stored_identity_mismatch",
-    "Player archive exceeds size limit; existing data preserved.": "archive_size_limit",
-    "Stored archive could not be verified; existing data preserved.": "stored_archive_invalid",
-    "Archive changed during upload; retry shortly.": "concurrent_update",
     "unexpected upload failure": "unexpected_failure",
   };
   return Object.hasOwn(reasons, message) ? reasons[message] : "storage_unavailable";
