@@ -118,7 +118,7 @@ npx wrangler deploy --config upload-worker/wrangler.toml
 
 The Worker serves `upload.algobot.fun` and stores archives in the `algobot-data` R2 bucket. It requires the `STUDY_TOKEN` and `ADMIN_TOKEN` secrets. Keep existing values when redeploying; see the [upload setup guide](upload-worker/README.md) for initial configuration, limits, and verification.
 
-Storage keeps one gzip JSON file per participant per collection round (`round3/participant/data.json.gz`). Uploads merge sessions into that file; retries and simultaneous sessions preserve newer records. This is research data storage. Continue still loads the farm saved in the current browser.
+Storage keeps one gzip JSON file per participant per collection round (`round3/participant/data.json.gz`). Each arriving upload replaces that file directly; the Worker does not parse or compare datasets. This is research data storage. Continue still loads the farm saved in the current browser.
 
 The browser upload token is public in the built JavaScript. `ADMIN_TOKEN` is for researcher downloads only and must never be placed in a `VITE_` variable.
 
@@ -126,7 +126,7 @@ The browser upload token is public in the built JavaScript. `ADMIN_TOKEN` is for
 
 Algobot records gameplay for research and uses a browser-based LSTM with explicit difficulty rules. The current model predicts a first-harvest task score from recent gameplay. It is provisional and has not been validated as a reliable measure of general programming proficiency. DQN is not used in live inference. The [model card](public/models/lstm/model-card.json) and [deployment record](documentation/MODEL_DEPLOYMENT_2026-09-26.md) describe the active model and its limitations.
 
-With uploads configured, the game sends compressed research archives periodically and when Finish opens or the player returns to the menu. Players can also download their data. Wait for upload confirmation or save the download before closing the game; browser closure does not guarantee that an upload finishes.
+With uploads configured, the game sends compressed research archives every minute, after challenge scores and rewards are saved, and when Finish opens or the player returns to the menu. Players can also download their data. Wait for upload confirmation or save the download before closing the game; browser closure does not guarantee that an upload finishes.
 
 Researchers can retrieve a collection round with:
 
@@ -151,3 +151,11 @@ For study preparation and analysis, see the [collection protocol](documentation/
 | `documentation/` | System guides, protocols, and verification records |
 
 The interface uses Svelte 5, the farm uses KAPLAY, and TensorFlow.js runs the model locally. Both editors execute student programs through the game's interpreter.
+
+## Collection dashboard
+
+Open https://data.algobot.fun and sign in with `ADMIN_TOKEN` (the same key used by `pull-data`). The dashboard lists participant files, storage upload dates, sizes, and downloads. It refreshes every minute while visible. QA files are hidden by default; enable **Include QA tests** to see them. Upload dates confirm receipt, not challenge completion.
+
+The Upload errors view queries Cloudflare logs through the Worker. Configure the server-only `OBSERVABILITY_TOKEN` secret with Workers Observability Write/Edit permission for the account. Log queries require that permission even though this dashboard only reads data. It never exposes the token or raw request headers. Missing permissions show an explicit error. Cloudflare retention limits apply; this is not a permanent error archive.
+
+The administrator key is held in tab memory only. Sign out or reload to clear it. Never put either administrator secret in a `VITE_` variable.
