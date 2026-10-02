@@ -1,11 +1,25 @@
 // Receives research dataset uploads from the game and stores them in R2.
 // Students can only write. Listing and downloading require ADMIN_TOKEN, which
 // never ships in the game.
+import { dashboardHTML, dashboardCSS, dashboardJS } from './dashboard.js';
+import { readErrors } from './logs.js';
 const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const PRIVATE_HEADERS = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'" };
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (request.method === 'GET') {
+      const assets = { '/': [dashboardHTML, 'text/html'], '/dashboard.css': [dashboardCSS, 'text/css'], '/dashboard.js': [dashboardJS, 'application/javascript'] };
+      if (Object.hasOwn(assets, url.pathname)) return new Response(assets[url.pathname][0], { headers: { ...PRIVATE_HEADERS, 'Content-Type': assets[url.pathname][1] + '; charset=utf-8' } });
+      if (url.pathname.startsWith('/admin/')) {
+        let response;
+        try { response = await admin(request, env, url); }
+        catch { response = Response.json({ error: 'Collection service unavailable. Try refreshing shortly.' }, { status: 503 }); }
+        for (const [key, value] of Object.entries(PRIVATE_HEADERS)) response.headers.set(key, value);
+        return response;
+      }
+    }
     const allowed = (env.ALLOWED_ORIGINS ?? "").split(",").map(origin => origin.trim()).filter(Boolean);
     const origin = request.headers.get("Origin");
     const cors = {
@@ -33,7 +47,6 @@ export default {
       try { return await upload(request, env, reply); }
       catch { return reply(503, { error: "unexpected upload failure" }); }
     }
-    if (request.method === "GET" && url.pathname.startsWith("/admin/")) return admin(request, env, url);
     return reply(404, { error: "not found" });
   },
 };
@@ -67,6 +80,7 @@ async function admin(request, env, url) {
   if (!env.ADMIN_TOKEN || request.headers.get("Authorization") !== `Bearer ${env.ADMIN_TOKEN}`) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
+  if (url.pathname === '/admin/errors') return readErrors(env, url.searchParams.get('hours'));
   if (url.pathname === "/admin/list") {
     const objects = [];
     let cursor;

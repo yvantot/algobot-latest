@@ -16,7 +16,7 @@ const server = createServer((req, res) => {
 });
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const mf = new Miniflare(convertV4MiniflareOptions({ modules: ['index.js'].map(file => ({type:'ESModule',path:resolve('upload-worker',file)})),
+const mf = new Miniflare(convertV4MiniflareOptions({ modules: ['index.js', 'dashboard.js', 'logs.js'].map(file => ({type:'ESModule',path:resolve('upload-worker',file)})),
   compatibilityDate:'2026-09-01',r2Buckets:['DATA'],bindings:{ROUND:'fixture',STUDY_TOKEN:'study',ADMIN_TOKEN:'admin',ALLOWED_ORIGINS:origin} }));
 let browser;
 try {
@@ -63,5 +63,28 @@ try {
     return r.status;
   },base);
   assert.equal(denied,403);
+  await page.goto(base);
+  await page.getByLabel('Administrator key').fill('wrong');
+  await page.getByRole('button', {name:'Open collection'}).click();
+  await page.getByText('Administrator key was not accepted.').waitFor();
+  await page.getByLabel('Administrator key').fill('admin');
+  await page.getByRole('button', {name:'Open collection'}).click();
+  await page.getByRole('button', {name:'Sign out'}).waitFor();
+  await page.getByLabel('Include QA tests').check();
+  await page.getByRole('cell', {name:'QA_LOCAL',exact:true}).waitFor();
+  await page.getByLabel('Participant or file').fill('missing');
+  await page.getByText('No datasets match these filters.').waitFor();
+  await page.getByLabel('Participant or file').fill('QA_LOCAL');
+  const downloadEvent=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Download fixture/QA_LOCAL/data.json.gz',exact:true}).click();
+  assert.equal((await downloadEvent).suggestedFilename(),'fixture_QA_LOCAL_data.json.gz');
+  await page.getByRole('button',{name:'Upload errors',exact:true}).click();
+  await page.getByText('Live logs are not connected.',{exact:false}).waitFor();
+  await page.setViewportSize({width:390,height:844});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await page.getByRole('button',{name:'Sign out'}).click();
+  await page.getByLabel('Administrator key').waitFor();
+  assert.equal(await page.evaluate(()=>localStorage.length+sessionStorage.length),0);
+  console.log('PASS: dashboard login, filters, download, missing-log state, mobile overflow, signout and no stored credentials');
   console.log('PASS: Chromium preflight/gzip, raw streaming including malformed and empty data, last upload replaces storage, authenticated readback');
 } finally { await browser?.close();await mf.dispose();await new Promise(r=>server.close(r)); }

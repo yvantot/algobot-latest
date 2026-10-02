@@ -1,12 +1,13 @@
 name = "algobot-upload"
 main = "index.js"
 compatibility_date = "2026-09-01"
-routes = [{ pattern = "upload.algobot.fun", custom_domain = true }]
+routes = [{ pattern = "upload.algobot.fun", custom_domain = true }, { pattern = "data.algobot.fun", custom_domain = true }]
 # Only the custom domain serves uploads.
 workers_dev = false
 preview_urls = false
 
 [vars]
+CLOUDFLARE_ACCOUNT_ID = "ad5d01b72261ea7ae64b9f3ed114564e"
 # Folder inside the bucket for this collection round. Change it before each new round.
 ROUND = "round3"
 # The game's public addresses, comma-separated. Browsers refuse uploads from any other site.
@@ -18,7 +19,8 @@ bucket_name = "algobot-data"
 
 # Secrets (set with `npx wrangler secret put <NAME>`, never written here):
 #   STUDY_TOKEN - sent by the game with every upload
-#   ADMIN_TOKEN - used only by `npm run pull-data` on the researcher's computer
+#   ADMIN_TOKEN - research downloads and the collection dashboard
+#   OBSERVABILITY_TOKEN - server-only Workers Observability Write/Edit token for log queries
 
 [observability]
 enabled = true
