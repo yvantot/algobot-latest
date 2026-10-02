@@ -2,6 +2,7 @@
 // Students can only write. Listing and downloading require ADMIN_TOKEN, which
 // never ships in the game.
 import { dashboardHTML, dashboardCSS, dashboardJS } from './dashboard.js';
+import { receiveError } from './client-errors.js';
 import { readErrors } from './logs.js';
 const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const PRIVATE_HEADERS = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'" };
@@ -43,6 +44,7 @@ export default {
 
     if (origin && !allowed.includes(origin)) return reply(403, { error: "origin not allowed" });
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+    if (request.method === "POST" && url.pathname === "/errors") return receiveError(request, env, reply);
     if (request.method === "POST" && url.pathname === "/upload") {
       try { return await upload(request, env, reply); }
       catch { return reply(503, { error: "unexpected upload failure" }); }

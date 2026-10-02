@@ -1,3 +1,4 @@
+import { cleanReport } from './error-format.js';
 const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const reasons = new Set(['origin_not_allowed', 'invalid_upload_token', 'invalid_identity', 'unexpected_failure', 'storage_unavailable']);
 
@@ -6,20 +7,24 @@ export function normalizeErrors(events) {
   for (const event of events) {
     const source = event.source ?? {};
     const outcome = event.$workers?.outcome;
+    const client = source.event === 'game_client_error';
     const application = source.event === 'research_upload_failed';
-    if (!application && !['exceededCpu', 'exceededMemory', 'exception', 'canceled', 'unknown'].includes(outcome)) continue;
+    if (!client && !application && !['exceededCpu', 'exceededMemory', 'exception', 'canceled', 'unknown'].includes(outcome)) continue;
     const requestId = String(event.$metadata?.requestId ?? '').slice(0, 100);
     const date = new Date(event.timestamp ?? source.timestamp);
     if (!Number.isFinite(date.getTime())) continue;
     const timestamp = date.toISOString();
     const participant = source.participant_code ?? event.$workers?.event?.request?.headers?.['x-participant'];
+    const detail = client ? cleanReport({id:source.report_id,kind:source.kind,timestamp:source.occurred_at,participant,session:source.session_id,build:source.build,message:source.message,stack:source.stack}) : null;
+    if (client && !detail) continue;
     const item = {
       timestamp, requestId,
+      ...(detail ? {kind:detail.kind,build:detail.build,occurredAt:detail.timestamp,stack:detail.stack,session:detail.session} : {}),
       participant: SAFE_ID.test(participant ?? '') ? participant : null,
-      reason: application ? (reasons.has(source.reason) ? source.reason : 'upload_failed') : ({ exceededCpu: 'Worker CPU limit exceeded', exceededMemory: 'Worker memory limit exceeded', exception: 'Worker exception', canceled: 'Request canceled', unknown: 'Unknown Worker failure' })[outcome],
+      reason: detail ? 'Game ' + detail.kind + ': ' + detail.message : application ? (reasons.has(source.reason) ? source.reason : 'upload_failed') : ({ exceededCpu: 'Worker CPU limit exceeded', exceededMemory: 'Worker memory limit exceeded', exception: 'Worker exception', canceled: 'Request canceled', unknown: 'Unknown Worker failure' })[outcome],
       status: application && Number.isInteger(source.status) ? source.status : null,
     };
-    const key = requestId || timestamp + item.reason;
+    const key = detail ? 'client:' + source.report_id : requestId || timestamp + item.reason;
     if (!failures.has(key) || application) failures.set(key, item);
   }
   return [...failures.values()].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));

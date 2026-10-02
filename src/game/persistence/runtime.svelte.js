@@ -1,3 +1,4 @@
+import { reportGameError } from '../diagnostics.js';
 import { PersistenceController } from "./controller.js";
 import { SaveStorage } from "./storage.js";
 import { captureWorld, restoreWorld, newWorld } from "./world.js";
@@ -62,6 +63,7 @@ export async function startPlaythrough(options = {}) {
   }), 5000);
   return save;
   } catch (error) {
+    reportGameError('save_load', error);
     persistence.ready = false; persistence.pause();
     await persistence.storage.release(persistence.writer).catch(() => {});
     lockRelease?.(); lockRelease = null; persistence.exclusiveLock = false;
@@ -110,7 +112,7 @@ async function syncResearch() {
       for (const id of pending) if (research.operations[id]) research.operations[id].delivered = true;
     });
   }
-  catch (error) { saveStatus.notice = `Farm saved. Research compatibility storage could not sync: ${error.message}`; }
+  catch (error) { reportGameError('research_save', error); saveStatus.notice = `Farm saved. Research compatibility storage could not sync: ${error.message}`; }
 }
 export function wasExposed(participant, task) {
   if (persistence.root?.research.exposureHistoryUnavailable) throw new SaveError("research_history", "Challenge history needs repair before starting challenges. You can keep farming and export the backed-up records from Dev Tools.");
@@ -131,6 +133,7 @@ export async function assessmentTransition(kind, mutate) {
     if (saveStatus.notice.startsWith("Activity was not saved:")) saveStatus.notice = "";
     await syncResearch(); return result;
   } catch (error) {
+    reportGameError('challenge', error);
     INVENTORY.coins = before.economy.coins;
     INVENTORY.coinAnimationVersion = (INVENTORY.coinAnimationVersion ?? 0) + 1;
     Object.assign(INVENTORY.crops, before.economy.crops);

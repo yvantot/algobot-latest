@@ -1,3 +1,4 @@
+import { reportGameError } from '../diagnostics.js';
 // Canonical session persistence/export. Legacy lightweight records are preserved
 // and marked incomplete: missing raw events and timestamps cannot be recovered.
 import { telemetry } from "./telemetry.js";
@@ -173,7 +174,7 @@ export class DataLogger {
         Promise.all(pending.map(session => this.persistence.save(session))).then(() => {
           for (const session of pending) if (this.pendingSessions.get(session.session_id) === session) this.pendingSessions.delete(session.session_id);
           this.lastPersistenceError = null;
-        }).catch(error => { this.lastPersistenceError = error.message; });
+        }).catch(error => { reportGameError('research_save', error); this.lastPersistenceError = error.message; });
         return true;
       }
       const stored = this._readStoredSessions();
@@ -187,6 +188,7 @@ export class DataLogger {
       this.lastPersistenceError = null;
       return true;
     } catch (error) {
+      reportGameError('research_save', error);
       this.lastPersistenceError = error.message;
       console.warn("Failed to save complete research session; export before closing:", error);
       return false;
@@ -259,6 +261,7 @@ export class DataLogger {
   // Session identity must travel with the snapshot even if Continue resets telemetry
   // while the integrity hashes are being computed.
   async uploadAllSessionsJSON(options) {
+    try {
     const participant = telemetry.participantId, session = telemetry.sessionId;
     const exported = this.buildDatasetExport();
     const sessions = exported.sessions.filter(s => s.student_id === participant);
@@ -266,6 +269,7 @@ export class DataLogger {
       participant_count: 1, sessions });
     await uploadDataset(dataset, { ...options, participant, session });
     return `${dataset.session_count} sessions uploaded`;
+    } catch (error) { reportGameError('upload', error); throw error; }
   }
 
   buildQuestCSV() {
