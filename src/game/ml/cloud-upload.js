@@ -1,3 +1,4 @@
+import { reportGameError } from '../diagnostics.js';
 // Sends the sealed research dataset to the study's upload Worker (upload-worker/).
 // Builds without VITE_UPLOAD_URL and VITE_UPLOAD_TOKEN keep download-only behavior.
 const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -40,5 +41,6 @@ export async function uploadDataset(dataset, { participant, session, config = up
     } catch (error) { lastError = error; }
     finally { clearTimeout(timer); }
   }
+  reportGameError('upload', lastError);
   throw lastError;
 }

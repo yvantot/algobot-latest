@@ -1,3 +1,4 @@
+import { reportGameError } from '../diagnostics.js';
 import { SAVE_VERSION, QUEST_PATH_VERSION, SaveError, validateSave } from "./schema.js";
 import { requireOwner } from "./ownership.js";
 import { interruptAssessments } from "./research.js";
@@ -9,7 +10,7 @@ export class PersistenceController {
     this.root = null; this.ready = false; this.busy = false; this.tail = Promise.resolve();
     this.status = { phase: "loading", savedAt: null, error: null };
   }
-  report(phase, error = null) { this.status = { phase, savedAt: this.current?.savedAt ?? null, error }; this.notify(this.status); }
+  report(phase, error = null) { if (error) reportGameError('save_load', error); this.status = { phase, savedAt: this.current?.savedAt ?? null, error }; this.notify(this.status); }
   async inspect() {
     try { this.root = await this.storage.read(); this.report("menu"); return this.root; }
     catch (error) { this.report("error", error); throw error; }

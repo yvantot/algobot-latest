@@ -8,6 +8,8 @@ import assert from 'node:assert/strict';
 const { Miniflare, convertV4MiniflareOptions } = createRequire(import.meta.resolve('wrangler'))('miniflare');
 const sources = {
   '/client.js': readFileSync('src/game/ml/cloud-upload.js'),
+  '/diagnostics.js': readFileSync('src/game/diagnostics.js'),
+  '/upload-worker/error-format.js': readFileSync('upload-worker/error-format.js'),
   '/seal.js': readFileSync('src/game/ml/export-integrity.js'),
 };
 const server = createServer((req, res) => {
@@ -16,7 +18,7 @@ const server = createServer((req, res) => {
 });
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const mf = new Miniflare(convertV4MiniflareOptions({ modules: ['index.js', 'dashboard.js', 'logs.js'].map(file => ({type:'ESModule',path:resolve('upload-worker',file)})),
+const mf = new Miniflare(convertV4MiniflareOptions({ modules: ['index.js', 'dashboard.js', 'logs.js', 'client-errors.js', 'error-format.js'].map(file => ({type:'ESModule',path:resolve('upload-worker',file)})),
   compatibilityDate:'2026-09-01',r2Buckets:['DATA'],bindings:{ROUND:'fixture',STUDY_TOKEN:'study',ADMIN_TOKEN:'admin',ALLOWED_ORIGINS:origin} }));
 let browser;
 try {
@@ -43,6 +45,17 @@ try {
     return first;
   },base);
   assert.equal(receipt.ok,true);
+  const diagnosticStatus = await page.evaluate(async base => {
+    const {startErrorReporting} = await import('/diagnostics.js');
+    let resolve; const sent = new Promise(r=>resolve=r);
+    const stop = startErrorReporting({target:window,config:{url:base+'/upload',token:'study'},context:()=>({participant:'QA_LOCAL',session:'browser',build:'integration'}),fetchImpl:async(url,options)=>{
+      const response=await fetch(url,options);resolve(response.status);return response;
+    }});
+    try { window.dispatchEvent(new ErrorEvent('error',{message:'Synthetic diagnostic integration test'}));return await sent; }
+    finally {stop();}
+  },base);
+  assert.equal(diagnosticStatus,200);
+  console.log('PASS: Chromium global error listener sends diagnostic through real Worker CORS endpoint');
   const saved = await mf.dispatchFetch('https://w.dev/admin/file?key='+encodeURIComponent(receipt.key),{headers:{Authorization:'Bearer admin'}});
   const data = await new Response(new Blob([await saved.arrayBuffer()]).stream().pipeThrough(new DecompressionStream('gzip'))).json();
   assert.equal(data.sessions[0].student_id,'QA_LOCAL');
@@ -78,7 +91,7 @@ try {
   const downloadEvent=page.waitForEvent('download');
   await page.getByRole('button',{name:'Download fixture/QA_LOCAL/data.json.gz',exact:true}).click();
   assert.equal((await downloadEvent).suggestedFilename(),'fixture_QA_LOCAL_data.json.gz');
-  await page.getByRole('button',{name:'Upload errors',exact:true}).click();
+  await page.getByRole('button',{name:'Game & upload errors',exact:true}).click();
   await page.getByText('Live logs are not connected.',{exact:false}).waitFor();
   await page.setViewportSize({width:390,height:844});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
