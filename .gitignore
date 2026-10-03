@@ -99,6 +99,7 @@ test-results-bug001/
 /AGENTS.md
 /CLAUDE.md
 /GEMINI.md
+/DESIGN.md
 
 # Local review runs and participant-derived research outputs
 .save-*-output.txt
