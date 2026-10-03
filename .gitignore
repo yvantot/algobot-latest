@@ -89,3 +89,19 @@ upload-worker/.wrangler/
 training/raw/
 training/backups/
 test-results-bug001/
+
+# Local development assistants and workspace settings
+.claude/
+.codex/
+.agents/
+.cursor/
+.aider*
+/AGENTS.md
+/CLAUDE.md
+/GEMINI.md
+
+# Local review runs and participant-derived research outputs
+.save-*-output.txt
+test-results-*/
+training/excluded/
+training/round2/
