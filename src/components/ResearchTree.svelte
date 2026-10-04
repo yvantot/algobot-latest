@@ -7,8 +7,8 @@
  const skills=$derived(learningProgress(QUEST_STATE,active));
  const completed=$derived(skills.filter(skill=>skill.completed===skill.quests.length).length);
 </script>
-<section class="learning" aria-label="Learning Progress">
- <header><img src="/sprites/bot_teacher.png" alt="Bot Teacher"/><div><h1>Learning Progress</h1><p>{completed} of {skills.length} skill groups practiced</p></div><button class="close" aria-label="Close learning progress" onclick={onClose}>✕</button></header>
+<section class="learning" aria-label="Skill Tree">
+ <header><img src="/sprites/bot_teacher.png" alt="Bot Teacher"/><div><h1>Skill Tree</h1><p>{completed} of {skills.length} skill groups practiced</p></div><button class="close" aria-label="Close skill tree" onclick={onClose}>✕</button></header>
  <p>See what you have practiced through missions and what to try next.</p>
  {#if active}<section class="next"><h2>Practice next</h2><strong>{QUEST_DATA[active].title}</strong><p>{QUEST_DATA[active].description}</p><button class="primary" onclick={onPractice}>Open current mission</button></section>{/if}
  <div class="skills">{#each skills as skill}<article class:current={skill.current}>

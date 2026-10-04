@@ -104,10 +104,10 @@
     },
     {
       id: Menus.RESEARCH,
-      title: "Learning Progress",
+      title: "Skill Tree",
       description: "Review practiced skills and choose what to learn next.",
       icon: "/sprites/icon_skilltree.png",
-      alt: "research tree",
+      alt: "skill tree",
     },
     {
       id: Menus.SHOP,
