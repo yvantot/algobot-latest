@@ -14,7 +14,7 @@
             "batch_input_shape": [
               null,
               20,
-              12
+              14
             ],
             "dtype": "float32",
             "units": 8,
@@ -107,7 +107,7 @@
         {
           "name": "lstm_LSTM1/kernel",
           "shape": [
-            12,
+            14,
             32
           ],
           "dtype": "float32"

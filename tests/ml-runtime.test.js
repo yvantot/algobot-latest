@@ -394,7 +394,7 @@ test("installed provisional model runs on gameplay history and records its ident
     telemetry.collectionEnabled = true;
     assert.equal((await agent.updateAndPredict()).proficiency, null);
     const now = Date.now();
-    telemetry.collectionSnapshots = Array.from({ length: 21 }, (_, i) => ({ timestamp_ms: now - (20-i)*5000,
+    telemetry.collectionSnapshots = Array.from({ length: 21 }, (_, i) => ({ timestamp_ms: now - (20-i)*5000 - 1000, gameplay_segment: 1,
       stage: 1, context: {phase:"gameplay",game_speed:1,robot_count:1},
       counters: {errors:0,edits:i,completed_runs:0,failed_runs:0,stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0} }));
     const result = await agent.updateAndPredict();

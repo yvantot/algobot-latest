@@ -124,7 +124,7 @@ The browser upload token is public in the built JavaScript. `ADMIN_TOKEN` is for
 
 ## Research data and adaptive difficulty
 
-Algobot records gameplay for research and uses a browser-based LSTM with explicit difficulty rules. The current model predicts a first-harvest task score from recent gameplay. It is provisional and has not been validated as a reliable measure of general programming proficiency. DQN is not used in live inference. The [model card](public/models/lstm/model-card.json) and [deployment record](documentation/MODEL_DEPLOYMENT_2026-09-26.md) describe the active model and its limitations.
+Algobot records gameplay for research and uses a browser-based LSTM with explicit difficulty rules. The current model predicts a first-harvest task score from recent gameplay. It is provisional and has not been validated as a reliable measure of general programming proficiency. DQN is not used in live inference. The [model card](public/models/lstm/model-card.json) and [deployment record](documentation/MODEL_DEPLOYMENT_2026-10-05.md) describe the active model and its limitations.
 
 With uploads configured, the game sends compressed research archives every minute, after challenge scores and rewards are saved, and when Finish opens or the player returns to the menu. Players can also download their data. Wait for upload confirmation or save the download before closing the game; browser closure does not guarantee that an upload finishes.
 

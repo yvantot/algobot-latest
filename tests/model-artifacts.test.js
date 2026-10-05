@@ -11,7 +11,7 @@ test('deployed LSTM and DQN weights load, predict finite values and release tens
   await tf.ready();
   const before = tf.memory().numTensors;
   for (const [name, inputShape, outputSize] of [
-    ['lstm', [1, 20, 12], 1], ['dqn', [1, 4], 5],
+    ['lstm', [1, 20, 14], 1], ['dqn', [1, 4], 5],
   ]) {
     const model = await loadDeployedModel(`public/models/${name}/model.json`);
     try {
@@ -39,6 +39,10 @@ test('deployed research model, scaler and provenance match the provisional bundl
   assert.equal(card.model_id, deployed.model_id);
   assert.equal(card.task_id, deployed.task_id);
   assert.equal(card.status, 'provisional');
+  assert.equal(deployed.feature_schema, 'active-14f-v2');
+  assert.deepEqual(card.input_shape, [20, 14]);
+  assert.equal(card.checkpoint_epoch, 6);
+  assert.equal(card.refitted_before_deployment, false);
   assert.equal(card.final_refit_independently_evaluated, false);
   for (const [file, hash] of Object.entries(card.files)) {
     assert.equal(createHash('sha256').update(await readFile(`public/models/lstm/${file}`)).digest('hex'), hash);
