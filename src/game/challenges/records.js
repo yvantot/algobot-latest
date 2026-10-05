@@ -32,8 +32,9 @@ export function challengeWaitMessage(tracker, now = Date.now()) {
 }
 
 export function challengeAccess(tracker, _wasUnlocked, tutorialComplete, now = Date.now()) {
-  const ready = tutorialComplete && canStartChallenge(tracker, now);
-  // Saved tutorial progress unlocks the menu; fresh observations only gate entry.
+  const context = tracker.getCollectionContext?.();
+  const ready = tutorialComplete && context?.phase === "gameplay" && context.game_speed > 0;
+  // Gameplay access is independent of the observation window used for research.
   return { unlocked: tutorialComplete, ready };
 }
 

@@ -1,10 +1,9 @@
 <script>
-  import { challengeEntryAllowed } from "../game/challenges/modes.js";
   import {slide} from "svelte/transition";
   import {CHALLENGES,TIER_ORDER,challengeRules} from "../game/challenges/catalog.js";
   import ChallengeRewards from "./ChallengeRewards.svelte";
   import ChallengeTier from "./ChallengeTier.svelte";
-  let {onChallenge,practiceTasks=[],challengeReady=false,challengeNotice="",completed=[],onClose,studyGate=()=>({allowed:true})}=$props();
+  let {onChallenge,practiceTasks=[],challengeNotice="",completed=[],onClose,studyGate=()=>({allowed:true})}=$props();
   const reduced=typeof matchMedia!=="undefined"&&matchMedia("(prefers-reduced-motion: reduce)").matches;
   let selected=$state(null),tier=$state("All");
   const tasks=[...CHALLENGES].sort((a,b)=>TIER_ORDER.indexOf(a.tier)-TIER_ORDER.indexOf(b.tier));
@@ -30,8 +29,8 @@
           <ul>{#each challengeRules(task) as rule}<li>{rule.label}</li>{/each}</ul>
           <ChallengeRewards {task}/>
           {#if !studyGate(task).allowed}<p class="locked" role="status">{studyGate(task).reason}</p>
-          {:else if !challengeEntryAllowed(challengeReady,practiceTasks.includes(task.id))}<p class="locked" role="status">Keep farming a little longer to start this new challenge.</p>{/if}
-          <button class="enter" disabled={!studyGate(task).allowed || !challengeEntryAllowed(challengeReady,practiceTasks.includes(task.id))} onclick={()=>onChallenge(task)}>{practiceTasks.includes(task.id)?"Practice again":"Accept challenge"}</button>
+          {/if}
+          <button class="enter" disabled={!studyGate(task).allowed} onclick={()=>onChallenge(task)}>{practiceTasks.includes(task.id)?"Practice again":"Accept challenge"}</button>
           <p class="small">{completed.includes(task.id)?"Practice again. This farm has already earned the reward.":"One reward per challenge on this farm."}</p>
         </div>{/if}
       </li>

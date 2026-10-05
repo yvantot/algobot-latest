@@ -16,11 +16,10 @@
   import SaveNotice from "./SaveNotice.svelte";
   import ChallengeFarm from "./ChallengeFarm.svelte";
   import { CHALLENGES, recordExposure, hasExposure } from "../game/challenges/catalog.js";
-  import { canStartChallenge, challengeAccess, challengeWaitMessage, openChallenge, submitChallenge, closeChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
+  import { challengeAccess, openChallenge, submitChallenge, closeChallenge, interruptChallenge, claimChallengeReward, farmChallengeRewards } from "../game/challenges/records.js";
   import { INVENTORY, PLAYER_DATA, CROP_DATA } from "../game/global/global.js";
   import { QUEST_STATE } from "./global.svelte.js";
   import MenuAlert from "./MenuAlert.svelte";
-  import { challengeEntryAllowed } from "../game/challenges/modes.js";
   import QuestHUD from "./QuestHUD.svelte";
   import PlayerInfo from "./PlayerInfo.svelte";
   import LevelReward from "./LevelReward.svelte";
@@ -142,11 +141,6 @@
     let exposed;
     try { exposed = wasExposed(telemetry.participantId, task.id); }
     catch (error) { challengeNotice=error.message; return; }
-    if (!challengeEntryAllowed(canStartChallenge(telemetry), exposed, playMode)) {
-      challengeAvailability.ready=false;
-      challengeNotice=challengeWaitMessage(telemetry);
-      return;
-    }
     try {
       await assessmentTransition("opened", () => {
         challengeAttempt = openChallenge(telemetry, task, !exposed, Date.now(), playMode);
@@ -235,10 +229,9 @@
     const dataset = dataLogger.buildDatasetExport();
     const status = downloadReadiness(session, { cleared:dataLogger.clearedSessionIds.has(session.session_id), sessions:dataset.sessions,
       storageReadable:dataset.data_quality.stored_sessions_fully_readable });
-    if (status.reason === "first_challenge_not_started") status.message = challengeWaitMessage(telemetry);
-    // The wait message only sees this page session's attempts, so it is used only for the countdown, never to name the task.
-    else if (status.reason === "study_task_not_started" && !canStartChallenge(telemetry))
-      status.message = `${challengeWaitMessage(telemetry)} You can download after "${studyTaskTitle(status.next_task)}" is scored.`;
+    if (status.reason === "first_challenge_not_started") status.message = 'Open Challenges and try "Your first harvest". Run your program and wait for its score.';
+    else if (status.reason === "study_task_not_started")
+      status.message = `Open Challenges and try "${studyTaskTitle(status.next_task)}". You can download after it is scored.`;
     return status;
   }
   let activeHint = $state("");
@@ -681,8 +674,7 @@
           <aside class="challenge-invite" in:fly={{y:20,duration:350}} out:fly={{y:15,duration:220}}>
             <div class="challenge-teacher"><img src="/sprites/bot_teacher.png" alt="Bot Teacher"/><div><strong>A challenge for you!</strong><p>Think you can out-farm your teacher? Let's find out!</p></div></div>
             <p>{challengeInvite.title} · {challengeInvite.coins} coins + {challengeInvite.exp} EXP</p>
-            {#if !challengeReady && !exposedTasks.includes(challengeInvite.id)}<p role="status">Keep farming for a little while. Your challenge will be ready soon.</p>{/if}
-            <button disabled={!challengeEntryAllowed(challengeReady, exposedTasks.includes(challengeInvite.id))} onclick={()=>enterChallenge(challengeInvite)}>{challengeReady || exposedTasks.includes(challengeInvite.id) ? "Challenge accepted!" : "Getting ready…"}</button><button onclick={()=>challengeInvite=null}>Later</button>
+            <button onclick={()=>enterChallenge(challengeInvite)}>Challenge accepted!</button><button onclick={()=>challengeInvite=null}>Later</button>
           </aside>
         {/if}
         </div>
@@ -746,7 +738,7 @@
         <Quest/>
       </div>
     {:else if current_menu === Menus.CHALLENGES && challengeVisible}
-      <div in:panelIn out:panelOut><Challenges {studyGate} practiceTasks={exposedTasks} completed={rewardedChallenges} onChallenge={enterChallenge} {challengeReady} {challengeNotice} onClose={()=>toggleMenu(Menus.NONE)}/></div>
+      <div in:panelIn out:panelOut><Challenges {studyGate} practiceTasks={exposedTasks} completed={rewardedChallenges} onChallenge={enterChallenge} {challengeNotice} onClose={()=>toggleMenu(Menus.NONE)}/></div>
     {:else if current_menu === Menus.SHOP}
       <div in:panelIn out:panelOut>
         <Shop />

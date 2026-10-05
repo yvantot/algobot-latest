@@ -1,4 +1,3 @@
-import { challengeEntryAllowed } from "../src/game/challenges/modes.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -42,7 +41,7 @@ test('unlocked challenges stay visible through tab gaps and recover without cons
     counters:{errors:0,edits:i,completed_runs:0,failed_runs:0,stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0}});
   const tracker={collectionSnapshots:Array.from({length:20},(_,i)=>snapshot(i)),challengeAttempts:[],getCollectionContext:()=>({phase,game_speed:1})};
   let access=challengeAccess(tracker,false,true,start+95001);
-  assert.deepEqual(access,{unlocked:true,ready:false});
+  assert.deepEqual(access,{unlocked:true,ready:true});
   tracker.collectionSnapshots.push(snapshot(20));
   access=challengeAccess(tracker,access.unlocked,true,start+100001);
   assert.deepEqual(access,{unlocked:true,ready:true});
@@ -236,12 +235,6 @@ test('Stop & Edit preserves the attempt and freezes the first evaluated score ev
  assert.equal(unfinished.status,'abandoned');assert.equal(unfinished.score,null);
 });
 
-test("returning to a viewed challenge bypasses the first-attempt collection gate",()=>{
-  assert.equal(challengeEntryAllowed(false,false),false);
-  assert.equal(challengeEntryAllowed(true,false),true);
-  assert.equal(challengeEntryAllowed(false,true),true);
-  assert.equal(challengeEntryAllowed(false,false,'freestyle'),true);
-});
 test("freestyle outcomes retain mode metadata and stay outside Recommended training",async()=>{
   const tracker=new TelemetryTracker();tracker.setParticipantId('fixture-mode');
   const attempt=openChallenge(tracker,CHALLENGES[0],true,Date.now(),'freestyle');
@@ -265,12 +258,25 @@ test("short corn exports identify the changed crop profile",()=>{
 });
 
 
-test('Continue shows Challenges with an empty new session without bypassing observation or tutorial gates', () => {
+test('Continue allows immediate challenge play while research observations remain unavailable', () => {
   const tracker = { collectionSnapshots: [], challengeAttempts: [], getCollectionContext: () => ({ phase: 'gameplay', game_speed: 1 }) };
   const access = challengeAccess(tracker, false, true);
-  assert.deepEqual(access, { unlocked: true, ready: false });
-  assert.equal(challengeEntryAllowed(access.ready, false), false);
-  assert.equal(challengeEntryAllowed(access.ready, true), true);
+  assert.deepEqual(access, { unlocked: true, ready: true });
+  assert.equal(canStartChallenge(tracker), false);
   assert.deepEqual(challengeAccess(tracker, false, false), { unlocked: false, ready: false });
   assert.equal(tracker.challengeAttempts.length, 0);
+});
+
+
+test('an immediate first challenge is playable and records its missing research window', async () => {
+  const tracker = new TelemetryTracker();
+  tracker.setParticipantId('fixture-immediate');
+  const attempt = openChallenge(tracker, CHALLENGES[0], true);
+  assert.equal(attempt.input_window_ready, false);
+  submitChallenge(tracker, attempt, await evaluate(solve), solve, 'text');
+  assert.equal(attempt.status, 'scored');
+  const prepared = challengeSamples([{ session_id: tracker.sessionId, student_id: tracker.participantId,
+    source_type: 'recorded', challenge_attempts: [attempt] }], attempt.task_id);
+  assert.equal(prepared.samples.length, 0);
+  assert.equal(prepared.excluded.length, 1);
 });

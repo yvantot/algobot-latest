@@ -3,6 +3,3 @@ export const nativeChallengeCommand = name => name.startsWith("crop_") || ["send
 export function challengeCommands(task) {
   return task.playMode === "freestyle" ? FREESTYLE_COMMANDS : task.commands ?? ["right","left","harvest","is_harvestable"];
 }
-export function challengeEntryAllowed(ready, exposed, playMode = "recommended") {
-  return ready || exposed || playMode === "freestyle";
-}
