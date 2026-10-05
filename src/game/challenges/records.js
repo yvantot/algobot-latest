@@ -31,9 +31,10 @@ export function challengeWaitMessage(tracker, now = Date.now()) {
   return `Challenges are getting ready. Close this prompt and keep farming for about ${(20 - count) * 5} more seconds. ${speed} Short breaks keep your progress.`;
 }
 
-export function challengeAccess(tracker, wasUnlocked, tutorialComplete, now = Date.now()) {
+export function challengeAccess(tracker, _wasUnlocked, tutorialComplete, now = Date.now()) {
   const ready = tutorialComplete && canStartChallenge(tracker, now);
-  return { unlocked: tutorialComplete && (wasUnlocked || ready), ready };
+  // Saved tutorial progress unlocks the menu; fresh observations only gate entry.
+  return { unlocked: tutorialComplete, ready };
 }
 
 export function openChallenge(tracker, task, firstExposure, now = Date.now(), playMode = "recommended") {

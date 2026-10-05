@@ -42,7 +42,7 @@ test('unlocked challenges stay visible through tab gaps and recover without cons
     counters:{errors:0,edits:i,completed_runs:0,failed_runs:0,stopped_runs:0,requested_hints:0,harvested:0,spoiled:0,for_loops:0,while_loops:0,conditions:0}});
   const tracker={collectionSnapshots:Array.from({length:20},(_,i)=>snapshot(i)),challengeAttempts:[],getCollectionContext:()=>({phase,game_speed:1})};
   let access=challengeAccess(tracker,false,true,start+95001);
-  assert.deepEqual(access,{unlocked:false,ready:false});
+  assert.deepEqual(access,{unlocked:true,ready:false});
   tracker.collectionSnapshots.push(snapshot(20));
   access=challengeAccess(tracker,access.unlocked,true,start+100001);
   assert.deepEqual(access,{unlocked:true,ready:true});
@@ -262,4 +262,15 @@ test("short corn exports identify the changed crop profile",()=>{
   const attempt=openChallenge(tracker,task,true);
   assert.equal(attempt.crop_profile,'corn-5s-v1');
   assert.equal(attempt.rubric_version,'corn-sequence-3.0');
+});
+
+
+test('Continue shows Challenges with an empty new session without bypassing observation or tutorial gates', () => {
+  const tracker = { collectionSnapshots: [], challengeAttempts: [], getCollectionContext: () => ({ phase: 'gameplay', game_speed: 1 }) };
+  const access = challengeAccess(tracker, false, true);
+  assert.deepEqual(access, { unlocked: true, ready: false });
+  assert.equal(challengeEntryAllowed(access.ready, false), false);
+  assert.equal(challengeEntryAllowed(access.ready, true), true);
+  assert.deepEqual(challengeAccess(tracker, false, false), { unlocked: false, ready: false });
+  assert.equal(tracker.challengeAttempts.length, 0);
 });
